@@ -99,15 +99,6 @@ err_after_get_fd:
     return -1;
 }
 
-static void fd_accept_incoming_migration(void *opaque)
-{
-    QEMUFile *f = opaque;
-
-    process_incoming_migration(f);
-    qemu_set_fd_handler2(qemu_stdio_fd(f), NULL, NULL, NULL, NULL);
-    qemu_fclose(f);
-}
-
 int fd_start_incoming_migration(const char *infd)
 {
     int fd;
@@ -122,7 +113,9 @@ int fd_start_incoming_migration(const char *infd)
         return -errno;
     }
 
-    qemu_set_fd_handler2(fd, NULL, fd_accept_incoming_migration, NULL, f);
+    /* XXX Process immediately XXX */
+    process_incoming_migration(f);
+    qemu_fclose(f);
 
     return 0;
 }
