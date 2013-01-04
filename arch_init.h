@@ -33,6 +33,7 @@ void audio_init(ISABus *isa_bus, PCIBus *pci_bus);
 int tcg_available(void);
 int kvm_available(void);
 int xen_available(void);
+extern void tag_ram_blocks(int saveram);
 
 CpuDefinitionInfoList GCC_WEAK_DECL *arch_query_cpu_definitions(Error **errp);
 

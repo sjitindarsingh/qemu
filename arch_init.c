@@ -351,7 +351,7 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
     if (!block)
         block = QLIST_FIRST(&ram_list.blocks);
     
-    while (block->do_not_save) {
+    while (block->will_not_save) {
         last_block = block;
         block = QLIST_NEXT(block, next);
         if (!block) {
@@ -469,6 +469,16 @@ static void sort_ram_list(void)
         QLIST_INSERT_HEAD(&ram_list.blocks, blocks[n], next);
     }
     g_free(blocks);
+}
+
+void tag_ram_blocks(int saveram)
+{
+    RAMBlock *block = QLIST_FIRST(&ram_list.blocks);
+    while (block) {
+        if (block->do_not_save)
+            block->will_not_save = !saveram;
+        block = QLIST_NEXT(block, next);
+    }
 }
 
 static void migration_end(void)
