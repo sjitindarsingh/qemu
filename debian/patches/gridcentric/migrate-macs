@@ -1,0 +1,57 @@
+Don't override MAC addresses from the command line with migration state.
+
+When loading a VM (i.e., when doing an incoming migration), don't override the
+MAC addresses from the command line with the MAC addresses in the loaded state.
+The MAC addresses are stored in the eeprom registers.
+
+Signed-off-by: Peter Feiner <peter@gridcentric.com>
+
+diff --git a/hw/e1000.c b/hw/e1000.c
+index 4573f13..e9da2db 100644
+--- a/hw/e1000.c
++++ b/hw/e1000.c
+@@ -1107,7 +1107,7 @@ static const VMStateDescription vmstate_e1000 = {
+         VMSTATE_INT8(tx.tcp, E1000State),
+         VMSTATE_BUFFER(tx.header, E1000State),
+         VMSTATE_BUFFER(tx.data, E1000State),
+-        VMSTATE_UINT16_ARRAY(eeprom_data, E1000State, 64),
++        VMSTATE_UNUSED(64 * 16), /* was eeprom_data */
+         VMSTATE_UINT16_ARRAY(phy_reg, E1000State, 0x20),
+         VMSTATE_UINT32(mac_reg[CTRL], E1000State),
+         VMSTATE_UINT32(mac_reg[EECD], E1000State),
+diff --git a/hw/rtl8139.c b/hw/rtl8139.c
+index eb22d04..1b69c8f 100644
+--- a/hw/rtl8139.c
++++ b/hw/rtl8139.c
+@@ -3348,7 +3348,7 @@ static const VMStateDescription vmstate_rtl8139 = {
+         VMSTATE_UINT32(RxRingAddrLO, RTL8139State),
+         VMSTATE_UINT32(RxRingAddrHI, RTL8139State),
+ 
+-        VMSTATE_UINT16_ARRAY(eeprom.contents, RTL8139State, EEPROM_9346_SIZE),
++        VMSTATE_UNUSED(EEPROM_9346_SIZE * 16), /* was eeprom.contents */
+         VMSTATE_INT32(eeprom.mode, RTL8139State),
+         VMSTATE_UINT32(eeprom.tick, RTL8139State),
+         VMSTATE_UINT8(eeprom.address, RTL8139State),
+diff --git a/hw/virtio-net.c b/hw/virtio-net.c
+index 3f190d4..2014da3 100644
+--- a/hw/virtio-net.c
++++ b/hw/virtio-net.c
+@@ -892,6 +892,7 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
+     VirtIONet *n = opaque;
+     int i;
+     int ret;
++    unsigned char incoming_mac[ETH_ALEN];
+ 
+     if (version_id < 2 || version_id > VIRTIO_NET_VM_VERSION)
+         return -EINVAL;
+@@ -901,7 +902,9 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
+         return ret;
+     }
+ 
+-    qemu_get_buffer(f, n->mac, ETH_ALEN);
++    /* Suppress loading the mac address. We want to use the mac from the command
++     * line for more flexibility. */
++    qemu_get_buffer(f, incoming_mac, ETH_ALEN);
+     n->tx_waiting = qemu_get_be32(f);
+     n->mergeable_rx_bufs = qemu_get_be32(f);
+ 

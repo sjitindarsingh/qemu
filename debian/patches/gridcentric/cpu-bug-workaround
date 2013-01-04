@@ -1,0 +1,65 @@
+Workaround for a historic VMX bug in the kvm kernel module.
+
+This bug was introduced in Linux 2.6.38 and fixed in Linux 3.0 (kernel git
+commit 5233dd51ece1615d54ab96c4cbe9ac3cc595e955). 
+
+If QEMU calls KVM_SET_REGS on a vcpu with paging enabled (cr0.PG=1) prior to the
+KVM_SET_REGS call, then kvm will ignore sregs.cr3 and overwrite the guest's CR3
+with with whatever was in the GUEST_CR3 field of the VCPU's VMCS (i.e., some
+stale value of CR3). This stale value only seems to matter in the following
+situation:
+
+   1. Create VM with incoming migration and -S (i.e., start in a paused
+      state).
+   2. Issue any monitor command that calls kvm_arch_get_registers (e.g.,
+      info cpus, info tlb, etc.)
+   3. Continue the VM.
+   4. qemu calls KVM_SET_REGS b/c it might have dirty registers in user memory.
+   5. KVM bug sets CR3 to stale value.
+   6. The VM triple faults because of a bad cr3.
+
+Unfortunately, we come across this situation with libvirt on every clone launch
+(i.e., we use qemu's migration code, libvirt stats VMs paused & does an "info
+cpus" before continuing them).
+
+This hack suppresses KVM_SET_REGS in step 4. This isn't a problem because the
+registers in user memory aren't actually dirty as a result of "info cpus". If
+the registers were dirty, then we'd have another bug ...
+
+Signed-off-by: Peter Feiner <peter@gridcentric.com>
+
+diff --git a/target-i386/cpu.h b/target-i386/cpu.h
+index 2460f63..84a4008 100644
+--- a/target-i386/cpu.h
++++ b/target-i386/cpu.h
+@@ -760,6 +760,7 @@ typedef struct CPUX86State {
+     uint32_t cpuid_svm_features;
+     bool tsc_valid;
+     int tsc_khz;
++    int kvm_has_run;
+     void *kvm_xsave_buf;
+ 
+     /* in order to simplify APIC support, we leave this pointer to the
+diff --git a/target-i386/kvm.c b/target-i386/kvm.c
+index e74a9e4..e941f91 100644
+--- a/target-i386/kvm.c
++++ b/target-i386/kvm.c
+@@ -1529,6 +1529,10 @@ int kvm_arch_put_registers(CPUX86State *env, int level)
+ 
+     assert(cpu_is_stopped(env) || qemu_cpu_is_self(env));
+ 
++    if (!env->kvm_has_run && level == KVM_PUT_RUNTIME_STATE) {
++        return 0;
++    }
++
+     ret = kvm_getput_regs(env, 1);
+     if (ret < 0) {
+         return ret;
+@@ -1694,6 +1698,7 @@ void kvm_arch_post_run(CPUX86State *env, struct kvm_run *run)
+     }
+     cpu_set_apic_tpr(env->apic_state, run->cr8);
+     cpu_set_apic_base(env->apic_state, run->apic_base);
++    env->kvm_has_run = 1;
+ }
+ 
+ int kvm_arch_process_async_events(CPUX86State *env)

@@ -1,0 +1,152 @@
+From 94abf201b45b2b2276d946ed064aaf929def93aa Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Thu, 7 Jun 2012 13:02:27 +0930
+Subject: [PATCH 58/77] target-arm: Add more TrustZone cp15 registers
+
+Add implementations of some more TrustZone cp15 registers
+(we already had the Secure Configuration Register) and
+make them controlled by an ARM_FEATURE_TRUSTZONE bit.
+
+TODO: revisit in the light of the 'fake trustzone'
+proposals.
+---
+ target-arm/cpu.c     |    4 ++++
+ target-arm/cpu.h     |    3 +++
+ target-arm/helper.c  |   27 ++++++++++++++++++++++++---
+ target-arm/machine.c |    4 ++++
+ 4 files changed, 35 insertions(+), 3 deletions(-)
+
+diff --git a/target-arm/cpu.c b/target-arm/cpu.c
+index b00f5fa..8c5e95d6 100644
+--- a/target-arm/cpu.c
++++ b/target-arm/cpu.c
+@@ -325,6 +325,7 @@ static void arm1176_initfn(Object *obj)
+     set_feature(&cpu->env, ARM_FEATURE_DUMMY_C15_REGS);
+     set_feature(&cpu->env, ARM_FEATURE_CACHE_DIRTY_REG);
+     set_feature(&cpu->env, ARM_FEATURE_CACHE_BLOCK_OPS);
++    set_feature(&cpu->env, ARM_FEATURE_TRUSTZONE);
+     cpu->midr = 0x410fb767;
+     cpu->reset_fpsid = 0x410120b5;
+     cpu->mvfr0 = 0x11111111;
+@@ -398,6 +399,7 @@ static void cortex_a8_initfn(Object *obj)
+     set_feature(&cpu->env, ARM_FEATURE_NEON);
+     set_feature(&cpu->env, ARM_FEATURE_THUMB2EE);
+     set_feature(&cpu->env, ARM_FEATURE_DUMMY_C15_REGS);
++    set_feature(&cpu->env, ARM_FEATURE_TRUSTZONE);
+     cpu->midr = 0x410fc080;
+     cpu->reset_fpsid = 0x410330c0;
+     cpu->mvfr0 = 0x11110222;
+@@ -467,6 +469,7 @@ static void cortex_a9_initfn(Object *obj)
+      * and valid configurations; we don't model A9UP).
+      */
+     set_feature(&cpu->env, ARM_FEATURE_V7MP);
++    set_feature(&cpu->env, ARM_FEATURE_TRUSTZONE);
+     cpu->midr = 0x410fc090;
+     cpu->reset_fpsid = 0x41033090;
+     cpu->mvfr0 = 0x11110222;
+@@ -536,6 +539,7 @@ static void cortex_a15_initfn(Object *obj)
+     set_feature(&cpu->env, ARM_FEATURE_GENERIC_TIMER);
+     set_feature(&cpu->env, ARM_FEATURE_DUMMY_C15_REGS);
+     set_feature(&cpu->env, ARM_FEATURE_LPAE);
++    set_feature(&cpu->env, ARM_FEATURE_TRUSTZONE);
+     cpu->midr = 0x412fc0f1;
+     cpu->reset_fpsid = 0x410430f0;
+     cpu->mvfr0 = 0x10110222;
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index d7f93d9..de5c6e6 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -112,6 +112,8 @@ typedef struct CPUARMState {
+         uint32_t c1_coproc; /* Coprocessor access register.  */
+         uint32_t c1_xscaleauxcr; /* XScale auxiliary control register.  */
+         uint32_t c1_scr; /* secure config register.  */
++        uint32_t c1_sedbg; /* Secure debug enable register. */
++        uint32_t c1_nseac; /* Non-secure access control register. */
+         uint32_t c2_base0; /* MMU translation table base 0.  */
+         uint32_t c2_base0_hi; /* MMU translation table base 0, high 32 bits */
+         uint32_t c2_base1; /* MMU translation table base 0.  */
+@@ -391,6 +393,7 @@ enum arm_features {
+     ARM_FEATURE_MPIDR, /* has cp15 MPIDR */
+     ARM_FEATURE_PXN, /* has Privileged Execute Never bit */
+     ARM_FEATURE_LPAE, /* has Large Physical Address Extension */
++    ARM_FEATURE_TRUSTZONE, /* TrustZone Security Extensions. */
+ };
+ 
+ static inline int arm_feature(CPUARMState *env, int feature)
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index dceaa95..e134172 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -408,9 +408,6 @@ static const ARMCPRegInfo v7_cp_reginfo[] = {
+       .fieldoffset = offsetof(CPUARMState, cp15.c9_pminten),
+       .resetvalue = 0,
+       .writefn = pmintenclr_write },
+-    { .name = "SCR", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 0,
+-      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_scr),
+-      .resetvalue = 0, },
+     { .name = "CCSIDR", .cp = 15, .crn = 0, .crm = 0, .opc1 = 1, .opc2 = 0,
+       .access = PL1_R, .readfn = ccsidr_read },
+     { .name = "CSSELR", .cp = 15, .crn = 0, .crm = 0, .opc1 = 2, .opc2 = 0,
+@@ -1014,6 +1011,27 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
+     REGINFO_SENTINEL
+ };
+ 
++static const ARMCPRegInfo trustzone_cp_reginfo[] = {
++    /* Dummy implementations of registers; we don't enforce the
++     * 'secure mode only' access checks. TODO: revisit as part of
++     * proper fake-trustzone support.
++     */
++    { .name = "SCR", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 0,
++      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_scr),
++      .resetvalue = 0 },
++    { .name = "SDER", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 1,
++      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_sedbg),
++      .resetvalue = 0 },
++    { .name = "NSACR", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 2,
++      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_nseac),
++      .resetvalue = 0 },
++    { .name = "VBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 0,
++      .access = PL1_RW, .type = ARM_CP_CONST, .resetvalue = 0 },
++    { .name = "MVBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 1,
++      .access = PL1_RW, .type = ARM_CP_CONST, .resetvalue = 0 },
++    REGINFO_SENTINEL
++};
++
+ static int sctlr_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
+ {
+     env->cp15.c1_sys = value;
+@@ -1162,6 +1180,9 @@ void register_cp_regs_for_features(ARMCPU *cpu)
+     if (arm_feature(env, ARM_FEATURE_LPAE)) {
+         define_arm_cp_regs(cpu, lpae_cp_reginfo);
+     }
++    if (arm_feature(env, ARM_FEATURE_TRUSTZONE)) {
++        define_arm_cp_regs(cpu, trustzone_cp_reginfo);
++    }
+     /* Slightly awkwardly, the OMAP and StrongARM cores need all of
+      * cp15 crn=0 to be writes-ignored, whereas for other cores they should
+      * be read-only (ie write causes UNDEF exception).
+diff --git a/target-arm/machine.c b/target-arm/machine.c
+index 68dca7f..57c6d86 100644
+--- a/target-arm/machine.c
++++ b/target-arm/machine.c
+@@ -26,6 +26,8 @@ void cpu_save(QEMUFile *f, void *opaque)
+     qemu_put_be32(f, env->cp15.c1_coproc);
+     qemu_put_be32(f, env->cp15.c1_xscaleauxcr);
+     qemu_put_be32(f, env->cp15.c1_scr);
++    qemu_put_be32(f, env->cp15.c1_sedbg);
++    qemu_put_be32(f, env->cp15.c1_nseac);
+     qemu_put_be32(f, env->cp15.c2_base0);
+     qemu_put_be32(f, env->cp15.c2_base0_hi);
+     qemu_put_be32(f, env->cp15.c2_base1);
+@@ -146,6 +148,8 @@ int cpu_load(QEMUFile *f, void *opaque, int version_id)
+     env->cp15.c1_coproc = qemu_get_be32(f);
+     env->cp15.c1_xscaleauxcr = qemu_get_be32(f);
+     env->cp15.c1_scr = qemu_get_be32(f);
++    env->cp15.c1_sedbg = qemu_get_be32(f);
++    env->cp15.c1_nseac = qemu_get_be32(f);
+     env->cp15.c2_base0 = qemu_get_be32(f);
+     env->cp15.c2_base0_hi = qemu_get_be32(f);
+     env->cp15.c2_base1 = qemu_get_be32(f);
+-- 
+1.7.9.5
+

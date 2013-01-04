@@ -2,7 +2,6 @@ OUTPUT_FORMAT("elf32-littlearm", "elf32-littlearm",
 	      "elf32-littlearm")
 OUTPUT_ARCH(arm)
 ENTRY(_start)
-SEARCH_DIR(/lib); SEARCH_DIR(/usr/lib); SEARCH_DIR(/usr/local/lib); SEARCH_DIR(/usr/alpha-unknown-linux-gnu/lib);
 SECTIONS
 {
   /* Read-only sections, merged into text segment: */
@@ -53,17 +52,43 @@ SECTIONS
   .fini      : { *(.fini)    } =0x47ff041f
   .rodata    : { *(.rodata) *(.gnu.linkonce.r*) }
   .rodata1   : { *(.rodata1) }
+  .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) }
+   __exidx_start = .;
+  .ARM.exidx   : { *(.ARM.exidx* .gnu.linkonce.armexidx.*) }
+   __exidx_end = .;
   .reginfo : { *(.reginfo) }
   /* Adjust the address for the data segment.  We want to adjust up to
      the same address within the page on the next page up.  */
   . = ALIGN(0x100000) + (. & (0x100000 - 1));
   .data    :
   {
+    *(.gen_code)
     *(.data)
     *(.gnu.linkonce.d*)
     CONSTRUCTORS
   }
+  .tbss           : { *(.tbss .tbss.* .gnu.linkonce.tb.*) *(.tcommon) }
   .data1   : { *(.data1) }
+  .preinit_array     :
+  {
+    PROVIDE (__preinit_array_start = .);
+    KEEP (*(.preinit_array))
+    PROVIDE (__preinit_array_end = .);
+  }
+  .init_array     :
+  {
+     PROVIDE (__init_array_start = .);
+     KEEP (*(SORT(.init_array.*)))
+     KEEP (*(.init_array))
+     PROVIDE (__init_array_end = .);
+  }
+  .fini_array     :
+  {
+    PROVIDE (__fini_array_start = .);
+    KEEP (*(.fini_array))
+    KEEP (*(SORT(.fini_array.*)))
+    PROVIDE (__fini_array_end = .);
+  }
   .ctors         :
   {
     *(.ctors)

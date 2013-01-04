@@ -1,8 +1,8 @@
 /*
  * QEMU PPC PREP hardware System Emulator
- * 
- * Copyright (c) 2003-2004 Jocelyn Mayer
- * 
+ *
+ * Copyright (c) 2003-2007 Jocelyn Mayer
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -21,76 +21,60 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "vl.h"
-#include "m48t59.h"
+#include "hw.h"
+#include "nvram.h"
+#include "pc.h"
+#include "fdc.h"
+#include "net.h"
+#include "sysemu.h"
+#include "isa.h"
+#include "pci.h"
+#include "pci_host.h"
+#include "ppc.h"
+#include "boards.h"
+#include "qemu-log.h"
+#include "ide.h"
+#include "loader.h"
+#include "mc146818rtc.h"
+#include "blockdev.h"
+#include "arch_init.h"
+#include "exec-memory.h"
+#include "vga-pci.h"
 
 //#define HARD_DEBUG_PPC_IO
 //#define DEBUG_PPC_IO
 
-extern int loglevel;
-extern FILE *logfile;
+/* SMP is not enabled, for now */
+#define MAX_CPUS 1
+
+#define MAX_IDE_BUS 2
+
+#define BIOS_SIZE (1024 * 1024)
+#define BIOS_FILENAME "ppc_rom.bin"
+#define KERNEL_LOAD_ADDR 0x01000000
+#define INITRD_LOAD_ADDR 0x01800000
 
 #if defined (HARD_DEBUG_PPC_IO) && !defined (DEBUG_PPC_IO)
 #define DEBUG_PPC_IO
 #endif
 
 #if defined (HARD_DEBUG_PPC_IO)
-#define PPC_IO_DPRINTF(fmt, args...)                     \
+#define PPC_IO_DPRINTF(fmt, ...)                         \
 do {                                                     \
-    if (loglevel > 0) {                                  \
-        fprintf(logfile, "%s: " fmt, __func__ , ##args); \
+    if (qemu_loglevel_mask(CPU_LOG_IOPORT)) {            \
+        qemu_log("%s: " fmt, __func__ , ## __VA_ARGS__); \
     } else {                                             \
-        printf("%s : " fmt, __func__ , ##args);          \
+        printf("%s : " fmt, __func__ , ## __VA_ARGS__);  \
     }                                                    \
 } while (0)
 #elif defined (DEBUG_PPC_IO)
-#define PPC_IO_DPRINTF(fmt, args...)                     \
-do {                                                     \
-    if (loglevel > 0) {                                  \
-        fprintf(logfile, "%s: " fmt, __func__ , ##args); \
-    }                                                    \
-} while (0)
+#define PPC_IO_DPRINTF(fmt, ...) \
+qemu_log_mask(CPU_LOG_IOPORT, fmt, ## __VA_ARGS__)
 #else
-#define PPC_IO_DPRINTF(fmt, args...) do { } while (0)
+#define PPC_IO_DPRINTF(fmt, ...) do { } while (0)
 #endif
 
-#define BIOS_FILENAME "ppc_rom.bin"
-
-#define KERNEL_LOAD_ADDR    0x00000000
-#define KERNEL_STACK_ADDR   0x00400000
-#define INITRD_LOAD_ADDR    0x00800000
-
-int load_kernel(const char *filename, uint8_t *addr, 
-                uint8_t *real_addr)
-{
-    int fd, size;
-    int setup_sects;
-
-    fd = open(filename, O_RDONLY);
-    if (fd < 0)
-        return -1;
-
-    /* load 16 bit code */
-    if (read(fd, real_addr, 512) != 512)
-        goto fail;
-    setup_sects = real_addr[0x1F1];
-    if (!setup_sects)
-        setup_sects = 4;
-    if (read(fd, real_addr + 512, setup_sects * 512) != 
-        setup_sects * 512)
-        goto fail;
-    
-    /* load 32 bit code */
-    size = read(fd, addr, 16 * 1024 * 1024);
-    if (size < 0)
-        goto fail;
-    close(fd);
-    return size;
- fail:
-    close(fd);
-    return -1;
-}
-
+/* Constants for devices init */
 static const int ide_iobase[2] = { 0x1f0, 0x170 };
 static const int ide_iobase2[2] = { 0x3f6, 0x376 };
 static const int ide_irq[2] = { 13, 13 };
@@ -100,218 +84,220 @@ static const int ide_irq[2] = { 13, 13 };
 static uint32_t ne2000_io[NE2000_NB_MAX] = { 0x300, 0x320, 0x340, 0x360, 0x280, 0x380 };
 static int ne2000_irq[NE2000_NB_MAX] = { 9, 10, 11, 3, 4, 5 };
 
-/* IO ports emulation */
+/* ISA IO ports bridge */
 #define PPC_IO_BASE 0x80000000
 
-static void PPC_io_writeb (target_phys_addr_t addr, uint32_t value)
+/* PowerPC control and status registers */
+#if 0 // Not used
+static struct {
+    /* IDs */
+    uint32_t veni_devi;
+    uint32_t revi;
+    /* Control and status */
+    uint32_t gcsr;
+    uint32_t xcfr;
+    uint32_t ct32;
+    uint32_t mcsr;
+    /* General purpose registers */
+    uint32_t gprg[6];
+    /* Exceptions */
+    uint32_t feen;
+    uint32_t fest;
+    uint32_t fema;
+    uint32_t fecl;
+    uint32_t eeen;
+    uint32_t eest;
+    uint32_t eecl;
+    uint32_t eeint;
+    uint32_t eemck0;
+    uint32_t eemck1;
+    /* Error diagnostic */
+} XCSR;
+
+static void PPC_XCSR_writeb (void *opaque,
+                             target_phys_addr_t addr, uint32_t value)
 {
-    /* Don't polute serial port output */
-#if 0
-    if ((addr < 0x800003F0 || addr > 0x80000400) &&
-        (addr < 0x80000074 || addr > 0x80000077) &&
-        (addr < 0x80000020 || addr > 0x80000021) &&
-        (addr < 0x800000a0 || addr > 0x800000a1) &&
-        (addr < 0x800001f0 || addr > 0x800001f7) &&
-        (addr < 0x80000170 || addr > 0x80000177)) 
-#endif
-    {
-        PPC_IO_DPRINTF("0x%08x => 0x%02x\n", addr - PPC_IO_BASE, value);
-    }
-    cpu_outb(NULL, addr - PPC_IO_BASE, value);
+    printf("%s: 0x" TARGET_FMT_plx " => 0x%08" PRIx32 "\n", __func__, addr,
+           value);
 }
 
-static uint32_t PPC_io_readb (target_phys_addr_t addr)
+static void PPC_XCSR_writew (void *opaque,
+                             target_phys_addr_t addr, uint32_t value)
 {
-    uint32_t ret = cpu_inb(NULL, addr - PPC_IO_BASE);
-
-#if 0
-    if ((addr < 0x800003F0 || addr > 0x80000400) &&
-        (addr < 0x80000074 || addr > 0x80000077) &&
-        (addr < 0x80000020 || addr > 0x80000021) &&
-        (addr < 0x800000a0 || addr > 0x800000a1) &&
-        (addr < 0x800001f0 || addr > 0x800001f7) &&
-        (addr < 0x80000170 || addr > 0x80000177) &&
-        (addr < 0x8000060 || addr > 0x8000064))
-#endif
-    {
-        PPC_IO_DPRINTF("0x%08x <= 0x%02x\n", addr - PPC_IO_BASE, ret);
-    }
-    return ret;
+    printf("%s: 0x" TARGET_FMT_plx " => 0x%08" PRIx32 "\n", __func__, addr,
+           value);
 }
 
-static void PPC_io_writew (target_phys_addr_t addr, uint32_t value)
+static void PPC_XCSR_writel (void *opaque,
+                             target_phys_addr_t addr, uint32_t value)
 {
-    if ((addr < 0x800001f0 || addr > 0x800001f7) &&
-        (addr < 0x80000170 || addr > 0x80000177)) {
-        PPC_IO_DPRINTF("0x%08x => 0x%04x\n", addr - PPC_IO_BASE, value);
-    }
-#ifdef TARGET_WORDS_BIGENDIAN
-    value = bswap16(value);
-#endif
-    cpu_outw(NULL, addr - PPC_IO_BASE, value);
+    printf("%s: 0x" TARGET_FMT_plx " => 0x%08" PRIx32 "\n", __func__, addr,
+           value);
 }
 
-static uint32_t PPC_io_readw (target_phys_addr_t addr)
-{
-    uint32_t ret = cpu_inw(NULL, addr - PPC_IO_BASE);
-#ifdef TARGET_WORDS_BIGENDIAN
-    ret = bswap16(ret);
-#endif
-    if ((addr < 0x800001f0 || addr > 0x800001f7) &&
-        (addr < 0x80000170 || addr > 0x80000177)) {
-        PPC_IO_DPRINTF("0x%08x <= 0x%04x\n", addr - PPC_IO_BASE, ret);
-    }
-    return ret;
-}
-
-static void PPC_io_writel (target_phys_addr_t addr, uint32_t value)
-{
-    PPC_IO_DPRINTF("0x%08x => 0x%08x\n", addr - PPC_IO_BASE, value);
-#ifdef TARGET_WORDS_BIGENDIAN
-    value = bswap32(value);
-#endif
-    cpu_outl(NULL, addr - PPC_IO_BASE, value);
-}
-
-static uint32_t PPC_io_readl (target_phys_addr_t addr)
-{
-    uint32_t ret = cpu_inl(NULL, addr - PPC_IO_BASE);
-
-#ifdef TARGET_WORDS_BIGENDIAN
-    ret = bswap32(ret);
-#endif
-    PPC_IO_DPRINTF("0x%08x <= 0x%08x\n", addr - PPC_IO_BASE, ret);
-    return ret;
-}
-
-static CPUWriteMemoryFunc *PPC_io_write[] = {
-    &PPC_io_writeb,
-    &PPC_io_writew,
-    &PPC_io_writel,
-};
-
-static CPUReadMemoryFunc *PPC_io_read[] = {
-    &PPC_io_readb,
-    &PPC_io_readw,
-    &PPC_io_readl,
-};
-
-/* Read-only register (?) */
-static void _PPC_ioB_write (target_phys_addr_t addr, uint32_t value)
-{
-    //    printf("%s: 0x%08x => 0x%08x\n", __func__, addr, value);
-}
-
-static uint32_t _PPC_ioB_read (target_phys_addr_t addr)
+static uint32_t PPC_XCSR_readb (void *opaque, target_phys_addr_t addr)
 {
     uint32_t retval = 0;
 
-    if (addr == 0xBFFFFFF0)
-        retval = pic_intack_read(NULL);
-       //   printf("%s: 0x%08x <= %d\n", __func__, addr, retval);
+    printf("%s: 0x" TARGET_FMT_plx " <= %08" PRIx32 "\n", __func__, addr,
+           retval);
 
     return retval;
 }
 
-static CPUWriteMemoryFunc *PPC_ioB_write[] = {
-    &_PPC_ioB_write,
-    &_PPC_ioB_write,
-    &_PPC_ioB_write,
+static uint32_t PPC_XCSR_readw (void *opaque, target_phys_addr_t addr)
+{
+    uint32_t retval = 0;
+
+    printf("%s: 0x" TARGET_FMT_plx " <= %08" PRIx32 "\n", __func__, addr,
+           retval);
+
+    return retval;
+}
+
+static uint32_t PPC_XCSR_readl (void *opaque, target_phys_addr_t addr)
+{
+    uint32_t retval = 0;
+
+    printf("%s: 0x" TARGET_FMT_plx " <= %08" PRIx32 "\n", __func__, addr,
+           retval);
+
+    return retval;
+}
+
+static const MemoryRegionOps PPC_XCSR_ops = {
+    .old_mmio = {
+        .read = { PPC_XCSR_readb, PPC_XCSR_readw, PPC_XCSR_readl, },
+        .write = { PPC_XCSR_writeb, PPC_XCSR_writew, PPC_XCSR_writel, },
+    },
+    .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-static CPUReadMemoryFunc *PPC_ioB_read[] = {
-    &_PPC_ioB_read,
-    &_PPC_ioB_read,
-    &_PPC_ioB_read,
-};
-
-#if 0
-static CPUWriteMemoryFunc *PPC_io3_write[] = {
-    &PPC_io3_writeb,
-    &PPC_io3_writew,
-    &PPC_io3_writel,
-};
-
-static CPUReadMemoryFunc *PPC_io3_read[] = {
-    &PPC_io3_readb,
-    &PPC_io3_readw,
-    &PPC_io3_readl,
-};
 #endif
 
 /* Fake super-io ports for PREP platform (Intel 82378ZB) */
-static uint8_t PREP_fake_io[2];
-static uint8_t NVRAM_lock;
+typedef struct sysctrl_t {
+    qemu_irq reset_irq;
+    M48t59State *nvram;
+    uint8_t state;
+    uint8_t syscontrol;
+    uint8_t fake_io[2];
+    int contiguous_map;
+    int endian;
+} sysctrl_t;
+
+enum {
+    STATE_HARDFILE = 0x01,
+};
+
+static sysctrl_t *sysctrl;
 
 static void PREP_io_write (void *opaque, uint32_t addr, uint32_t val)
 {
-    PPC_IO_DPRINTF("0x%08x => 0x%08x\n", addr - PPC_IO_BASE, val);
-    PREP_fake_io[addr - 0x0398] = val;
+    sysctrl_t *sysctrl = opaque;
+
+    PPC_IO_DPRINTF("0x%08" PRIx32 " => 0x%02" PRIx32 "\n", addr - PPC_IO_BASE,
+                   val);
+    sysctrl->fake_io[addr - 0x0398] = val;
 }
 
 static uint32_t PREP_io_read (void *opaque, uint32_t addr)
 {
-    PPC_IO_DPRINTF("0x%08x <= 0x%08x\n", addr - PPC_IO_BASE, PREP_fake_io[addr - 0x0398]);
-    return PREP_fake_io[addr - 0x0398];
-}
+    sysctrl_t *sysctrl = opaque;
 
-static uint8_t syscontrol;
+    PPC_IO_DPRINTF("0x%08" PRIx32 " <= 0x%02" PRIx32 "\n", addr - PPC_IO_BASE,
+                   sysctrl->fake_io[addr - 0x0398]);
+    return sysctrl->fake_io[addr - 0x0398];
+}
 
 static void PREP_io_800_writeb (void *opaque, uint32_t addr, uint32_t val)
 {
-    PPC_IO_DPRINTF("0x%08x => 0x%08x\n", addr - PPC_IO_BASE, val);
+    sysctrl_t *sysctrl = opaque;
+
+    PPC_IO_DPRINTF("0x%08" PRIx32 " => 0x%02" PRIx32 "\n",
+                   addr - PPC_IO_BASE, val);
     switch (addr) {
     case 0x0092:
         /* Special port 92 */
         /* Check soft reset asked */
-        if (val & 0x80) {
-            printf("Soft reset asked... Stop emulation\n");
-            abort();
+        if (val & 0x01) {
+            qemu_irq_raise(sysctrl->reset_irq);
+        } else {
+            qemu_irq_lower(sysctrl->reset_irq);
         }
         /* Check LE mode */
-        if (val & 0x40) {
-            printf("Little Endian mode isn't supported (yet ?)\n");
-            abort();
+        if (val & 0x02) {
+            sysctrl->endian = 1;
+        } else {
+            sysctrl->endian = 0;
         }
         break;
+    case 0x0800:
+        /* Motorola CPU configuration register : read-only */
+        break;
+    case 0x0802:
+        /* Motorola base module feature register : read-only */
+        break;
+    case 0x0803:
+        /* Motorola base module status register : read-only */
+        break;
     case 0x0808:
-        /* Hardfile light register: don't care */
+        /* Hardfile light register */
+        if (val & 1)
+            sysctrl->state |= STATE_HARDFILE;
+        else
+            sysctrl->state &= ~STATE_HARDFILE;
         break;
     case 0x0810:
         /* Password protect 1 register */
-        NVRAM_lock ^= 0x01;
+        if (sysctrl->nvram != NULL)
+            m48t59_toggle_lock(sysctrl->nvram, 1);
         break;
     case 0x0812:
         /* Password protect 2 register */
-        NVRAM_lock ^= 0x02;
+        if (sysctrl->nvram != NULL)
+            m48t59_toggle_lock(sysctrl->nvram, 2);
         break;
     case 0x0814:
-        /* L2 invalidate register: don't care */
+        /* L2 invalidate register */
+        //        tlb_flush(first_cpu, 1);
         break;
     case 0x081C:
         /* system control register */
-        syscontrol = val;
+        sysctrl->syscontrol = val & 0x0F;
         break;
     case 0x0850:
         /* I/O map type register */
-        if (val & 0x80) {
-            printf("No support for non-continuous I/O map mode\n");
-            abort();
-        }
+        sysctrl->contiguous_map = val & 0x01;
         break;
     default:
+        printf("ERROR: unaffected IO port write: %04" PRIx32
+               " => %02" PRIx32"\n", addr, val);
         break;
     }
 }
 
 static uint32_t PREP_io_800_readb (void *opaque, uint32_t addr)
 {
+    sysctrl_t *sysctrl = opaque;
     uint32_t retval = 0xFF;
 
     switch (addr) {
     case 0x0092:
         /* Special port 92 */
-        retval = 0x40;
+        retval = 0x00;
+        break;
+    case 0x0800:
+        /* Motorola CPU configuration register */
+        retval = 0xEF; /* MPC750 */
+        break;
+    case 0x0802:
+        /* Motorola Base module feature register */
+        retval = 0xAD; /* No ESCC, PMC slot neither ethernet */
+        break;
+    case 0x0803:
+        /* Motorola base module status register */
+        retval = 0xE0; /* Standard MPC750 */
         break;
     case 0x080C:
         /* Equipment present register:
@@ -320,7 +306,14 @@ static uint32_t PREP_io_800_readb (void *opaque, uint32_t addr)
          *  no cards in PCI slots
          *  SCSI fuse is bad
          */
-        retval = 0xFC;
+        retval = 0x3C;
+        break;
+    case 0x0810:
+        /* Motorola base module extended feature register */
+        retval = 0x39; /* No USB, CF and PCI bridge. NVRAM present */
+        break;
+    case 0x0814:
+        /* L2 invalidate: don't care */
         break;
     case 0x0818:
         /* Keylock */
@@ -330,7 +323,7 @@ static uint32_t PREP_io_800_readb (void *opaque, uint32_t addr)
         /* system control register
          * 7 - 6 / 1 - 0: L2 cache enable
          */
-        retval = syscontrol;
+        retval = sysctrl->syscontrol;
         break;
     case 0x0823:
         /* */
@@ -338,660 +331,373 @@ static uint32_t PREP_io_800_readb (void *opaque, uint32_t addr)
         break;
     case 0x0850:
         /* I/O map type register */
-        retval = 0x00;
+        retval = sysctrl->contiguous_map;
         break;
     default:
+        printf("ERROR: unaffected IO port: %04" PRIx32 " read\n", addr);
         break;
     }
-    PPC_IO_DPRINTF("0x%08x <= 0x%08x\n", addr - PPC_IO_BASE, retval);
+    PPC_IO_DPRINTF("0x%08" PRIx32 " <= 0x%02" PRIx32 "\n",
+                   addr - PPC_IO_BASE, retval);
 
     return retval;
 }
 
-#define NVRAM_SIZE        0x2000
-#define NVRAM_END         0x1FF0
-#define NVRAM_OSAREA_SIZE 512
-#define NVRAM_CONFSIZE    1024
-
-static inline void NVRAM_set_byte (m48t59_t *nvram, uint32_t addr, uint8_t value)
+static inline target_phys_addr_t prep_IO_address(sysctrl_t *sysctrl,
+                                                 target_phys_addr_t addr)
 {
-    m48t59_set_addr(nvram, addr);
-    m48t59_write(nvram, value);
-}
-
-static inline uint8_t NVRAM_get_byte (m48t59_t *nvram, uint32_t addr)
-{
-    m48t59_set_addr(nvram, addr);
-    return m48t59_read(nvram);
-}
-
-static inline void NVRAM_set_word (m48t59_t *nvram, uint32_t addr, uint16_t value)
-{
-    m48t59_set_addr(nvram, addr);
-    m48t59_write(nvram, value >> 8);
-    m48t59_set_addr(nvram, addr + 1);
-    m48t59_write(nvram, value & 0xFF);
-}
-
-static inline uint16_t NVRAM_get_word (m48t59_t *nvram, uint32_t addr)
-{
-    uint16_t tmp;
-
-    m48t59_set_addr(nvram, addr);
-    tmp = m48t59_read(nvram) << 8;
-    m48t59_set_addr(nvram, addr + 1);
-    tmp |= m48t59_read(nvram);
-
-    return tmp;
-}
-
-static inline void NVRAM_set_lword (m48t59_t *nvram, uint32_t addr,
-				    uint32_t value)
-{
-    m48t59_set_addr(nvram, addr);
-    m48t59_write(nvram, value >> 24);
-    m48t59_set_addr(nvram, addr + 1);
-    m48t59_write(nvram, (value >> 16) & 0xFF);
-    m48t59_set_addr(nvram, addr + 2);
-    m48t59_write(nvram, (value >> 8) & 0xFF);
-    m48t59_set_addr(nvram, addr + 3);
-    m48t59_write(nvram, value & 0xFF);
-}
-
-static inline uint32_t NVRAM_get_lword (m48t59_t *nvram, uint32_t addr)
-{
-    uint32_t tmp;
-
-    m48t59_set_addr(nvram, addr);
-    tmp = m48t59_read(nvram) << 24;
-    m48t59_set_addr(nvram, addr + 1);
-    tmp |= m48t59_read(nvram) << 16;
-    m48t59_set_addr(nvram, addr + 2);
-    tmp |= m48t59_read(nvram) << 8;
-    m48t59_set_addr(nvram, addr + 3);
-    tmp |= m48t59_read(nvram);
-
-    return tmp;
-}
-
-static uint16_t NVRAM_crc_update (uint16_t prev, uint16_t value)
-{
-    uint16_t tmp;
-    uint16_t pd, pd1, pd2;
-
-    tmp = prev >> 8;
-    pd = prev ^ value;
-    pd1 = pd & 0x000F;
-    pd2 = ((pd >> 4) & 0x000F) ^ pd1;
-    tmp ^= (pd1 << 3) | (pd1 << 8);
-    tmp ^= pd2 | (pd2 << 7) | (pd2 << 12);
-
-    return tmp;
-}
-
-static void NVRAM_set_crc (m48t59_t *nvram, uint32_t addr,
-			   uint32_t start, uint32_t count)
-{
-    uint32_t i;
-    uint16_t crc = 0xFFFF;
-    int odd = 0;
-
-    if (count & 1)
-	odd = 1;
-    count &= ~1;
-    for (i = 0; i != count; i++) {
-	crc = NVRAM_crc_update(crc, NVRAM_get_word(nvram, start + i));
+    if (sysctrl->contiguous_map == 0) {
+        /* 64 KB contiguous space for IOs */
+        addr &= 0xFFFF;
+    } else {
+        /* 8 MB non-contiguous space for IOs */
+        addr = (addr & 0x1F) | ((addr & 0x007FFF000) >> 7);
     }
-    if (odd) {
-	crc = NVRAM_crc_update(crc, NVRAM_get_byte(nvram, start + i) << 8);
-    }
-    NVRAM_set_word(nvram, addr, crc);
+
+    return addr;
 }
 
-static void prep_NVRAM_init (void)
+static void PPC_prep_io_writeb (void *opaque, target_phys_addr_t addr,
+                                uint32_t value)
 {
-    m48t59_t *nvram;
+    sysctrl_t *sysctrl = opaque;
 
-    nvram = m48t59_init(8, 0x0074, NVRAM_SIZE);
-    /* NVRAM header */
-    /* 0x00: NVRAM size in kB */
-    NVRAM_set_word(nvram, 0x00, NVRAM_SIZE >> 10);
-    /* 0x02: NVRAM version */
-    NVRAM_set_byte(nvram, 0x02, 0x01);
-    /* 0x03: NVRAM revision */
-    NVRAM_set_byte(nvram, 0x03, 0x01);
-    /* 0x08: last OS */
-    NVRAM_set_byte(nvram, 0x08, 0x00); /* Unknown */
-    /* 0x09: endian */
-    NVRAM_set_byte(nvram, 0x09, 'B');  /* Big-endian */
-    /* 0x0A: OSArea usage */
-    NVRAM_set_byte(nvram, 0x0A, 0x00); /* Empty */
-    /* 0x0B: PM mode */
-    NVRAM_set_byte(nvram, 0x0B, 0x00); /* Normal */
-    /* Restart block description record */
-    /* 0x0C: restart block version */
-    NVRAM_set_word(nvram, 0x0C, 0x01);
-    /* 0x0E: restart block revision */
-    NVRAM_set_word(nvram, 0x0E, 0x01);
-    /* 0x20: restart address */
-    NVRAM_set_lword(nvram, 0x20, 0x00);
-    /* 0x24: save area address */
-    NVRAM_set_lword(nvram, 0x24, 0x00);
-    /* 0x28: save area length */
-    NVRAM_set_lword(nvram, 0x28, 0x00);
-    /* 0x1C: checksum of restart block */
-    NVRAM_set_crc(nvram, 0x1C, 0x0C, 32);
-
-    /* Security section */
-    /* Set all to zero */
-    /* 0xC4: pointer to global environment area */
-    NVRAM_set_lword(nvram, 0xC4, 0x0100);
-    /* 0xC8: size of global environment area */
-    NVRAM_set_lword(nvram, 0xC8,
-		    NVRAM_END - NVRAM_OSAREA_SIZE - NVRAM_CONFSIZE - 0x0100);
-    /* 0xD4: pointer to configuration area */
-    NVRAM_set_lword(nvram, 0xD4, NVRAM_END - NVRAM_CONFSIZE);
-    /* 0xD8: size of configuration area */
-    NVRAM_set_lword(nvram, 0xD8, NVRAM_CONFSIZE);
-    /* 0xE8: pointer to OS specific area */
-    NVRAM_set_lword(nvram, 0xE8,
-		    NVRAM_END - NVRAM_CONFSIZE - NVRAM_OSAREA_SIZE);
-    /* 0xD8: size of OS specific area */
-    NVRAM_set_lword(nvram, 0xEC, NVRAM_OSAREA_SIZE);
-
-    /* Configuration area */
-    /* RTC init */
-    //    NVRAM_set_lword(nvram, 0x1FFC, 0x50);
-
-    /* 0x04: checksum 0 => OS area   */
-    NVRAM_set_crc(nvram, 0x04, 0x00,
-		  NVRAM_END - NVRAM_CONFSIZE - NVRAM_OSAREA_SIZE);
-    /* 0x06: checksum of config area */
-    NVRAM_set_crc(nvram, 0x06, NVRAM_END - NVRAM_CONFSIZE, NVRAM_CONFSIZE);
+    addr = prep_IO_address(sysctrl, addr);
+    cpu_outb(addr, value);
 }
 
-int load_initrd (const char *filename, uint8_t *addr)
+static uint32_t PPC_prep_io_readb (void *opaque, target_phys_addr_t addr)
 {
-    int fd, size;
+    sysctrl_t *sysctrl = opaque;
+    uint32_t ret;
 
-    printf("Load initrd\n");
-    fd = open(filename, O_RDONLY);
-    if (fd < 0)
-        return -1;
-    size = read(fd, addr, 16 * 1024 * 1024);
-    if (size < 0)
-        goto fail;
-    close(fd);
-    printf("Load initrd: %d\n", size);
-    return size;
- fail:
-    close(fd);
-    printf("Load initrd failed\n");
-    return -1;
+    addr = prep_IO_address(sysctrl, addr);
+    ret = cpu_inb(addr);
+
+    return ret;
 }
 
-/* Quick hack for PPC memory infos... */
-static void put_long (void *addr, uint32_t l)
+static void PPC_prep_io_writew (void *opaque, target_phys_addr_t addr,
+                                uint32_t value)
 {
-    char *pos = addr;
-    pos[0] = (l >> 24) & 0xFF;
-    pos[1] = (l >> 16) & 0xFF;
-    pos[2] = (l >> 8) & 0xFF;
-    pos[3] = l & 0xFF;
+    sysctrl_t *sysctrl = opaque;
+
+    addr = prep_IO_address(sysctrl, addr);
+    PPC_IO_DPRINTF("0x" TARGET_FMT_plx " => 0x%08" PRIx32 "\n", addr, value);
+    cpu_outw(addr, value);
 }
 
-/* bootloader infos are in the form:
- * uint32_t TAG
- * uint32_t TAG_size (from TAG to next TAG).
- * data
- * ....
- */
-#if !defined (USE_OPEN_FIRMWARE)
-static void *set_bootinfo_tag (void *addr, uint32_t tag, uint32_t size,
-                               void *data)
+static uint32_t PPC_prep_io_readw (void *opaque, target_phys_addr_t addr)
 {
-    char *pos = addr;
+    sysctrl_t *sysctrl = opaque;
+    uint32_t ret;
 
-    put_long(pos, tag);
-    pos += 4;
-    put_long(pos, size + 8);
-    pos += 4;
-    memcpy(pos, data, size);
-    pos += size;
+    addr = prep_IO_address(sysctrl, addr);
+    ret = cpu_inw(addr);
+    PPC_IO_DPRINTF("0x" TARGET_FMT_plx " <= 0x%08" PRIx32 "\n", addr, ret);
 
-    return pos;
+    return ret;
 }
-#endif
 
-typedef struct boot_dev_t {
-    const unsigned char *name;
-    int major;
-    int minor;
-} boot_dev_t;
-
-static boot_dev_t boot_devs[] = 
+static void PPC_prep_io_writel (void *opaque, target_phys_addr_t addr,
+                                uint32_t value)
 {
-    { "/dev/fd0", 2, 0, },
-    { "/dev/fd1", 2, 1, },
-    { "/dev/hda", 3, 1, },
-//    { "/dev/ide/host0/bus0/target0/lun0/part1", 3, 1, },
-//    { "/dev/hdc", 22, 0, },
-    { "/dev/hdc", 22, 1, },
-    { "/dev/ram0 init=/linuxrc", 1, 0, },
+    sysctrl_t *sysctrl = opaque;
+
+    addr = prep_IO_address(sysctrl, addr);
+    PPC_IO_DPRINTF("0x" TARGET_FMT_plx " => 0x%08" PRIx32 "\n", addr, value);
+    cpu_outl(addr, value);
+}
+
+static uint32_t PPC_prep_io_readl (void *opaque, target_phys_addr_t addr)
+{
+    sysctrl_t *sysctrl = opaque;
+    uint32_t ret;
+
+    addr = prep_IO_address(sysctrl, addr);
+    ret = cpu_inl(addr);
+    PPC_IO_DPRINTF("0x" TARGET_FMT_plx " <= 0x%08" PRIx32 "\n", addr, ret);
+
+    return ret;
+}
+
+static const MemoryRegionOps PPC_prep_io_ops = {
+    .old_mmio = {
+        .read = { PPC_prep_io_readb, PPC_prep_io_readw, PPC_prep_io_readl },
+        .write = { PPC_prep_io_writeb, PPC_prep_io_writew, PPC_prep_io_writel },
+    },
+    .endianness = DEVICE_LITTLE_ENDIAN,
 };
 
-/* BATU:
- * BEPI  : bloc virtual address
- * BL    : area size bits (128 kB is 0, 256 1, 512 3, ...
- * Vs/Vp
- * BATL:
- * BPRN  : bloc real address align on 4MB boundary
- * WIMG  : cache access mode : not used
- * PP    : protection bits
- */
-static void setup_BAT (CPUPPCState *env, int BAT,
-                       uint32_t virtual, uint32_t physical,
-                       uint32_t size, int Vs, int Vp, int PP)
-{
-    uint32_t sz_bits, tmp_sz, align, tmp;
-    
-    sz_bits = 0;
-    align = 131072;
-    for (tmp_sz = size / 131072; tmp_sz != 1; tmp_sz = tmp_sz >> 1) {
-        sz_bits = (sz_bits << 1) + 1;
-        align = align << 1;
-    }
-    tmp = virtual & ~(align - 1);  /* Align virtual area start */
-    tmp |= sz_bits << 2;           /* Fix BAT size             */
-    tmp |= Vs << 1;                /* Supervisor access        */
-    tmp |= Vp;                     /* User access              */
-    env->DBAT[0][BAT] = tmp;
-    env->IBAT[0][BAT] = tmp;
-    tmp = physical & ~(align - 1); /* Align physical area start */
-    tmp |= 0;                      /* Don't care about WIMG     */
-    tmp |= PP;                     /* Protection                */
-    env->DBAT[1][BAT] = tmp;
-    env->IBAT[1][BAT] = tmp;
-    printf("Set BATU0 to 0x%08x BATL0 to 0x%08x\n",
-           env->DBAT[0][BAT], env->DBAT[1][BAT]);
-}
+#define NVRAM_SIZE        0x2000
 
-static void VGA_printf (uint8_t *s)
+static void cpu_request_exit(void *opaque, int irq, int level)
 {
-    uint16_t *arg_ptr;
-    unsigned int format_width, i;
-    int in_format;
-    uint16_t arg, digit, nibble;
-    uint8_t c;
+    CPUPPCState *env = cpu_single_env;
 
-    arg_ptr = (uint16_t *)((void *)&s);
-    in_format = 0;
-    format_width = 0;
-    while ((c = *s) != '\0') {
-        if (c == '%') {
-            in_format = 1;
-            format_width = 0;
-        } else if (in_format) {
-            if ((c >= '0') && (c <= '9')) {
-                format_width = (format_width * 10) + (c - '0');
-            } else if (c == 'x') {
-                arg_ptr++; // increment to next arg
-                arg = *arg_ptr;
-                if (format_width == 0)
-                    format_width = 4;
-                digit = format_width - 1;
-                for (i = 0; i < format_width; i++) {
-                    nibble = (arg >> (4 * digit)) & 0x000f;
-                    if (nibble <= 9)
-                        PPC_io_writeb(PPC_IO_BASE + 0x500, nibble + '0');
-                    else
-                        PPC_io_writeb(PPC_IO_BASE + 0x500, nibble + 'A');
-                    digit--;
-                }
-                in_format = 0;
-            }
-            //else if (c == 'd') {
-            //  in_format = 0;
-            //  }
-        } else {
-            PPC_io_writeb(PPC_IO_BASE + 0x500, c);
-        }
-        s++;
+    if (env && level) {
+        cpu_exit(env);
     }
 }
 
-static void VGA_init (void)
+static void ppc_prep_reset(void *opaque)
 {
-    /* Basic VGA init, inspired by plex86 VGAbios */
-    printf("Init VGA...\n");
-#if 1
-    /* switch to color mode and enable CPU access 480 lines */
-    PPC_io_writeb(PPC_IO_BASE + 0x3C2, 0xC3);
-    /* more than 64k 3C4/04 */
-    PPC_io_writeb(PPC_IO_BASE + 0x3C4, 0x04);
-    PPC_io_writeb(PPC_IO_BASE + 0x3C5, 0x02);
-#endif
-    VGA_printf("PPC VGA BIOS...\n");
-}
+    PowerPCCPU *cpu = opaque;
 
-extern CPUPPCState *global_env;
-
-static uint32_t get_le32 (void *addr)
-{
-    return le32_to_cpu(*((uint32_t *)addr));
-}
-
-void PPC_init_hw (/*CPUPPCState *env,*/ uint32_t mem_size,
-                  uint32_t kernel_addr, uint32_t kernel_size,
-                  uint32_t stack_addr, int boot_device,
-		  const unsigned char *initrd_file)
-{
-    CPUPPCState *env = global_env;
-    uint8_t *p;
-#if !defined (USE_OPEN_FIRMWARE)
-    char *tmp;
-    uint32_t tmpi[2];
-#endif
-
-    printf("RAM size: %u 0x%08x (%u)\n", mem_size, mem_size, mem_size >> 20);
-#if defined (USE_OPEN_FIRMWARE)
-    setup_memory(env, mem_size);
-#endif
-
-    /* Fake bootloader */
-    {
-#if 1
-        uint32_t offset = get_le32(phys_ram_base + kernel_addr);
-#else
-        uint32_t offset = 12;
-#endif
-        env->nip = kernel_addr + offset;
-        printf("Start address: 0x%08x\n", env->nip);
-    }
-    /* Set up msr according to PREP specification */
-    msr_ee = 0;
-    msr_fp = 1;
-    msr_pr = 0; /* Start in supervisor mode */
-    msr_me = 1;
-    msr_fe0 = msr_fe1 = 0;
-    msr_ip = 0;
-    msr_ir = msr_dr = 1;
-//    msr_sf = 0;
-    msr_le = msr_ile = 0;
-    env->gpr[1] = stack_addr; /* Let's have a stack */
-    env->gpr[2] = 0;
-    env->gpr[8] = kernel_addr;
-    /* There is a bug in  2.4 kernels:
-     * if a decrementer exception is pending when it enables msr_ee,
-     * it's not ready to handle it...
-     */
-    env->decr = 0xFFFFFFFF;
-    p = phys_ram_base + kernel_addr;
-#if !defined (USE_OPEN_FIRMWARE)
-    /* Let's register the whole memory available only in supervisor mode */
-    setup_BAT(env, 0, 0x00000000, 0x00000000, mem_size, 1, 0, 2);
-    /* Avoid open firmware init call (to get a console)
-     * This will make the kernel think we are a PREP machine...
-     */
-    put_long(p, 0xdeadc0de);
-    /* Build a real stack room */
-    p = phys_ram_base + stack_addr;
-    put_long(p, stack_addr);
-    p -= 32;
-    env->gpr[1] -= 32;
-    /* Pretend there are no residual data */
-    env->gpr[3] = 0;
-    if (initrd_file != NULL) {
-        int size;
-        env->gpr[4] = (kernel_addr + kernel_size + 4095) & ~4095;
-        size = load_initrd(initrd_file,
-                           phys_ram_base + env->gpr[4]);
-        if (size < 0) {
-            /* No initrd */
-            env->gpr[4] = env->gpr[5] = 0;
-        } else {
-            env->gpr[5] = size;
-            boot_device = 'e';
-        }
-        printf("Initrd loaded at 0x%08x (%d) (0x%08x 0x%08x)\n",
-	       env->gpr[4], env->gpr[5], kernel_addr, kernel_size);
-    } else {
-	env->gpr[4] = env->gpr[5] = 0;
-    }
-    /* We have to put bootinfos after the BSS
-     * The BSS starts after the kernel end.
-     */
-#if 0
-    p = phys_ram_base + kernel_addr +
-        kernel_size + (1 << 20) - 1) & ~((1 << 20) - 1);
-#else
-    p = phys_ram_base + kernel_addr + 0x400000;
-#endif
-    if (loglevel > 0) {
-        fprintf(logfile, "bootinfos: %p 0x%08x\n",
-                p, (int)(p - phys_ram_base));
-    } else {
-        printf("bootinfos: %p 0x%08x\n",
-               p, (int)(p - phys_ram_base));
-    }
-    /* Command line: let's put it after bootinfos */
-#if 0
-    sprintf(p + 0x1000, "console=ttyS0,9600 root=%02x%02x mem=%dM",
-            boot_devs[boot_device - 'a'].major,
-            boot_devs[boot_device - 'a'].minor,
-            mem_size >> 20);
-#else
-    sprintf(p + 0x1000, "console=ttyS0,9600 console=tty0 root=%s mem=%dM",
-            boot_devs[boot_device - 'a'].name,
-            mem_size >> 20);
-#endif
-    env->gpr[6] = p + 0x1000 - phys_ram_base;
-    env->gpr[7] = env->gpr[6] + strlen(p + 0x1000);
-    if (loglevel > 0) {
-        fprintf(logfile, "cmdline: %p 0x%08x [%s]\n",
-                p + 0x1000, env->gpr[6], p + 0x1000);
-    } else {
-        printf("cmdline: %p 0x%08x [%s]\n",
-               p + 0x1000, env->gpr[6], p + 0x1000);
-    }
-    /* BI_FIRST */
-    p = set_bootinfo_tag(p, 0x1010, 0, 0);
-    /* BI_CMD_LINE */
-    p = set_bootinfo_tag(p, 0x1012, env->gpr[7] - env->gpr[6],
-                         env->gpr[6] + phys_ram_base);
-    /* BI_MEM_SIZE */
-    tmp = (void *)tmpi;
-    tmp[0] = (mem_size >> 24) & 0xFF;
-    tmp[1] = (mem_size >> 16) & 0xFF;
-    tmp[2] = (mem_size >> 8) & 0xFF;
-    tmp[3] = mem_size & 0xFF;
-    p = set_bootinfo_tag(p, 0x1017, 4, tmpi);
-    /* BI_INITRD */
-    tmp[0] = (env->gpr[4] >> 24) & 0xFF;
-    tmp[1] = (env->gpr[4] >> 16) & 0xFF;
-    tmp[2] = (env->gpr[4] >> 8) & 0xFF;
-    tmp[3] = env->gpr[4] & 0xFF;
-    tmp[4] = (env->gpr[5] >> 24) & 0xFF;
-    tmp[5] = (env->gpr[5] >> 16) & 0xFF;
-    tmp[6] = (env->gpr[5] >> 8) & 0xFF;
-    tmp[7] = env->gpr[5] & 0xFF;
-    p = set_bootinfo_tag(p, 0x1014, 8, tmpi);
-    env->gpr[4] = env->gpr[5] = 0;
-    /* BI_LAST */
-    p = set_bootinfo_tag(p, 0x1011, 0, 0);
-#else
-    /* Set up MMU:
-     * kernel is loaded at kernel_addr and wants to be seen at 0x01000000
-     */
-    setup_BAT(env, 0, 0x01000000, kernel_addr, 0x00400000, 1, 0, 2);
-    {
-#if 0
-        uint32_t offset = get_le32(phys_ram_base + kernel_addr);
-#else
-        uint32_t offset = 12;
-#endif
-        env->nip = 0x01000000 | (kernel_addr + offset);
-        printf("Start address: 0x%08x\n", env->nip);
-    }
-    env->gpr[1] = env->nip + (1 << 22);
-    p = phys_ram_base + stack_addr;
-    put_long(p - 32, stack_addr);
-    env->gpr[1] -= 32;
-    printf("Kernel starts at 0x%08x stack 0x%08x\n", env->nip, env->gpr[1]);
-    /* We want all lower address not to be translated */
-    setup_BAT(env, 1, 0x00000000, 0x00000000, 0x010000000, 1, 1, 2);
-    /* We also need a BAT to access OF */
-    setup_BAT(env, 2, 0xFFFE0000, mem_size - 131072, 131072, 1, 0, 1);
-    /* Setup OF entry point */
-    {
-        char *p;
-        p = (char *)phys_ram_base + mem_size - 131072;
-        /* Special opcode to call OF */
-        *p++ = 0x18; *p++ = 0x00; *p++ = 0x00; *p++ = 0x02;
-        /* blr */
-        *p++ = 0x4E; *p++ = 0x80; *p++ = 0x00; *p++ = 0x20;
-    }
-    env->gpr[5] = 0xFFFE0000;
-    /* Register translations */
-    {
-        OF_transl_t translations[3] = {
-            { 0x01000000, 0x00400000, kernel_addr, 0x00000002, },
-            { 0x00000000, 0x01000000, 0x00000000, 0x00000002, },
-            { 0xFFFE0000, 0x00020000, mem_size - (128 * 1024),
-              0x00000001, },
-        };
-        OF_register_translations(3, translations);
-    }
-    /* Quite artificial, for now */
-    OF_register_bus("isa", "isa");
-    OF_register_serial("isa", "serial", 4, 0x3f8);
-    OF_register_stdio("serial", "serial");
-    /* Set up RTAS service */
-    RTAS_init();
-    /* Command line: let's put it just over the stack */
-#if 0
-#if 0
-    p = phys_ram_base + kernel_addr +
-    kernel_size + (1 << 20) - 1) & ~((1 << 20) - 1);
-#else
-    p = phys_ram_base + kernel_addr + 0x400000;
-#endif
-#if 1
-    sprintf(p, "console=ttyS0,9600 root=%02x%02x mem=%dM",
-            boot_devs[boot_device - 'a'].major,
-            boot_devs[boot_device - 'a'].minor,
-            mem_size >> 20);
-#else
-    sprintf(p, "console=ttyS0,9600 root=%s mem=%dM ne2000=0x300,9",
-            boot_devs[boot_device - 'a'].name,
-            mem_size >> 20);
-#endif
-    OF_register_bootargs(p);
-#endif
-#endif
-}
-
-void PPC_end_init (void)
-{
-    VGA_init();
+    cpu_reset(CPU(cpu));
 }
 
 /* PowerPC PREP hardware initialisation */
-void ppc_prep_init(int ram_size, int vga_ram_size, int boot_device,
-		   DisplayState *ds, const char **fd_filename, int snapshot,
-		   const char *kernel_filename, const char *kernel_cmdline,
-		   const char *initrd_filename)
+static void ppc_prep_init (ram_addr_t ram_size,
+                           const char *boot_device,
+                           const char *kernel_filename,
+                           const char *kernel_cmdline,
+                           const char *initrd_filename,
+                           const char *cpu_model)
 {
-    char buf[1024];
-    int PPC_io_memory;
-    int ret, linux_boot, initrd_size, i, nb_nics1, fd;
+    MemoryRegion *sysmem = get_system_memory();
+    PowerPCCPU *cpu = NULL;
+    CPUPPCState *env = NULL;
+    char *filename;
+    nvram_t nvram;
+    M48t59State *m48t59;
+    MemoryRegion *PPC_io_memory = g_new(MemoryRegion, 1);
+#if 0
+    MemoryRegion *xcsr = g_new(MemoryRegion, 1);
+#endif
+    int linux_boot, i, nb_nics1, bios_size;
+    MemoryRegion *ram = g_new(MemoryRegion, 1);
+    MemoryRegion *bios = g_new(MemoryRegion, 1);
+    uint32_t kernel_base, initrd_base;
+    long kernel_size, initrd_size;
+    DeviceState *dev;
+    PCIHostState *pcihost;
+    PCIBus *pci_bus;
+    PCIDevice *pci;
+    ISABus *isa_bus;
+    qemu_irq *cpu_exit_irq;
+    int ppc_boot_device;
+    DriveInfo *hd[MAX_IDE_BUS * MAX_IDE_DEVS];
+    DriveInfo *fd[MAX_FD];
+
+    sysctrl = g_malloc0(sizeof(sysctrl_t));
 
     linux_boot = (kernel_filename != NULL);
 
-    /* allocate RAM */
-    cpu_register_physical_memory(0, ram_size, 0);
+    /* init CPUs */
+    if (cpu_model == NULL)
+        cpu_model = "602";
+    for (i = 0; i < smp_cpus; i++) {
+        cpu = cpu_ppc_init(cpu_model);
+        if (cpu == NULL) {
+            fprintf(stderr, "Unable to find PowerPC CPU definition\n");
+            exit(1);
+        }
+        env = &cpu->env;
 
-    isa_mem_base = 0xc0000000;
+        if (env->flags & POWERPC_FLAG_RTC_CLK) {
+            /* POWER / PowerPC 601 RTC clock frequency is 7.8125 MHz */
+            cpu_ppc_tb_init(env, 7812500UL);
+        } else {
+            /* Set time-base frequency to 100 Mhz */
+            cpu_ppc_tb_init(env, 100UL * 1000UL * 1000UL);
+        }
+        qemu_register_reset(ppc_prep_reset, cpu);
+    }
+
+    /* allocate RAM */
+    memory_region_init_ram(ram, "ppc_prep.ram", ram_size);
+    vmstate_register_ram_global(ram);
+    memory_region_add_subregion(sysmem, 0, ram);
+
+    /* allocate and load BIOS */
+    memory_region_init_ram(bios, "ppc_prep.bios", BIOS_SIZE);
+    memory_region_set_readonly(bios, true);
+    memory_region_add_subregion(sysmem, (uint32_t)(-BIOS_SIZE), bios);
+    vmstate_register_ram_global(bios);
+    if (bios_name == NULL)
+        bios_name = BIOS_FILENAME;
+    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
+    if (filename) {
+        bios_size = get_image_size(filename);
+    } else {
+        bios_size = -1;
+    }
+    if (bios_size > 0 && bios_size <= BIOS_SIZE) {
+        target_phys_addr_t bios_addr;
+        bios_size = (bios_size + 0xfff) & ~0xfff;
+        bios_addr = (uint32_t)(-bios_size);
+        bios_size = load_image_targphys(filename, bios_addr, bios_size);
+    }
+    if (bios_size < 0 || bios_size > BIOS_SIZE) {
+        hw_error("qemu: could not load PPC PREP bios '%s'\n", bios_name);
+    }
+    if (filename) {
+        g_free(filename);
+    }
 
     if (linux_boot) {
+        kernel_base = KERNEL_LOAD_ADDR;
         /* now we can load the kernel */
-        ret = load_image(kernel_filename, phys_ram_base + KERNEL_LOAD_ADDR);
-        if (ret < 0) {
-            fprintf(stderr, "qemu: could not load kernel '%s'\n", 
-                    kernel_filename);
+        kernel_size = load_image_targphys(kernel_filename, kernel_base,
+                                          ram_size - kernel_base);
+        if (kernel_size < 0) {
+            hw_error("qemu: could not load kernel '%s'\n", kernel_filename);
             exit(1);
         }
         /* load initrd */
-        initrd_size = 0;
-#if 0
         if (initrd_filename) {
-            initrd_size = load_image(initrd_filename, phys_ram_base + INITRD_LOAD_ADDR);
+            initrd_base = INITRD_LOAD_ADDR;
+            initrd_size = load_image_targphys(initrd_filename, initrd_base,
+                                              ram_size - initrd_base);
             if (initrd_size < 0) {
-                fprintf(stderr, "qemu: could not load initial ram disk '%s'\n", 
-                        initrd_filename);
-                exit(1);
+                hw_error("qemu: could not load initial ram disk '%s'\n",
+                          initrd_filename);
+            }
+        } else {
+            initrd_base = 0;
+            initrd_size = 0;
+        }
+        ppc_boot_device = 'm';
+    } else {
+        kernel_base = 0;
+        kernel_size = 0;
+        initrd_base = 0;
+        initrd_size = 0;
+        ppc_boot_device = '\0';
+        /* For now, OHW cannot boot from the network. */
+        for (i = 0; boot_device[i] != '\0'; i++) {
+            if (boot_device[i] >= 'a' && boot_device[i] <= 'f') {
+                ppc_boot_device = boot_device[i];
+                break;
             }
         }
-#endif
-        PPC_init_hw(/*env,*/ ram_size, KERNEL_LOAD_ADDR, ret,
-                    KERNEL_STACK_ADDR, boot_device, initrd_filename);
-    } else {
-	/* allocate ROM */
-	//        snprintf(buf, sizeof(buf), "%s/%s", bios_dir, BIOS_FILENAME);
-	snprintf(buf, sizeof(buf), "%s", BIOS_FILENAME);
-	printf("load BIOS at %p\n", phys_ram_base + 0x000f0000);
-	ret = load_image(buf, phys_ram_base + 0x000f0000);
-	if (ret != 0x10000) {
-	    fprintf(stderr, "qemu: could not load PPC bios '%s' (%d)\n%m\n",
-		    buf, ret);
-	    exit(1);
-	}
+        if (ppc_boot_device == '\0') {
+            fprintf(stderr, "No valid boot device for Mac99 machine\n");
+            exit(1);
+        }
     }
 
-    /* init basic PC hardware */
-    vga_initialize(ds, phys_ram_base + ram_size, ram_size, 
-                   vga_ram_size);
-    rtc_init(0x70, 8);
-    pic_init();
-    //    pit_init(0x40, 0);
+    if (PPC_INPUT(env) != PPC_FLAGS_INPUT_6xx) {
+        hw_error("Only 6xx bus is supported on PREP machine\n");
+    }
 
-    fd = serial_open_device();
-    serial_init(0x3f8, 4, fd);
-#if 1
+    dev = qdev_create(NULL, "raven-pcihost");
+    pcihost = PCI_HOST_BRIDGE(dev);
+    pcihost->address_space = get_system_memory();
+    object_property_add_child(qdev_get_machine(), "raven", OBJECT(dev), NULL);
+    qdev_init_nofail(dev);
+    pci_bus = (PCIBus *)qdev_get_child_bus(dev, "pci.0");
+    if (pci_bus == NULL) {
+        fprintf(stderr, "Couldn't create PCI host controller.\n");
+        exit(1);
+    }
+
+    /* PCI -> ISA bridge */
+    pci = pci_create_simple(pci_bus, PCI_DEVFN(1, 0), "i82378");
+    cpu_exit_irq = qemu_allocate_irqs(cpu_request_exit, NULL, 1);
+    qdev_connect_gpio_out(&pci->qdev, 0,
+                          first_cpu->irq_inputs[PPC6xx_INPUT_INT]);
+    qdev_connect_gpio_out(&pci->qdev, 1, *cpu_exit_irq);
+    sysbus_connect_irq(&pcihost->busdev, 0, qdev_get_gpio_in(&pci->qdev, 9));
+    sysbus_connect_irq(&pcihost->busdev, 1, qdev_get_gpio_in(&pci->qdev, 11));
+    sysbus_connect_irq(&pcihost->busdev, 2, qdev_get_gpio_in(&pci->qdev, 9));
+    sysbus_connect_irq(&pcihost->busdev, 3, qdev_get_gpio_in(&pci->qdev, 11));
+    isa_bus = DO_UPCAST(ISABus, qbus, qdev_get_child_bus(&pci->qdev, "isa.0"));
+
+    /* Register 8 MB of ISA IO space (needed for non-contiguous map) */
+    memory_region_init_io(PPC_io_memory, &PPC_prep_io_ops, sysctrl,
+                          "ppc-io", 0x00800000);
+    memory_region_add_subregion(sysmem, 0x80000000, PPC_io_memory);
+
+    /* init basic PC hardware */
+    pci_vga_init(pci_bus);
+
+    if (serial_hds[0])
+        serial_isa_init(isa_bus, 0, serial_hds[0]);
     nb_nics1 = nb_nics;
     if (nb_nics1 > NE2000_NB_MAX)
         nb_nics1 = NE2000_NB_MAX;
     for(i = 0; i < nb_nics1; i++) {
-        ne2000_init(ne2000_io[i], ne2000_irq[i], &nd_table[i]);
+        if (nd_table[i].model == NULL) {
+	    nd_table[i].model = g_strdup("ne2k_isa");
+        }
+        if (strcmp(nd_table[i].model, "ne2k_isa") == 0) {
+            isa_ne2000_init(isa_bus, ne2000_io[i], ne2000_irq[i],
+                            &nd_table[i]);
+        } else {
+            pci_nic_init_nofail(&nd_table[i], "ne2k_pci", NULL);
+        }
     }
-#endif
 
-    for(i = 0; i < 2; i++) {
-        ide_init(ide_iobase[i], ide_iobase2[i], ide_irq[i],
-                 bs_table[2 * i], bs_table[2 * i + 1]);
+    ide_drive_get(hd, MAX_IDE_BUS);
+    for(i = 0; i < MAX_IDE_BUS; i++) {
+        isa_ide_init(isa_bus, ide_iobase[i], ide_iobase2[i], ide_irq[i],
+                     hd[2 * i],
+		     hd[2 * i + 1]);
     }
-    kbd_init();
-    AUD_init();
-    DMA_init();
+    isa_create_simple(isa_bus, "i8042");
+
     //    SB16_init();
 
-    fdctrl_init(6, 2, 0, 0x3f0, fd_table);
+    for(i = 0; i < MAX_FD; i++) {
+        fd[i] = drive_get(IF_FLOPPY, 0, i);
+    }
+    fdctrl_init_isa(isa_bus, fd);
 
-    /* Register 64 kB of IO space */
-    PPC_io_memory = cpu_register_io_memory(0, PPC_io_read, PPC_io_write);
-    cpu_register_physical_memory(0x80000000, 0x10000, PPC_io_memory);
     /* Register fake IO ports for PREP */
-    register_ioport_read(0x398, 2, 1, &PREP_io_read, NULL);
-    register_ioport_write(0x398, 2, 1, &PREP_io_write, NULL);
+    sysctrl->reset_irq = first_cpu->irq_inputs[PPC6xx_INPUT_HRESET];
+    register_ioport_read(0x398, 2, 1, &PREP_io_read, sysctrl);
+    register_ioport_write(0x398, 2, 1, &PREP_io_write, sysctrl);
     /* System control ports */
-    register_ioport_write(0x0092, 0x1, 1, &PREP_io_800_writeb, NULL);
-    register_ioport_read(0x0800, 0x52, 1, &PREP_io_800_readb, NULL);
-    register_ioport_write(0x0800, 0x52, 1, &PREP_io_800_writeb, NULL);
-    /* PCI intack location (0xfef00000 / 0xbffffff0) */
-    PPC_io_memory = cpu_register_io_memory(0, PPC_ioB_read, PPC_ioB_write);
-    cpu_register_physical_memory(0xBFFFFFF0, 0x4, PPC_io_memory);
-    //    cpu_register_physical_memory(0xFEF00000, 0x4, PPC_io_memory);
-    prep_NVRAM_init();
+    register_ioport_read(0x0092, 0x01, 1, &PREP_io_800_readb, sysctrl);
+    register_ioport_write(0x0092, 0x01, 1, &PREP_io_800_writeb, sysctrl);
+    register_ioport_read(0x0800, 0x52, 1, &PREP_io_800_readb, sysctrl);
+    register_ioport_write(0x0800, 0x52, 1, &PREP_io_800_writeb, sysctrl);
+    /* PowerPC control and status register group */
+#if 0
+    memory_region_init_io(xcsr, &PPC_XCSR_ops, NULL, "ppc-xcsr", 0x1000);
+    memory_region_add_subregion(sysmem, 0xFEFF0000, xcsr);
+#endif
 
-    PPC_end_init();
+    if (usb_enabled) {
+        pci_create_simple(pci_bus, -1, "pci-ohci");
+    }
+
+    m48t59 = m48t59_init_isa(isa_bus, 0x0074, NVRAM_SIZE, 59);
+    if (m48t59 == NULL)
+        return;
+    sysctrl->nvram = m48t59;
+
+    /* Initialise NVRAM */
+    nvram.opaque = m48t59;
+    nvram.read_fn = &m48t59_read;
+    nvram.write_fn = &m48t59_write;
+    PPC_NVRAM_set_params(&nvram, NVRAM_SIZE, "PREP", ram_size, ppc_boot_device,
+                         kernel_base, kernel_size,
+                         kernel_cmdline,
+                         initrd_base, initrd_size,
+                         /* XXX: need an option to load a NVRAM image */
+                         0,
+                         graphic_width, graphic_height, graphic_depth);
+
+    /* Special port to get debug messages from Open-Firmware */
+    register_ioport_write(0x0F00, 4, 1, &PPC_debug_write, NULL);
+
+    /* Initialize audio subsystem */
+    audio_init(isa_bus, pci_bus);
 }
+
+static QEMUMachine prep_machine = {
+    .name = "prep",
+    .desc = "PowerPC PREP platform",
+    .init = ppc_prep_init,
+    .max_cpus = MAX_CPUS,
+};
+
+static void prep_machine_init(void)
+{
+    qemu_register_machine(&prep_machine);
+}
+
+machine_init(prep_machine_init);

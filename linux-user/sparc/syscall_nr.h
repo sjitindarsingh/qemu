@@ -136,6 +136,7 @@
 #define TARGET_NR_utimes             138 /* SunOS Specific                              */
 #define TARGET_NR_stat64		139 /* Linux sparc32 Specific			   */
 #define TARGET_NR_getpeername        141 /* Common                                      */
+#define TARGET_NR_futex              142 /* gethostid under SunOS                       */
 #define TARGET_NR_gettid             143 /* ENOSYS under SunOS                          */
 #define TARGET_NR_getrlimit          144 /* Common                                      */
 #define TARGET_NR_setrlimit          145 /* Common                                      */
@@ -153,6 +154,7 @@
 #define TARGET_NR_getdomainname      162 /* SunOS Specific                              */
 #define TARGET_NR_setdomainname      163 /* Common                                      */
 #define TARGET_NR_quotactl           165 /* Common                                      */
+#define TARGET_NR_set_tid_address    166 /* Linux specific, exportfs under SunOS        */
 #define TARGET_NR_mount              167 /* Common                                      */
 #define TARGET_NR_ustat              168 /* Common                                      */
 #define TARGET_NR_getdents           174 /* Common                                      */
@@ -177,6 +179,7 @@
 #define TARGET_NR_readahead          205 /* Linux Specific                              */
 #define TARGET_NR_socketcall         206 /* Linux Specific                              */
 #define TARGET_NR_syslog             207 /* Linux Specific                              */
+#define TARGET_NR_tgkill             211 /* Linux Specific                              */
 #define TARGET_NR_waitpid            212 /* Linux Specific                              */
 #define TARGET_NR_swapoff            213 /* Linux Specific                              */
 #define TARGET_NR_sysinfo            214 /* Linux Specific                              */
@@ -217,4 +220,83 @@
 #define TARGET_NR_fdatasync          253
 #define TARGET_NR_nfsservctl         254
 #define TARGET_NR_aplib              255
-#define TARGET_NR__exit TARGET_NR_exit
+#define TARGET_NR_clock_settime	256
+#define TARGET_NR_clock_gettime	257
+#define TARGET_NR_clock_getres	258
+#define TARGET_NR_clock_nanosleep	259
+#define TARGET_NR_sched_getaffinity	260
+#define TARGET_NR_sched_setaffinity	261
+#define TARGET_NR_timer_settime	262
+#define TARGET_NR_timer_gettime	263
+#define TARGET_NR_timer_getoverrun	264
+#define TARGET_NR_timer_delete	265
+#define TARGET_NR_timer_create	266
+/* #define TARGET_NR_vserver		267 Reserved for VSERVER */
+#define TARGET_NR_io_setup		268
+#define TARGET_NR_io_destroy		269
+#define TARGET_NR_io_submit		270
+#define TARGET_NR_io_cancel		271
+#define TARGET_NR_io_getevents	272
+#define TARGET_NR_mq_open		273
+#define TARGET_NR_mq_unlink		274
+#define TARGET_NR_mq_timedsend	275
+#define TARGET_NR_mq_timedreceive	276
+#define TARGET_NR_mq_notify		277
+#define TARGET_NR_mq_getsetattr	278
+#define TARGET_NR_waitid		279
+#define TARGET_NR_tee		280
+#define TARGET_NR_add_key		281
+#define TARGET_NR_request_key	282
+#define TARGET_NR_keyctl		283
+#define TARGET_NR_openat		284
+#define TARGET_NR_mkdirat		285
+#define TARGET_NR_mknodat		286
+#define TARGET_NR_fchownat		287
+#define TARGET_NR_futimesat		288
+#define TARGET_NR_fstatat64		289
+#define TARGET_NR_unlinkat		290
+#define TARGET_NR_renameat		291
+#define TARGET_NR_linkat		292
+#define TARGET_NR_symlinkat		293
+#define TARGET_NR_readlinkat		294
+#define TARGET_NR_fchmodat		295
+#define TARGET_NR_faccessat		296
+#define TARGET_NR_pselect6		297
+#define TARGET_NR_ppoll		298
+#define TARGET_NR_unshare		299
+#define TARGET_NR_set_robust_list	300
+#define TARGET_NR_get_robust_list	301
+#define TARGET_NR_migrate_pages	302
+#define TARGET_NR_mbind		303
+#define TARGET_NR_get_mempolicy	304
+#define TARGET_NR_set_mempolicy	305
+#define TARGET_NR_kexec_load		306
+#define TARGET_NR_move_pages		307
+#define TARGET_NR_getcpu		308
+#define TARGET_NR_epoll_pwait	309
+#define TARGET_NR_utimensat		310
+#define TARGET_NR_signalfd		311
+#define TARGET_NR_timerfd		312
+#define TARGET_NR_eventfd		313
+#define TARGET_NR_fallocate		314
+#define TARGET_NR_timerfd_settime	315
+#define TARGET_NR_timerfd_gettime	316
+#define TARGET_NR_signalfd4		317
+#define TARGET_NR_eventfd2		318
+#define TARGET_NR_epoll_create1	319
+#define TARGET_NR_dup3			320
+#define TARGET_NR_pipe2		321
+#define TARGET_NR_inotify_init1	322
+#define TARGET_NR_accept4		323
+#define TARGET_NR_preadv                324
+#define TARGET_NR_pwritev               325
+#define TARGET_NR_rt_tgsigqueueinfo     326
+#define TARGET_NR_perf_event_open       327
+#define TARGET_NR_recvmmsg              328
+#define TARGET_NR_fanotify_init         329
+#define TARGET_NR_fanotify_mark         330
+#define TARGET_NR_prlimit64             331
+#define TARGET_NR_name_to_handle_at     332
+#define TARGET_NR_open_by_handle_at     333
+#define TARGET_NR_clock_adjtime         334
+#define TARGET_NR_syncfs                335

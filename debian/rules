@@ -1,106 +1,199 @@
 #!/usr/bin/make -f
-# -*- makefile -*-
-# Sample debian/rules that uses debhelper.
-# GNU copyright 1997 to 1999 by Joey Hess.
+#
+# $Id: rules 391 2009-03-07 05:21:19Z aurel32 $
+#
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+# support parallel build using DEB_BUULD_OPTIONS=parallel=N
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+  MAKEFLAGS += -j$(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+endif
 
+# Packaging version
+DEB_VERSION := $(shell dpkg-parsechangelog | egrep '^Version:' | cut -f 2 -d ' ')
 
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+# Compiler flags
+CFLAGS = $(shell dpkg-buildflags --get CFLAGS) $(shell dpkg-buildflags --get CPPFLAGS)
+LDFLAGS = $(shell dpkg-buildflags --get LDFLAGS) -Wl,--as-needed
 
+# Architecture/system specific configuration
+DEB_HOST_ARCH = $(shell dpkg-architecture -qDEB_HOST_ARCH)
+DEB_HOST_ARCH_OS = $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
-CFLAGS = -Wall -g
+common_configure_opts = \
+	--with-pkgversion="Debian $(DEB_VERSION)" \
+	--extra-cflags="$(CFLAGS)" \
+	--extra-ldflags="$(LDFLAGS)" \
+	--prefix=/usr \
+	--sysconfdir=/etc \
+	--disable-blobs \
+	--disable-strip \
 
-ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
-	CFLAGS += -O0
+ifeq ($(DEB_HOST_ARCH_OS),linux)
+       conf_audio_drv = --audio-drv-list=alsa,oss,sdl,pa
+else ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
+       conf_audio_drv = --audio-drv-list=oss,sdl,pa
 else
-	CFLAGS += -O2
-endif
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	INSTALL_PROGRAM += -s
+       conf_audio_drv = 
 endif
 
-config.status: configure
-	dh_testdir
-	CFLAGS="$(CFLAGS)" ./configure --target-list="i386-user i386 i386-softmmu arm-user sparc-user ppc-user ppc-softmmu" --prefix=/usr --enable-slirp
+# list of system (softmmu) targets, from ./configure
+system_targets = \
+ i386 x86_64 alpha arm cris lm32 m68k microblaze microblazeel \
+ mips mipsel mips64 mips64el ppc ppcemb ppc64 sh4 sh4eb \
+ sparc sparc64 s390x xtensa xtensaeb
 
-build: build-stamp
+ifeq ($(DEB_HOST_ARCH_OS),linux)
 
-build-stamp:  config.status
+# list of linux-user targets, from ./configure
+user_targets = \
+ i386 x86_64 alpha arm armeb cris m68k microblaze microblazeel \
+ mips mipsel ppc ppc64 ppc64abi32 sh4 sh4eb sparc sparc64 sparc32plus \
+ unicore32 s390x
+
+# binfmt linux-user support
+
+all_binfmt_targets = \
+ $(patsubst debian/binfmts/qemu-%,%,$(wildcard debian/binfmts/qemu-*))
+
+# find which targets needs to be filtered out, which is arch-dependent.
+# Drop support for emulating amd64 on i386, http://bugs.debian.org/604712
+filter_binfmts = $(shell \
+ case $(DEB_HOST_ARCH) in \
+   (amd64 | i386) echo i386 x86_64 ;;\
+   (arm | armel | armhf) echo arm ;;\
+   (mips | mipsel) echo $(DEB_HOST_ARCH) ;;\
+   (powerpc) echo ppc ;;\
+   (ppc64) echo ppc ppc64 ppc64abi32 ;;\
+   (s390x) echo s390x ;;\
+   (sparc | sparc64) echo sparc sparc32plus sparc64 ;;\
+ esac)
+
+binfmt_targets = $(filter-out $(filter_binfmts), $(all_binfmt_targets))
+
+user_configure_opts = \
+	--target-list="$(addsuffix -linux-user,${user_targets})" \
+	--interp-prefix=/etc/qemu-binfmt/%M \
+	--disable-system
+
+endif	# binfmt
+
+configure-stamp: configure
 	dh_testdir
-	$(MAKE)
-	/usr/bin/docbook-to-man debian/qemu-i386.sgml > qemu-i386.1
-	touch build-stamp
+
+	# system build
+	mkdir -p system-build && cd system-build && \
+		../configure ${common_configure_opts} \
+			--disable-linux-user \
+			--disable-bsd-user \
+			${conf_audio_drv}
+
+ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
+# Hack alert.
+# On recent kFreebsd, old USB host API has been removed,
+# but qemu did not learn to use new USB API.
+# Just do not build USB host support.
+	sed -i 's/^HOST_USB=bsd/HOST_USB=stub/' \
+		$(CURDIR)/system-build/config-host.mak
+endif
+
+ifeq ($(DEB_HOST_ARCH_OS),linux)
+	# user build
+	mkdir -p user-build && cd user-build && \
+		../configure ${common_configure_opts} ${user_configure_opts}
+	# static user build
+	mkdir -p user-static-build && cd user-static-build && \
+		../configure ${common_configure_opts} ${user_configure_opts} \
+			--static
+endif
+	touch $@
+
+build: build-arch build-indep
+build-arch: build-stamp
+build-indep: build-stamp
+build-stamp: configure-stamp
+	dh_testdir
+
+	# system build
+	$(MAKE) -C $(CURDIR)/system-build
+	dtc -o system-build/pc-bios/bamboo.dtb pc-bios/bamboo.dts
+
+ifeq ($(DEB_HOST_ARCH_OS),linux)
+	# user and user-static build
+	# we use this invocation to build just the binaries
+	$(MAKE) -C $(CURDIR)/user-build $(foreach t,${user_targets},subdir-${t}-linux-user)
+	$(MAKE) -C $(CURDIR)/user-static-build $(foreach t,${user_targets},subdir-${t}-linux-user)
+endif
+	touch $@
 
 clean:
 	dh_testdir
-	dh_testroot
-	rm -f build-stamp 
-
-	-$(MAKE) distclean
-ifneq "$(wildcard /usr/share/misc/config.sub)" ""
-	cp -f /usr/share/misc/config.sub config.sub
-endif
-ifneq "$(wildcard /usr/share/misc/config.guess)" ""
-	cp -f /usr/share/misc/config.guess config.guess
-endif
-
-	rm -f qemu-doc.html qemu-i386.1 qemu.1
-
-	dh_clean 
+	rm -rf $(CURDIR)/*-build/
+	rm -f $(CURDIR)/*-stamp
+	dh_clean
 
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
-	dh_installdirs
+	dh_prep
+	dh_installdirs -a
 
-	base=$(CURDIR)/debian/qemu/usr; $(MAKE) install prefix=$$base bindir=$$base/bin sharedir=$$base/share/qemu mandir=$$base/share/man docdir=$$base/share/doc/qemu
-	cp qemu-i386.1 $(CURDIR)/debian/qemu/usr/share/man/man1/
-	ln -sf qemu.1 $(CURDIR)/debian/qemu/usr/share/man/man1/qemu-fast.1
-	ln -sf qemu.1 $(CURDIR)/debian/qemu/usr/share/man/man1/qemu-arm.1
-	ln -sf qemu.1 $(CURDIR)/debian/qemu/usr/share/man/man1/qemu-sparc.1
-	ln -sf qemu.1 $(CURDIR)/debian/qemu/usr/share/man/man1/qemu-ppc.1
-	ln -sf qemu.1 $(CURDIR)/debian/qemu/usr/share/man/man1/qemu-system-ppc.1
+	# system build
+	$(MAKE) -C $(CURDIR)/system-build DESTDIR=$(CURDIR)/debian/tmp install
 
-# Build architecture-independent files here.
-binary-indep: build install
-# We have nothing to do by default.
+	# qemu-system
+	mkdir -p debian/qemu-system/usr/bin debian/qemu-system/usr/share/man/man1
+	mv $(addprefix debian/tmp/usr/bin/qemu-system-,${system_targets}) \
+	    debian/qemu-system/usr/bin/
+	for t in ${system_targets}; do \
+		ln -s qemu.1 debian/qemu-system/usr/share/man/man1/qemu-system-$$t.1 ;\
+	done
 
-# Build architecture-dependent files here.
-binary-arch: build install
-	dh_testdir
-	dh_testroot
-	dh_installchangelogs Changelog
+ifeq ($(DEB_HOST_ARCH_OS),linux)
+	# qemu-user and qemu-user-static
+	for x in "" -static; do \
+	    mkdir -p debian/qemu-user$$x/usr/bin \
+		debian/qemu-user$$x/usr/share/man/man1 ;\
+	    for t in ${user_targets} ; do \
+		cp -p user$$x-build/$$t-linux-user/qemu-$$t \
+		    debian/qemu-user$$x/usr/bin/qemu-$$t$$x ;\
+		ln -s qemu-user$$x.1 \
+		    debian/qemu-user$$x/usr/share/man/man1/qemu-$$t$$x.1 ;\
+	    done ;\
+	done
+
+	# binfmt support
+	for x in postinst prerm; do \
+	    sed 's/@BINFMT_TARGETS@/${all_binfmt_targets}/' \
+		debian/qemu-user-static.$$x-in > debian/qemu-user-static.$$x.debhelper ; \
+	done
+
+	mkdir -p debian/qemu-user-static/usr/share/binfmts
+	install -m 644 -t debian/qemu-user-static/usr/share/binfmts/ \
+		$(addprefix debian/binfmts/qemu-,${binfmt_targets})
+endif
+
+	# copy ifup/down and keymaps to Ubuntu's qemu-system
+	install -Dp -m 0755 debian/kvm-ifup debian/qemu-system/usr/bin/qemu-ifup
+	install -Dp -m 0755 debian/kvm-ifdown debian/qemu-system/usr/bin/qemu-ifdown
+
+	dh_install --list-missing
 	dh_installdocs
-	dh_installexamples
-#	dh_install
-#	dh_installmenu
-#	dh_installdebconf	
-#	dh_installlogrotate
-#	dh_installemacsen
-#	dh_installpam
-#	dh_installmime
-#	dh_installinit
-#	dh_installcron
-#	dh_installinfo
-	dh_installman
+	dh_installinit -pqemu-system --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
+	dh_installchangelogs Changelog
+	dh_installudev
 	dh_link
 	dh_strip
 	dh_compress
 	dh_fixperms
-#	dh_perl
-#	dh_python
-#	dh_makeshlibs
 	dh_installdeb
 	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
 
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install 
+binary-indep: install
+binary-arch: install
+binary: install
+
+.PHONY: build clean binary-indep binary-arch binary install
+

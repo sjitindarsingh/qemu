@@ -10,11 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,14 +33,10 @@
 #ifndef _TCP_H_
 #define _TCP_H_
 
-typedef	u_int32_t	tcp_seq;
+typedef	uint32_t tcp_seq;
 
 #define      PR_SLOWHZ       2               /* 2 slow timeouts per second (approx) */
 #define      PR_FASTHZ       5               /* 5 fast timeouts per second (not important) */
-
-extern int tcp_rcvspace;
-extern int tcp_sndspace;
-extern struct socket *tcp_last_so;
 
 #define TCP_SNDSPACE 8192
 #define TCP_RCVSPACE 8192
@@ -53,65 +45,84 @@ extern struct socket *tcp_last_so;
  * TCP header.
  * Per RFC 793, September, 1981.
  */
+#define tcphdr slirp_tcphdr
 struct tcphdr {
-	u_int16_t	th_sport;		/* source port */
-	u_int16_t	th_dport;		/* destination port */
+	uint16_t th_sport;              /* source port */
+	uint16_t th_dport;              /* destination port */
 	tcp_seq	th_seq;			/* sequence number */
 	tcp_seq	th_ack;			/* acknowledgement number */
-#ifdef WORDS_BIGENDIAN
-	u_int	th_off:4,		/* data offset */
+#ifdef HOST_WORDS_BIGENDIAN
+	uint8_t	th_off:4,		/* data offset */
 		th_x2:4;		/* (unused) */
 #else
-	u_int	th_x2:4,		/* (unused) */
+	uint8_t	th_x2:4,		/* (unused) */
 		th_off:4;		/* data offset */
 #endif
-	u_int8_t	th_flags;
+	uint8_t th_flags;
+	uint16_t th_win;                /* window */
+	uint16_t th_sum;                /* checksum */
+	uint16_t th_urp;                /* urgent pointer */
+};
+
+#include "tcp_var.h"
+
+#ifndef TH_FIN
 #define	TH_FIN	0x01
 #define	TH_SYN	0x02
 #define	TH_RST	0x04
 #define	TH_PUSH	0x08
 #define	TH_ACK	0x10
 #define	TH_URG	0x20
-	u_int16_t	th_win;			/* window */
-	u_int16_t	th_sum;			/* checksum */
-	u_int16_t	th_urp;			/* urgent pointer */
-};
+#endif
 
-#include "tcp_var.h"
-
+#ifndef TCPOPT_EOL
 #define	TCPOPT_EOL		0
 #define	TCPOPT_NOP		1
 #define	TCPOPT_MAXSEG		2
-#define    TCPOLEN_MAXSEG		4
 #define TCPOPT_WINDOW		3
-#define    TCPOLEN_WINDOW		3
 #define TCPOPT_SACK_PERMITTED	4		/* Experimental */
-#define    TCPOLEN_SACK_PERMITTED	2
 #define TCPOPT_SACK		5		/* Experimental */
 #define TCPOPT_TIMESTAMP	8
-#define    TCPOLEN_TIMESTAMP		10
-#define    TCPOLEN_TSTAMP_APPA		(TCPOLEN_TIMESTAMP+2) /* appendix A */
 
 #define TCPOPT_TSTAMP_HDR	\
     (TCPOPT_NOP<<24|TCPOPT_NOP<<16|TCPOPT_TIMESTAMP<<8|TCPOLEN_TIMESTAMP)
+#endif
+
+#ifndef TCPOLEN_MAXSEG
+#define    TCPOLEN_MAXSEG		4
+#define    TCPOLEN_WINDOW		3
+#define    TCPOLEN_SACK_PERMITTED	2
+#define    TCPOLEN_TIMESTAMP		10
+#define    TCPOLEN_TSTAMP_APPA		(TCPOLEN_TIMESTAMP+2) /* appendix A */
+#endif
 
 /*
  * Default maximum segment size for TCP.
  * With an IP MSS of 576, this is 536,
  * but 512 is probably more convenient.
  * This should be defined as MIN(512, IP_MSS - sizeof (struct tcpiphdr)).
+ *
+ * We make this 1460 because we only care about Ethernet in the qemu context.
  */
-#define	TCP_MSS	512
+#undef TCP_MSS
+#define	TCP_MSS	1460
 
+#undef TCP_MAXWIN
 #define	TCP_MAXWIN	65535	/* largest value for (unscaled) window */
 
+#undef TCP_MAX_WINSHIFT
 #define TCP_MAX_WINSHIFT	14	/* maximum window shift */
 
 /*
  * User-settable options (used with setsockopt).
+ *
+ * We don't use the system headers on unix because we have conflicting
+ * local structures. We can't avoid the system definitions on Windows,
+ * so we undefine them.
  */
-/* #define	TCP_NODELAY	0x01 */	/* don't delay send to coalesce packets */
-/* #define	TCP_MAXSEG	0x02 */	/* set maximum segment size */
+#undef TCP_NODELAY
+#define	TCP_NODELAY	0x01	/* don't delay send to coalesce packets */
+#undef TCP_MAXSEG
 
 /*
  * TCP FSM state definitions.
@@ -161,9 +172,5 @@ struct tcphdr {
     (tp)->snd_una = (tp)->snd_nxt = (tp)->snd_max = (tp)->snd_up = (tp)->iss
 
 #define TCP_ISSINCR     (125*1024)      /* increment for tcp_iss each second */
-
-extern tcp_seq tcp_iss;                /* tcp initial send seq # */
-
-extern char *tcpstates[];
 
 #endif

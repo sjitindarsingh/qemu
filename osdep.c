@@ -1,8 +1,8 @@
 /*
  * QEMU low level functions
- * 
+ *
  * Copyright (c) 2003 Fabrice Bellard
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -24,450 +24,383 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
+#include <fcntl.h>
 
-#include "cpu.h"
+/* Needed early for CONFIG_BSD etc. */
+#include "config-host.h"
 
-#if defined(__i386__) && !defined(CONFIG_SOFTMMU) && !defined(CONFIG_USER_ONLY)
-
+#if defined(CONFIG_MADVISE) || defined(CONFIG_POSIX_MADVISE)
 #include <sys/mman.h>
-#include <sys/ipc.h>
-
-/* When not using soft mmu, libc independant functions are needed for
-   the CPU core because it needs to use alternates stacks and
-   libc/thread incompatibles settings */
-
-#include <linux/unistd.h>
-
-#define QEMU_SYSCALL0(name) \
-{ \
-long __res; \
-__asm__ volatile ("int $0x80" \
-	: "=a" (__res) \
-	: "0" (__NR_##name)); \
-return __res; \
-}
-
-#define QEMU_SYSCALL1(name,arg1) \
-{ \
-long __res; \
-__asm__ volatile ("int $0x80" \
-	: "=a" (__res) \
-	: "0" (__NR_##name),"b" ((long)(arg1))); \
-return __res; \
-}
-
-#define QEMU_SYSCALL2(name,arg1,arg2) \
-{ \
-long __res; \
-__asm__ volatile ("int $0x80" \
-	: "=a" (__res) \
-	: "0" (__NR_##name),"b" ((long)(arg1)),"c" ((long)(arg2))); \
-return __res; \
-}
-
-#define QEMU_SYSCALL3(name,arg1,arg2,arg3) \
-{ \
-long __res; \
-__asm__ volatile ("int $0x80" \
-	: "=a" (__res) \
-	: "0" (__NR_##name),"b" ((long)(arg1)),"c" ((long)(arg2)), \
-		  "d" ((long)(arg3))); \
-return __res; \
-}
-
-#define QEMU_SYSCALL4(name,arg1,arg2,arg3,arg4) \
-{ \
-long __res; \
-__asm__ volatile ("int $0x80" \
-	: "=a" (__res) \
-	: "0" (__NR_##name),"b" ((long)(arg1)),"c" ((long)(arg2)), \
-	  "d" ((long)(arg3)),"S" ((long)(arg4))); \
-return __res; \
-} 
-
-#define QEMU_SYSCALL5(name,arg1,arg2,arg3,arg4,arg5) \
-{ \
-long __res; \
-__asm__ volatile ("int $0x80" \
-	: "=a" (__res) \
-	: "0" (__NR_##name),"b" ((long)(arg1)),"c" ((long)(arg2)), \
-	  "d" ((long)(arg3)),"S" ((long)(arg4)),"D" ((long)(arg5))); \
-return __res; \
-}
-
-#define QEMU_SYSCALL6(name,arg1,arg2,arg3,arg4,arg5,arg6) \
-{ \
-long __res; \
-__asm__ volatile ("push %%ebp ; movl %%eax,%%ebp ; movl %1,%%eax ; int $0x80 ; pop %%ebp" \
-	: "=a" (__res) \
-	: "i" (__NR_##name),"b" ((long)(arg1)),"c" ((long)(arg2)), \
-	  "d" ((long)(arg3)),"S" ((long)(arg4)),"D" ((long)(arg5)), \
-	  "0" ((long)(arg6))); \
-return __res; \
-}
-
-int qemu_write(int fd, const void *buf, size_t n)
-{
-    QEMU_SYSCALL3(write, fd, buf, n);
-}
-
-
-
-/****************************************************************/
-/* shmat replacement */
-
-int qemu_ipc(int call, unsigned long first, 
-            unsigned long second, unsigned long third, 
-            void *ptr, unsigned long fifth)
-{
-    QEMU_SYSCALL6(ipc, call, first, second, third, ptr, fifth);
-}
-
-#define SHMAT 21
-
-/* we must define shmat so that a specific address will be used when
-   mapping the X11 ximage */
-void *shmat(int shmid, const void *shmaddr, int shmflg)
-{
-    void *ptr;
-    int ret;
-    /* we give an address in the right memory area */
-    if (!shmaddr)
-        shmaddr = get_mmap_addr(8192 * 1024);
-    ret = qemu_ipc(SHMAT, shmid, shmflg, (unsigned long)&ptr, (void *)shmaddr, 0);
-    if (ret < 0)
-        return NULL;
-    return ptr;
-}
-
-/****************************************************************/
-/* memory allocation */
-
-//#define DEBUG_MALLOC
-
-#define MALLOC_BASE       0xab000000
-#define PHYS_RAM_BASE     0xac000000
-
-#define MALLOC_ALIGN      16
-#define BLOCK_HEADER_SIZE 16
-
-typedef struct MemoryBlock {
-    struct MemoryBlock *next;
-    unsigned long size; /* size of block, including header */
-} MemoryBlock;
-
-static MemoryBlock *first_free_block;
-static unsigned long malloc_addr = MALLOC_BASE;
-
-static void *malloc_get_space(size_t size)
-{
-    void *ptr;
-    size = TARGET_PAGE_ALIGN(size);
-    ptr = mmap((void *)malloc_addr, size, 
-               PROT_WRITE | PROT_READ, 
-               MAP_PRIVATE | MAP_FIXED | MAP_ANON, -1, 0);
-    if (ptr == MAP_FAILED)
-        return NULL;
-    malloc_addr += size;
-    return ptr;
-}
-
-void *qemu_malloc(size_t size)
-{
-    MemoryBlock *mb, *mb1, **pmb;
-    void *ptr;
-    size_t size1, area_size;
-    
-    if (size == 0)
-        return NULL;
-
-    size = (size + BLOCK_HEADER_SIZE + MALLOC_ALIGN - 1) & ~(MALLOC_ALIGN - 1);
-    pmb = &first_free_block;
-    for(;;) {
-        mb = *pmb;
-        if (mb == NULL)
-            break;
-        if (size <= mb->size)
-            goto found;
-        pmb = &mb->next;
-    }
-    /* no big enough blocks found: get new space */
-    area_size = TARGET_PAGE_ALIGN(size);
-    mb = malloc_get_space(area_size);
-    if (!mb)
-        return NULL;
-    size1 = area_size - size;
-    if (size1 > 0) {
-        /* create a new free block */
-        mb1 = (MemoryBlock *)((uint8_t *)mb + size);
-        mb1->next = NULL;
-        mb1->size = size1;
-        *pmb = mb1;
-    }
-    goto the_end;
- found:
-    /* a free block was found: use it */
-    size1 = mb->size - size;
-    if (size1 > 0) {
-        /* create a new free block */
-        mb1 = (MemoryBlock *)((uint8_t *)mb + size);
-        mb1->next = mb->next;
-        mb1->size = size1;
-        *pmb = mb1;
-    } else {
-        /* suppress the first block */
-        *pmb = mb->next;
-    }
- the_end:
-    mb->size = size;
-    mb->next = NULL;
-    ptr = ((uint8_t *)mb + BLOCK_HEADER_SIZE);
-#ifdef DEBUG_MALLOC
-    qemu_printf("malloc: size=0x%x ptr=0x%lx\n", size, (unsigned long)ptr);
 #endif
-    return ptr;
-}
 
-void qemu_free(void *ptr)
+#ifdef CONFIG_SOLARIS
+#include <sys/types.h>
+#include <sys/statvfs.h>
+/* See MySQL bug #7156 (http://bugs.mysql.com/bug.php?id=7156) for
+   discussion about Solaris header problems */
+extern int madvise(caddr_t, size_t, int);
+#endif
+
+#include "qemu-common.h"
+#include "trace.h"
+#include "qemu_socket.h"
+#include "monitor.h"
+
+static bool fips_enabled = false;
+
+static const char *qemu_version = QEMU_VERSION;
+
+int socket_set_cork(int fd, int v)
 {
-    MemoryBlock *mb;
-
-    if (!ptr)
-        return;
-    mb = (MemoryBlock *)((uint8_t *)ptr - BLOCK_HEADER_SIZE);
-    mb->next = first_free_block;
-    first_free_block = mb;
-}
-
-/****************************************************************/
-/* virtual memory allocation */
-
-unsigned long mmap_addr = PHYS_RAM_BASE;
-
-void *get_mmap_addr(unsigned long size)
-{
-    unsigned long addr;
-    addr = mmap_addr;
-    mmap_addr += ((size + 4095) & ~4095) + 4096;
-    return (void *)addr;
-}
-
+#if defined(SOL_TCP) && defined(TCP_CORK)
+    return setsockopt(fd, SOL_TCP, TCP_CORK, &v, sizeof(v));
 #else
+    return 0;
+#endif
+}
 
-int qemu_write(int fd, const void *buf, size_t n)
+int qemu_madvise(void *addr, size_t len, int advice)
+{
+    if (advice == QEMU_MADV_INVALID) {
+        errno = EINVAL;
+        return -1;
+    }
+#if defined(CONFIG_MADVISE)
+    return madvise(addr, len, advice);
+#elif defined(CONFIG_POSIX_MADVISE)
+    return posix_madvise(addr, len, advice);
+#else
+    errno = EINVAL;
+    return -1;
+#endif
+}
+
+#ifndef _WIN32
+/*
+ * Dups an fd and sets the flags
+ */
+static int qemu_dup_flags(int fd, int flags)
 {
     int ret;
-    ret = write(fd, buf, n);
-    if (ret < 0)
-        return -errno;
-    else
-        return ret;
-}
+    int serrno;
+    int dup_flags;
+    int setfl_flags;
 
-void *get_mmap_addr(unsigned long size)
-{
-    return NULL;
-}
+#ifdef F_DUPFD_CLOEXEC
+    ret = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+#else
+    ret = dup(fd);
+    if (ret != -1) {
+        qemu_set_cloexec(ret);
+    }
+#endif
+    if (ret == -1) {
+        goto fail;
+    }
 
-void qemu_free(void *ptr)
-{
-    free(ptr);
-}
+    dup_flags = fcntl(ret, F_GETFL);
+    if (dup_flags == -1) {
+        goto fail;
+    }
 
-void *qemu_malloc(size_t size)
-{
-    return malloc(size);
-}
+    if ((flags & O_SYNC) != (dup_flags & O_SYNC)) {
+        errno = EINVAL;
+        goto fail;
+    }
 
+    /* Set/unset flags that we can with fcntl */
+    setfl_flags = O_APPEND | O_ASYNC | O_NONBLOCK;
+#ifdef O_NOATIME
+    setfl_flags |= O_NOATIME;
+#endif
+#ifdef O_DIRECT
+    setfl_flags |= O_DIRECT;
+#endif
+    dup_flags &= ~setfl_flags;
+    dup_flags |= (flags & setfl_flags);
+    if (fcntl(ret, F_SETFL, dup_flags) == -1) {
+        goto fail;
+    }
+
+    /* Truncate the file in the cases that open() would truncate it */
+    if (flags & O_TRUNC ||
+            ((flags & (O_CREAT | O_EXCL)) == (O_CREAT | O_EXCL))) {
+        if (ftruncate(ret, 0) == -1) {
+            goto fail;
+        }
+    }
+
+    return ret;
+
+fail:
+    serrno = errno;
+    if (ret != -1) {
+        close(ret);
+    }
+    errno = serrno;
+    return -1;
+}
 #endif
 
-void *qemu_mallocz(size_t size)
+/*
+ * Opens a file with FD_CLOEXEC set
+ */
+int qemu_open(const char *name, int flags, ...)
 {
-    void *ptr;
-    ptr = qemu_malloc(size);
-    if (!ptr)
-        return NULL;
-    memset(ptr, 0, size);
-    return ptr;
+    int ret;
+    int mode = 0;
+
+#ifndef _WIN32
+    const char *fdset_id_str;
+
+    /* Attempt dup of fd from fd set */
+    if (strstart(name, "/dev/fdset/", &fdset_id_str)) {
+        int64_t fdset_id;
+        int fd, dupfd;
+
+        fdset_id = qemu_parse_fdset(fdset_id_str);
+        if (fdset_id == -1) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        fd = monitor_fdset_get_fd(fdset_id, flags);
+        if (fd == -1) {
+            return -1;
+        }
+
+        dupfd = qemu_dup_flags(fd, flags);
+        if (dupfd == -1) {
+            return -1;
+        }
+
+        ret = monitor_fdset_dup_fd_add(fdset_id, dupfd);
+        if (ret == -1) {
+            close(dupfd);
+            errno = EINVAL;
+            return -1;
+        }
+
+        return dupfd;
+    }
+#endif
+
+    if (flags & O_CREAT) {
+        va_list ap;
+
+        va_start(ap, flags);
+        mode = va_arg(ap, int);
+        va_end(ap);
+    }
+
+#ifdef O_CLOEXEC
+    ret = open(name, flags | O_CLOEXEC, mode);
+#else
+    ret = open(name, flags, mode);
+    if (ret >= 0) {
+        qemu_set_cloexec(ret);
+    }
+#endif
+
+    return ret;
 }
 
-/****************************************************************/
-/* printf support */
-
-static inline int qemu_isdigit(int c)
+int qemu_close(int fd)
 {
-    return c >= '0' && c <= '9';
+    int64_t fdset_id;
+
+    /* Close fd that was dup'd from an fdset */
+    fdset_id = monitor_fdset_dup_fd_find(fd);
+    if (fdset_id != -1) {
+        int ret;
+
+        ret = close(fd);
+        if (ret == 0) {
+            monitor_fdset_dup_fd_remove(fd);
+        }
+
+        return ret;
+    }
+
+    return close(fd);
 }
 
-#define OUTCHAR(c)	(buflen > 0? (--buflen, *buf++ = (c)): 0)
-
-/* from BSD ppp sources */
-int qemu_vsnprintf(char *buf, int buflen, const char *fmt, va_list args)
+/*
+ * A variant of write(2) which handles partial write.
+ *
+ * Return the number of bytes transferred.
+ * Set errno if fewer than `count' bytes are written.
+ *
+ * This function don't work with non-blocking fd's.
+ * Any of the possibilities with non-bloking fd's is bad:
+ *   - return a short write (then name is wrong)
+ *   - busy wait adding (errno == EAGAIN) to the loop
+ */
+ssize_t qemu_write_full(int fd, const void *buf, size_t count)
 {
-    int c, i, n;
-    int width, prec, fillch;
-    int base, len, neg;
-    unsigned long val = 0;
-    const char *f;
-    char *str, *buf0;
-    char num[32];
-    static const char hexchars[] = "0123456789abcdef";
+    ssize_t ret = 0;
+    ssize_t total = 0;
 
-    buf0 = buf;
-    --buflen;
-    while (buflen > 0) {
-	for (f = fmt; *f != '%' && *f != 0; ++f)
-	    ;
-	if (f > fmt) {
-	    len = f - fmt;
-	    if (len > buflen)
-		len = buflen;
-	    memcpy(buf, fmt, len);
-	    buf += len;
-	    buflen -= len;
-	    fmt = f;
-	}
-	if (*fmt == 0)
-	    break;
-	c = *++fmt;
-	width = prec = 0;
-	fillch = ' ';
-	if (c == '0') {
-	    fillch = '0';
-	    c = *++fmt;
-	}
-	if (c == '*') {
-	    width = va_arg(args, int);
-	    c = *++fmt;
-	} else {
-	    while (qemu_isdigit(c)) {
-		width = width * 10 + c - '0';
-		c = *++fmt;
-	    }
-	}
-	if (c == '.') {
-	    c = *++fmt;
-	    if (c == '*') {
-		prec = va_arg(args, int);
-		c = *++fmt;
-	    } else {
-		while (qemu_isdigit(c)) {
-		    prec = prec * 10 + c - '0';
-		    c = *++fmt;
-		}
-	    }
-	}
-        /* modifiers */
-        switch(c) {
-        case 'l':
-            c = *++fmt;
-            break;
-        default:
+    while (count) {
+        ret = write(fd, buf, count);
+        if (ret < 0) {
+            if (errno == EINTR)
+                continue;
             break;
         }
-        str = 0;
-	base = 0;
-	neg = 0;
-	++fmt;
-	switch (c) {
-	case 'd':
-	    i = va_arg(args, int);
-	    if (i < 0) {
-		neg = 1;
-		val = -i;
-	    } else
-		val = i;
-	    base = 10;
-	    break;
-	case 'o':
-	    val = va_arg(args, unsigned int);
-	    base = 8;
-	    break;
-	case 'x':
-	case 'X':
-	    val = va_arg(args, unsigned int);
-	    base = 16;
-	    break;
-	case 'p':
-	    val = (unsigned long) va_arg(args, void *);
-	    base = 16;
-	    neg = 2;
-	    break;
-	case 's':
-	    str = va_arg(args, char *);
-	    break;
-	case 'c':
-	    num[0] = va_arg(args, int);
-	    num[1] = 0;
-	    str = num;
-	    break;
-	default:
-	    *buf++ = '%';
-	    if (c != '%')
-		--fmt;		/* so %z outputs %z etc. */
-	    --buflen;
-	    continue;
-	}
-	if (base != 0) {
-	    str = num + sizeof(num);
-	    *--str = 0;
-	    while (str > num + neg) {
-		*--str = hexchars[val % base];
-		val = val / base;
-		if (--prec <= 0 && val == 0)
-		    break;
-	    }
-	    switch (neg) {
-	    case 1:
-		*--str = '-';
-		break;
-	    case 2:
-		*--str = 'x';
-		*--str = '0';
-		break;
-	    }
-	    len = num + sizeof(num) - 1 - str;
-	} else {
-	    len = strlen(str);
-	    if (prec > 0 && len > prec)
-		len = prec;
-	}
-	if (width > 0) {
-	    if (width > buflen)
-		width = buflen;
-	    if ((n = width - len) > 0) {
-		buflen -= n;
-		for (; n > 0; --n)
-		    *buf++ = fillch;
-	    }
-	}
-	if (len > buflen)
-	    len = buflen;
-	memcpy(buf, str, len);
-	buf += len;
-	buflen -= len;
+
+        count -= ret;
+        buf += ret;
+        total += ret;
     }
-    *buf = 0;
-    return buf - buf0;
+
+    return total;
 }
 
-void qemu_vprintf(const char *fmt, va_list ap)
+/*
+ * Opens a socket with FD_CLOEXEC set
+ */
+int qemu_socket(int domain, int type, int protocol)
 {
-    char buf[1024];
-    int len;
-    
-    len = qemu_vsnprintf(buf, sizeof(buf), fmt, ap);
-    qemu_write(1, buf, len);
+    int ret;
+
+#ifdef SOCK_CLOEXEC
+    ret = socket(domain, type | SOCK_CLOEXEC, protocol);
+    if (ret != -1 || errno != EINVAL) {
+        return ret;
+    }
+#endif
+    ret = socket(domain, type, protocol);
+    if (ret >= 0) {
+        qemu_set_cloexec(ret);
+    }
+
+    return ret;
 }
 
-void qemu_printf(const char *fmt, ...)
+/*
+ * Accept a connection and set FD_CLOEXEC
+ */
+int qemu_accept(int s, struct sockaddr *addr, socklen_t *addrlen)
 {
-    va_list ap;
-    va_start(ap, fmt);
-    qemu_vprintf(fmt, ap);
-    va_end(ap);
+    int ret;
+
+#ifdef CONFIG_ACCEPT4
+    ret = accept4(s, addr, addrlen, SOCK_CLOEXEC);
+    if (ret != -1 || errno != ENOSYS) {
+        return ret;
+    }
+#endif
+    ret = accept(s, addr, addrlen);
+    if (ret >= 0) {
+        qemu_set_cloexec(ret);
+    }
+
+    return ret;
 }
 
+/*
+ * A variant of send(2) which handles partial write.
+ *
+ * Return the number of bytes transferred, which is only
+ * smaller than `count' if there is an error.
+ *
+ * This function won't work with non-blocking fd's.
+ * Any of the possibilities with non-bloking fd's is bad:
+ *   - return a short write (then name is wrong)
+ *   - busy wait adding (errno == EAGAIN) to the loop
+ */
+ssize_t qemu_send_full(int fd, const void *buf, size_t count, int flags)
+{
+    ssize_t ret = 0;
+    ssize_t total = 0;
+
+    while (count) {
+        ret = send(fd, buf, count, flags);
+        if (ret < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            break;
+        }
+
+        count -= ret;
+        buf += ret;
+        total += ret;
+    }
+
+    return total;
+}
+
+/*
+ * A variant of recv(2) which handles partial write.
+ *
+ * Return the number of bytes transferred, which is only
+ * smaller than `count' if there is an error.
+ *
+ * This function won't work with non-blocking fd's.
+ * Any of the possibilities with non-bloking fd's is bad:
+ *   - return a short write (then name is wrong)
+ *   - busy wait adding (errno == EAGAIN) to the loop
+ */
+ssize_t qemu_recv_full(int fd, void *buf, size_t count, int flags)
+{
+    ssize_t ret = 0;
+    ssize_t total = 0;
+
+    while (count) {
+        ret = qemu_recv(fd, buf, count, flags);
+        if (ret <= 0) {
+            if (ret < 0 && errno == EINTR) {
+                continue;
+            }
+            break;
+        }
+
+        count -= ret;
+        buf += ret;
+        total += ret;
+    }
+
+    return total;
+}
+
+void qemu_set_version(const char *version)
+{
+    qemu_version = version;
+}
+
+const char *qemu_get_version(void)
+{
+    return qemu_version;
+}
+
+void fips_set_state(bool requested)
+{
+#ifdef __linux__
+    if (requested) {
+        FILE *fds = fopen("/proc/sys/crypto/fips_enabled", "r");
+        if (fds != NULL) {
+            fips_enabled = (fgetc(fds) == '1');
+            fclose(fds);
+        }
+    }
+#else
+    fips_enabled = false;
+#endif /* __linux__ */
+
+#ifdef _FIPS_DEBUG
+    fprintf(stderr, "FIPS mode %s (requested %s)\n",
+	    (fips_enabled ? "enabled" : "disabled"),
+	    (requested ? "enabled" : "disabled"));
+#endif
+}
+
+bool fips_get_state(void)
+{
+    return fips_enabled;
+}

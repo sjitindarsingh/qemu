@@ -1,0 +1,36 @@
+From 31e556e47a6624707524e70aa1c1613625e6677d Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Thu, 7 Jun 2012 13:02:30 +0930
+Subject: [PATCH 72/77] configure: Default KVM to disabled on ARM hosts
+
+Default KVM to disabled for ARM hosts -- it is still experimental.
+
+This patch will be dropped when the code is ready to go upstream.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ configure |    8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/configure b/configure
+index 5f44fcc..4e3c2fc 100755
+--- a/configure
++++ b/configure
+@@ -531,7 +531,13 @@ Haiku)
+   linux="yes"
+   linux_user="yes"
+   usb="linux"
+-  kvm="yes"
++  if [ "$cpu" = "arm" ]; then
++    # default to disabled unless requested by user via --enable-kvm
++    # while this is still experimental
++    kvm="no"
++  else
++    kvm="yes"
++  fi
+   vhost_net="yes"
+   if [ "$cpu" = "i386" -o "$cpu" = "x86_64" ] ; then
+     audio_possible_drivers="$audio_possible_drivers fmod"
+-- 
+1.7.9.5
+

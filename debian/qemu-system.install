@@ -1,0 +1,6 @@
+debian/tmp/usr/share/man/man1/qemu.1
+system-build/pc-bios/*.dtb usr/share/qemu/
+debian/tmp/usr/share/qemu/cpus-x86_64.conf
+debian/tmp/etc/qemu/target-x86_64.conf
+pc-bios/qemu-icon.bmp /usr/share/qemu/
+debian/30-qemu-kvm.conf etc/sysctl.d/

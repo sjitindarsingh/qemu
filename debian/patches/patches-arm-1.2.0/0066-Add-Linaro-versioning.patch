@@ -1,0 +1,46 @@
+From 9ff54b2d7b5d83e8f0e99892fb81245ace403007 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Thu, 7 Jun 2012 13:02:29 +0930
+Subject: [PATCH 66/77] Add Linaro versioning
+
+Add a VERSION.LINARO file so it's clear that tarball releases are
+from Linaro rather than upstream, and make the configure pkgversion
+default to the Linaro version number so that the -version option
+says Linaro too (even if the user built from the tarball without
+specifying -pkgversion to configure).
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ VERSION.LINARO |    1 +
+ configure      |    7 +++++++
+ 2 files changed, 8 insertions(+)
+ create mode 100644 VERSION.LINARO
+
+diff --git a/VERSION.LINARO b/VERSION.LINARO
+new file mode 100644
+index 0000000..6c0400c
+--- /dev/null
++++ b/VERSION.LINARO
+@@ -0,0 +1 @@
++qemu-linaro from git
+diff --git a/configure b/configure
+index d97fd81..724b2ef 100755
+--- a/configure
++++ b/configure
+@@ -220,6 +220,13 @@ libiscsi=""
+ coroutine=""
+ seccomp=""
+ 
++# If this is a Linaro QEMU tarball then default the pkgversion
++# string to say so, so that we clearly distinguish ourselves
++# from upstream (and can take the blame for bugs).
++if [ -e "$source_path/VERSION.LINARO" ]; then
++    pkgversion=" ($(head "$source_path/VERSION.LINARO"))"
++fi
++
+ # parse CC options first
+ for opt do
+   optarg=`expr "x$opt" : 'x[^=]*=\(.*\)'`
+-- 
+1.7.9.5
+

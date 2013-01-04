@@ -31,11 +31,29 @@ typedef int64_t  Elf64_Sxword;
 #define PT_LOPROC  0x70000000
 #define PT_HIPROC  0x7fffffff
 #define PT_MIPS_REGINFO		0x70000000
+#define PT_MIPS_OPTIONS		0x70000001
 
 /* Flags in the e_flags field of the header */
+/* MIPS architecture level. */
+#define EF_MIPS_ARCH_1		0x00000000	/* -mips1 code.  */
+#define EF_MIPS_ARCH_2		0x10000000	/* -mips2 code.  */
+#define EF_MIPS_ARCH_3		0x20000000	/* -mips3 code.  */
+#define EF_MIPS_ARCH_4		0x30000000	/* -mips4 code.  */
+#define EF_MIPS_ARCH_5		0x40000000	/* -mips5 code.  */
+#define EF_MIPS_ARCH_32		0x50000000	/* MIPS32 code.  */
+#define EF_MIPS_ARCH_64		0x60000000	/* MIPS64 code.  */
+
+/* The ABI of a file. */
+#define EF_MIPS_ABI_O32		0x00001000	/* O32 ABI.  */
+#define EF_MIPS_ABI_O64		0x00002000	/* O32 extended for 64 bit.  */
+
 #define EF_MIPS_NOREORDER 0x00000001
 #define EF_MIPS_PIC       0x00000002
 #define EF_MIPS_CPIC      0x00000004
+#define EF_MIPS_ABI2		0x00000020
+#define EF_MIPS_OPTIONS_FIRST	0x00000080
+#define EF_MIPS_32BITMODE	0x00000100
+#define EF_MIPS_ABI		0x0000f000
 #define EF_MIPS_ARCH      0xf0000000
 
 /* These constants define the different elf file types */
@@ -86,6 +104,11 @@ typedef int64_t  Elf64_Sxword;
 
 #define EM_H8_300H      47      /* Hitachi H8/300H */
 #define EM_H8S          48      /* Hitachi H8S     */
+#define EM_LATTICEMICO32 138    /* LatticeMico32 */
+
+#define EM_OPENRISC     92        /* OpenCores OpenRISC */
+
+#define EM_UNICORE32    110     /* UniCore32 */
 
 /*
  * This is an interim value that we will use until the committee comes
@@ -100,6 +123,11 @@ typedef int64_t  Elf64_Sxword;
  * This is the old interim value for S/390 architecture
  */
 #define EM_S390_OLD     0xA390
+
+#define EM_MICROBLAZE      189
+#define EM_MICROBLAZE_OLD  0xBAAB
+
+#define EM_XTENSA   94      /* Tensilica Xtensa */
 
 /* This is the info that is needed to parse the dynamic section of the file */
 #define DT_NULL		0
@@ -126,8 +154,37 @@ typedef int64_t  Elf64_Sxword;
 #define DT_DEBUG	21
 #define DT_TEXTREL	22
 #define DT_JMPREL	23
+#define DT_BINDNOW	24
+#define DT_INIT_ARRAY	25
+#define DT_FINI_ARRAY	26
+#define DT_INIT_ARRAYSZ	27
+#define DT_FINI_ARRAYSZ	28
+#define DT_RUNPATH	29
+#define DT_FLAGS	30
+#define DT_LOOS		0x6000000d
+#define DT_HIOS		0x6ffff000
 #define DT_LOPROC	0x70000000
 #define DT_HIPROC	0x7fffffff
+
+/* DT_ entries which fall between DT_VALRNGLO and DT_VALRNDHI use
+   the d_val field of the Elf*_Dyn structure.  I.e. they contain scalars.  */
+#define DT_VALRNGLO	0x6ffffd00
+#define DT_VALRNGHI	0x6ffffdff
+
+/* DT_ entries which fall between DT_ADDRRNGLO and DT_ADDRRNGHI use
+   the d_ptr field of the Elf*_Dyn structure.  I.e. they contain pointers.  */
+#define DT_ADDRRNGLO	0x6ffffe00
+#define DT_ADDRRNGHI	0x6ffffeff
+
+#define	DT_VERSYM	0x6ffffff0
+#define DT_RELACOUNT	0x6ffffff9
+#define DT_RELCOUNT	0x6ffffffa
+#define DT_FLAGS_1	0x6ffffffb
+#define DT_VERDEF	0x6ffffffc
+#define DT_VERDEFNUM	0x6ffffffd
+#define DT_VERNEED	0x6ffffffe
+#define DT_VERNEEDNUM	0x6fffffff
+
 #define DT_MIPS_RLD_VERSION	0x70000001
 #define DT_MIPS_TIME_STAMP	0x70000002
 #define DT_MIPS_ICHECKSUM	0x70000003
@@ -161,6 +218,7 @@ typedef int64_t  Elf64_Sxword;
 
 #define ELF_ST_BIND(x)		((x) >> 4)
 #define ELF_ST_TYPE(x)		(((unsigned int) x) & 0xf)
+#define ELF_ST_INFO(bind, type) (((bind) << 4) | ((type) & 0xf))
 #define ELF32_ST_BIND(x)	ELF_ST_BIND(x)
 #define ELF32_ST_TYPE(x)	ELF_ST_TYPE(x)
 #define ELF64_ST_BIND(x)	ELF_ST_BIND(x)
@@ -186,6 +244,21 @@ typedef int64_t  Elf64_Sxword;
 #define AT_PLATFORM 15  /* string identifying CPU for optimizations */
 #define AT_HWCAP  16    /* arch dependent hints at CPU capabilities */
 #define AT_CLKTCK 17	/* frequency at which times() increments */
+#define AT_FPUCW  18	/* info about fpu initialization by kernel */
+#define AT_DCACHEBSIZE	19	/* data cache block size */
+#define AT_ICACHEBSIZE	20	/* instruction cache block size */
+#define AT_UCACHEBSIZE	21	/* unified cache block size */
+#define AT_IGNOREPPC	22	/* ppc only; entry should be ignored */
+#define AT_SECURE	23	/* boolean, was exec suid-like? */
+#define AT_BASE_PLATFORM 24	/* string identifying real platforms */
+#define AT_RANDOM	25	/* address of 16 random bytes */
+#define AT_EXECFN	31	/* filename of the executable */
+#define AT_SYSINFO	32	/* address of kernel entry point */
+#define AT_SYSINFO_EHDR	33	/* address of kernel vdso */
+#define AT_L1I_CACHESHAPE 34	/* shapes of the caches: */
+#define AT_L1D_CACHESHAPE 35	/*   bits 0-3: cache associativity.  */
+#define AT_L2_CACHESHAPE  36	/*   bits 4-7: log2 of line size.  */
+#define AT_L3_CACHESHAPE  37	/*   val&~255: cache size.  */
 
 typedef struct dynamic{
   Elf32_Sword d_tag;
@@ -209,6 +282,7 @@ typedef struct {
 
 #define ELF64_R_SYM(i)			((i) >> 32)
 #define ELF64_R_TYPE(i)			((i) & 0xffffffff)
+#define ELF64_R_TYPE_DATA(i)            (((ELF64_R_TYPE(i) >> 8) ^ 0x00800000) - 0x00800000)
 
 #define R_386_NONE	0
 #define R_386_32	1
@@ -222,6 +296,8 @@ typedef struct {
 #define R_386_GOTOFF	9
 #define R_386_GOTPC	10
 #define R_386_NUM	11
+/* Not a dynamic reloc, so not included in R_386_NUM.  Used in TCG.  */
+#define R_386_PC8	23
 
 #define R_MIPS_NONE		0
 #define R_MIPS_16		1
@@ -272,6 +348,21 @@ typedef struct {
 #define R_MIPS_HIVENDOR		127
 
 
+/* SUN SPARC specific definitions.  */
+
+/* Values for Elf64_Ehdr.e_flags.  */
+
+#define EF_SPARCV9_MM           3
+#define EF_SPARCV9_TSO          0
+#define EF_SPARCV9_PSO          1
+#define EF_SPARCV9_RMO          2
+#define EF_SPARC_LEDATA         0x800000 /* little endian data */
+#define EF_SPARC_EXT_MASK       0xFFFF00
+#define EF_SPARC_32PLUS         0x000100 /* generic V8+ features */
+#define EF_SPARC_SUN_US1        0x000200 /* Sun UltraSPARC1 extensions */
+#define EF_SPARC_HAL_R1         0x000400 /* HAL R1 extensions */
+#define EF_SPARC_SUN_US3        0x000800 /* Sun UltraSPARCIII extensions */
+
 /*
  * Sparc ELF relocation types
  */
@@ -308,6 +399,10 @@ typedef struct {
 #define R_SPARC_10		30
 #define R_SPARC_11		31
 #define R_SPARC_64		32
+#define R_SPARC_OLO10           33
+#define R_SPARC_HH22            34
+#define R_SPARC_HM10            35
+#define R_SPARC_LM22            36
 #define R_SPARC_WDISP16		40
 #define R_SPARC_WDISP19		41
 #define R_SPARC_7		43
@@ -429,7 +524,9 @@ typedef struct {
 #define R_PPC_SECTOFF_HI	35
 #define R_PPC_SECTOFF_HA	36
 /* Keep this the last entry.  */
+#ifndef R_PPC_NUM
 #define R_PPC_NUM		37
+#endif
 
 /* ARM specific declarations */
 
@@ -443,6 +540,27 @@ typedef struct {
 #define EF_ALIGN8          0x40		/* 8-bit structure alignment is in use */
 #define EF_NEW_ABI         0x80
 #define EF_OLD_ABI         0x100
+#define EF_ARM_SOFT_FLOAT  0x200
+#define EF_ARM_VFP_FLOAT   0x400
+#define EF_ARM_MAVERICK_FLOAT 0x800
+
+/* Other constants defined in the ARM ELF spec. version B-01.  */
+#define EF_ARM_SYMSARESORTED 0x04       /* NB conflicts with EF_INTERWORK */
+#define EF_ARM_DYNSYMSUSESEGIDX 0x08    /* NB conflicts with EF_APCS26 */
+#define EF_ARM_MAPSYMSFIRST 0x10        /* NB conflicts with EF_APCS_FLOAT */
+#define EF_ARM_EABIMASK      0xFF000000
+
+/* Constants defined in AAELF.  */
+#define EF_ARM_BE8          0x00800000
+#define EF_ARM_LE8          0x00400000
+
+#define EF_ARM_EABI_VERSION(flags) ((flags) & EF_ARM_EABIMASK)
+#define EF_ARM_EABI_UNKNOWN  0x00000000
+#define EF_ARM_EABI_VER1     0x01000000
+#define EF_ARM_EABI_VER2     0x02000000
+#define EF_ARM_EABI_VER3     0x03000000
+#define EF_ARM_EABI_VER4     0x04000000
+#define EF_ARM_EABI_VER5     0x05000000
 
 /* Additional symbol types for Thumb */
 #define STT_ARM_TFUNC      0xd
@@ -482,6 +600,8 @@ typedef struct {
 #define R_ARM_GOTPC		25	/* 32 bit PC relative offset to GOT */
 #define R_ARM_GOT32		26	/* 32 bit GOT entry */
 #define R_ARM_PLT32		27	/* 32 bit PLT address */
+#define R_ARM_CALL              28
+#define R_ARM_JUMP24            29
 #define R_ARM_GNU_VTENTRY	100
 #define R_ARM_GNU_VTINHERIT	101
 #define R_ARM_THM_PC11		102	/* thumb unconditional branch */
@@ -919,6 +1039,11 @@ typedef struct elf64_sym {
 
 #define EI_NIDENT	16
 
+/* Special value for e_phnum.  This indicates that the real number of
+   program headers is too large to fit into e_phnum.  Instead the real
+   value is in the field sh_info of section 0.  */
+#define PN_XNUM         0xffff
+
 typedef struct elf32_hdr{
   unsigned char	e_ident[EI_NIDENT];
   Elf32_Half	e_type;
@@ -1020,7 +1145,7 @@ typedef struct elf64_phdr {
 #define SHN_COMMON	0xfff2
 #define SHN_HIRESERVE	0xffff
 #define SHN_MIPS_ACCOMON	0xff00
- 
+
 typedef struct elf32_shdr {
   Elf32_Word	sh_name;
   Elf32_Word	sh_type;
@@ -1054,7 +1179,23 @@ typedef struct elf64_shdr {
 #define	EI_CLASS	4
 #define	EI_DATA		5
 #define	EI_VERSION	6
-#define	EI_PAD		7
+#define	EI_OSABI	7
+#define	EI_PAD		8
+
+#define ELFOSABI_NONE           0       /* UNIX System V ABI */
+#define ELFOSABI_SYSV           0       /* Alias.  */
+#define ELFOSABI_HPUX           1       /* HP-UX */
+#define ELFOSABI_NETBSD         2       /* NetBSD.  */
+#define ELFOSABI_LINUX          3       /* Linux.  */
+#define ELFOSABI_SOLARIS        6       /* Sun Solaris.  */
+#define ELFOSABI_AIX            7       /* IBM AIX.  */
+#define ELFOSABI_IRIX           8       /* SGI Irix.  */
+#define ELFOSABI_FREEBSD        9       /* FreeBSD.  */
+#define ELFOSABI_TRU64          10      /* Compaq TRU64 UNIX.  */
+#define ELFOSABI_MODESTO        11      /* Novell Modesto.  */
+#define ELFOSABI_OPENBSD        12      /* OpenBSD.  */
+#define ELFOSABI_ARM            97      /* ARM */
+#define ELFOSABI_STANDALONE     255     /* Standalone (embedded) application */
 
 #define	ELFMAG0		0x7f		/* EI_MAG */
 #define	ELFMAG1		'E'
@@ -1081,6 +1222,7 @@ typedef struct elf64_shdr {
 #define NT_PRFPREG	2
 #define NT_PRPSINFO	3
 #define NT_TASKSTRUCT	4
+#define NT_AUXV		6
 #define NT_PRXFPREG     0x46e62b7f      /* copied from gdb5.1/include/elf/common.h */
 
 
@@ -1098,6 +1240,26 @@ typedef struct elf64_note {
   Elf64_Word n_type;	/* Content type */
 } Elf64_Nhdr;
 
+
+/* This data structure represents a PT_LOAD segment.  */
+struct elf32_fdpic_loadseg {
+  /* Core address to which the segment is mapped.  */
+  Elf32_Addr addr;
+  /* VMA recorded in the program header.  */
+  Elf32_Addr p_vaddr;
+  /* Size of this segment in memory.  */
+  Elf32_Word p_memsz;
+};
+struct elf32_fdpic_loadmap {
+  /* Protocol version number, must be zero.  */
+  Elf32_Half version;
+  /* Number of segments in this map.  */
+  Elf32_Half nsegs;
+  /* The actual memory map.  */
+  struct elf32_fdpic_loadseg segs[/*nsegs*/];
+};
+
+#ifdef ELF_CLASS
 #if ELF_CLASS == ELFCLASS32
 
 #define elfhdr		elf32_hdr
@@ -1105,6 +1267,7 @@ typedef struct elf64_note {
 #define elf_note	elf32_note
 #define elf_shdr	elf32_shdr
 #define elf_sym		elf32_sym
+#define elf_addr_t	Elf32_Off
 
 #ifdef ELF_USES_RELOCA
 # define ELF_RELOC      Elf32_Rela
@@ -1119,6 +1282,7 @@ typedef struct elf64_note {
 #define elf_note	elf64_note
 #define elf_shdr	elf64_shdr
 #define elf_sym		elf64_sym
+#define elf_addr_t	Elf64_Off
 
 #ifdef ELF_USES_RELOCA
 # define ELF_RELOC      Elf64_Rela
@@ -1137,6 +1301,8 @@ typedef struct elf64_note {
 #  define ELFW(x)  ELF64_ ## x
 # endif
 #endif
+
+#endif /* ELF_CLASS */
 
 
 #endif /* _QEMU_ELF_H */

@@ -1,0 +1,306 @@
+Enables providing a backing file for the PC's ram.
+
+The file is specified by the new -pcram-file option. The file is mmap'd shared,
+so the RAMBlock that it backs doesn't need to be saved by vm_save / migration.
+
+We have found this small feature very useful for experimenting with memory
+migration techniques. By exposing PC memory through a simple interface (i.e.,
+the filesystem), we can implement various memory migration techniques
+independently of QEMU. For example, one can map a VM's ram to a file being
+served over a network, thus implementing on-demand fetching.
+
+In the future, RAMBlocks could be mmap'd privately to implement memory sharing.
+
+Note that unlike the existing -mem-path option, which specifies a (hugetlbfs)
+directory in which files for all RAMBlocks are to be created, -pcram-file
+specifies a file to be mapped for the "pc.ram" RAMBlock
+
+Signed-off-by: Peter Feiner <peter@gridcentric.com>
+
+diff --git a/arch_init.c b/arch_init.c
+index f849f9b..dc1674e 100644
+--- a/arch_init.c
++++ b/arch_init.c
+@@ -350,6 +350,14 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
+ 
+     if (!block)
+         block = QLIST_FIRST(&ram_list.blocks);
++    
++    while (block->do_not_save) {
++        last_block = block;
++        block = QLIST_NEXT(block, next);
++        if (!block) {
++            return 0;
++        }
++    }
+ 
+     do {
+         mr = block->mr;
+@@ -410,7 +418,7 @@ static uint64_t bytes_transferred;
+ 
+ static ram_addr_t ram_save_remaining(void)
+ {
+-    return ram_list.dirty_pages;
++    return ram_list.dirty_pages - ram_list.dirty_pages_not_saved;
+ }
+ 
+ uint64_t ram_bytes_remaining(void)
+diff --git a/cpu-all.h b/cpu-all.h
+index 74d3681..f9343de 100644
+--- a/cpu-all.h
++++ b/cpu-all.h
+@@ -489,6 +489,7 @@ typedef struct RAMBlock {
+     uint32_t flags;
+     char idstr[256];
+     QLIST_ENTRY(RAMBlock) next;
++    int do_not_save;
+ #if defined(__linux__) && !defined(TARGET_S390X)
+     int fd;
+ #endif
+@@ -498,9 +499,21 @@ typedef struct RAMList {
+     uint8_t *phys_dirty;
+     QLIST_HEAD(, RAMBlock) blocks;
+     uint64_t dirty_pages;
++    uint64_t dirty_pages_not_saved;
+ } RAMList;
+ extern RAMList ram_list;
+ 
++typedef struct MemFile {
++    const char *idstr;
++    const char *path;
++    QLIST_ENTRY(MemFile) next;
++} MemFile;
++
++typedef struct MemFileList {
++    QLIST_HEAD(files, MemFile) files;
++} MemFileList;
++extern MemFileList mem_file_list;
++
+ extern const char *mem_path;
+ extern int mem_prealloc;
+ 
+diff --git a/cpu-common.h b/cpu-common.h
+index 85548de..f60a806 100644
+--- a/cpu-common.h
++++ b/cpu-common.h
+@@ -48,6 +48,8 @@ void qemu_put_ram_ptr(void *addr);
+ int qemu_ram_addr_from_host(void *ptr, ram_addr_t *ram_addr);
+ ram_addr_t qemu_ram_addr_from_host_nofail(void *ptr);
+ void qemu_ram_set_idstr(ram_addr_t addr, const char *name, DeviceState *dev);
++/* Should this page be saved? */
++bool qemu_ram_is_page_saved(ram_addr_t addr);
+ 
+ void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
+                             int len, int is_write);
+diff --git a/exec-obsolete.h b/exec-obsolete.h
+index c099256..4e9b353 100644
+--- a/exec-obsolete.h
++++ b/exec-obsolete.h
+@@ -77,6 +77,9 @@ static inline int cpu_physical_memory_set_dirty_flags(ram_addr_t addr,
+     if ((dirty_flags & MIGRATION_DIRTY_FLAG) &&
+         !cpu_physical_memory_get_dirty(addr, TARGET_PAGE_SIZE,
+                                        MIGRATION_DIRTY_FLAG)) {
++        if (!qemu_ram_is_page_saved(addr)) {
++            ram_list.dirty_pages_not_saved++;
++        }
+         ram_list.dirty_pages++;
+     }
+     return ram_list.phys_dirty[addr >> TARGET_PAGE_BITS] |= dirty_flags;
+@@ -95,6 +98,9 @@ static inline int cpu_physical_memory_clear_dirty_flags(ram_addr_t addr,
+     if ((dirty_flags & MIGRATION_DIRTY_FLAG) &&
+         cpu_physical_memory_get_dirty(addr, TARGET_PAGE_SIZE,
+                                       MIGRATION_DIRTY_FLAG)) {
++        if (!qemu_ram_is_page_saved(addr)) {
++            ram_list.dirty_pages_not_saved--;
++        }
+         ram_list.dirty_pages--;
+     }
+     return ram_list.phys_dirty[addr >> TARGET_PAGE_BITS] &= mask;
+diff --git a/exec.c b/exec.c
+index 3fdbbde..ba2fbc6 100644
+--- a/exec.c
++++ b/exec.c
+@@ -120,6 +120,8 @@ static MemoryRegion *system_io;
+ MemoryRegion io_mem_ram, io_mem_rom, io_mem_unassigned, io_mem_notdirty;
+ static MemoryRegion io_mem_subpage_ram;
+ 
++MemFileList mem_file_list = { .files = QLIST_HEAD_INITIALIZER(mem_file_list) };
++
+ #endif
+ 
+ CPUArchState *first_cpu;
+@@ -2334,6 +2336,59 @@ void qemu_flush_coalesced_mmio_buffer(void)
+ }
+ 
+ #if defined(__linux__) && !defined(TARGET_S390X)
++static void *mem_file_ram_alloc(RAMBlock *block,
++                                ram_addr_t memory)
++{
++    void *host;
++    MemFile *mf;
++    struct stat buf;
++    int ret;
++
++    QLIST_FOREACH(mf, &mem_file_list.files, next) {
++        if (strcmp(mf->idstr, block->mr->name)) {
++            continue;
++        }
++
++        if (kvm_enabled() && !kvm_has_sync_mmu()) {
++            fprintf(stderr, "host lacks kvm mmu notifiers, "
++                            "MemFile unsupported, abort!\n");
++            abort();
++        }
++
++        block->fd = open(mf->path, O_RDWR);
++        if (block->fd == -1) {
++            fprintf(stderr, "Could not open %s for RAMBlock %s, abort!\n",
++                    mf->path, mf->idstr);
++            abort();
++        }
++        ret = fstat(block->fd, &buf);
++        if (ret != 0) {
++            fprintf(stderr, "Could not stat %s for RAMBlock %s, abort!\n",
++                    mf->path, mf->idstr);
++            abort();
++        }
++        if (buf.st_size != memory) {
++            fprintf(stderr,
++                    "File %s has size %luB. RAMBlock %s expects %luB. Abort!\n",
++                    mf->path, buf.st_size, block->idstr, memory);
++            abort();
++        }
++
++        host = mmap(NULL, memory, PROT_READ | PROT_WRITE, MAP_SHARED,
++                    block->fd, 0);
++        if (host == MAP_FAILED) {
++            fprintf(stderr, "Failed to mmap %s for RAMBlock %s, abort!\n",
++                    mf->path, mf->idstr);
++            abort();
++        }
++        block->do_not_save = 1;
++        return host;
++    }
++    return NULL;
++}
++#endif
++
++#if defined(__linux__) && !defined(TARGET_S390X)
+ 
+ #include <sys/vfs.h>
+ 
+@@ -2523,6 +2578,28 @@ void qemu_ram_set_idstr(ram_addr_t addr, const char *name, DeviceState *dev)
+     }
+ }
+ 
++void add_memory_file(const char *idstr, const char *path)
++{
++#ifndef __linux__
++    fprintf(stderr, "MemFile only supported on Linux, abort!\n");
++    abort();
++#else
++    MemFile *mf;
++
++    QLIST_FOREACH(mf, &mem_file_list.files, next) {
++        if (!strcmp(mf->idstr, idstr)) {
++            fprintf(stderr, "MemFile for \"%s\" already specified, abort!\n",
++                    idstr);
++            abort();
++        }
++    }
++    mf = g_malloc0(sizeof(*mf));
++    mf->idstr = idstr;
++    mf->path = path;
++    QLIST_INSERT_HEAD(&mem_file_list.files, mf, next);
++#endif
++}
++
+ ram_addr_t qemu_ram_alloc_from_ptr(ram_addr_t size, void *host,
+                                    MemoryRegion *mr)
+ {
+@@ -2533,6 +2610,12 @@ ram_addr_t qemu_ram_alloc_from_ptr(ram_addr_t size, void *host,
+ 
+     new_block->mr = mr;
+     new_block->offset = find_ram_offset(size);
++#if defined(__linux__) && !defined(TARGET_S390X)
++    new_block->host = mem_file_ram_alloc(new_block, size);
++    if (new_block->host) {
++        assert(!host);
++    } else
++#endif
+     if (host) {
+         new_block->host = host;
+         new_block->flags |= RAM_PREALLOC_MASK;
+@@ -2737,6 +2820,21 @@ void *qemu_get_ram_ptr(ram_addr_t addr)
+     return NULL;
+ }
+ 
++bool qemu_ram_is_page_saved(ram_addr_t addr)
++{
++    RAMBlock *block;
++    QLIST_FOREACH(block, &ram_list.blocks, next) {
++        if (addr - block->offset < block->length) {
++            return !block->do_not_save;
++        }
++    }
++
++    fprintf(stderr, "Bad ram offset %" PRIx64 "\n", (uint64_t)addr);
++    abort();
++
++    return false;
++}
++
+ /* Return a host pointer to ram allocated with qemu_ram_alloc.
+  * Same as qemu_get_ram_ptr but avoid reordering ramblocks.
+  */
+diff --git a/qemu-common.h b/qemu-common.h
+index 15d9e4e..a530947 100644
+--- a/qemu-common.h
++++ b/qemu-common.h
+@@ -396,6 +396,8 @@ char *os_find_datadir(const char *argv0);
+ void os_parse_cmd_args(int index, const char *optarg);
+ void os_pidfile_error(void);
+ 
++void add_memory_file(const char *idstr, const char *path);
++
+ /* Convert a byte between binary and BCD.  */
+ static inline uint8_t to_bcd(uint8_t val)
+ {
+diff --git a/qemu-options.hx b/qemu-options.hx
+index 0977b3f..a4b25ab 100644
+--- a/qemu-options.hx
++++ b/qemu-options.hx
+@@ -416,6 +416,19 @@ Preallocate memory when using -mem-path.
+ ETEXI
+ #endif
+ 
++#ifdef __linux__
++DEF("pcram-file", HAS_ARG, QEMU_OPTION_pcram_file,
++    "-pcram-file FILE  provide backing storage for PC RAM\n", QEMU_ARCH_I386)
++STEXI
++@item -pcram-file @var{path}
++Populate guest PC RAM with memory mapped file @var{path}. All changes to guest
++ram are reflected in the file (i.e., it is a @code{MAP_SHARED} mapping).
++
++PC RAM is neither migrated nor saved.
++ETEXI
++#endif
++
++
+ DEF("k", HAS_ARG, QEMU_OPTION_k,
+     "-k language     use keyboard layout (for example 'fr' for French)\n",
+     QEMU_ARCH_ALL)
+diff --git a/vl.c b/vl.c
+index 48049ef..91b878b 100644
+--- a/vl.c
++++ b/vl.c
+@@ -2751,6 +2751,9 @@ int main(int argc, char **argv, char **envp)
+                 }
+                 break;
+             }
++            case QEMU_OPTION_pcram_file:
++                add_memory_file("pc.ram", optarg); 
++                break;
+             case QEMU_OPTION_mempath:
+                 mem_path = optarg;
+                 break;

@@ -1,4 +1,4 @@
-version=2
+version=3
 
-# Full-site-with-pattern  [Version  [Action]]
-http://fabrice.bellard.free.fr/qemu/qemu-([0-9.]*).tar.gz		debian	uupdate
+opts=dversionmangle=s/\+dfsg.*$//g,uversionmangle=s/-rc/~rc/g \
+  http://qemu.org/download .*/qemu-(.*).tar.gz

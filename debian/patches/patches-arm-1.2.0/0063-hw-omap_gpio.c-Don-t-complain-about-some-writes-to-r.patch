@@ -1,0 +1,39 @@
+From ab1200975c1230214c01f02730007d51df751b60 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Thu, 7 Jun 2012 13:02:29 +0930
+Subject: [PATCH 63/77] hw/omap_gpio.c: Don't complain about some writes to
+ r/o registers
+
+Don't complain about some writes to r/o OMAP2 GPIO registers, because the
+kernel will do them anyway.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ hw/omap_gpio.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/omap_gpio.c b/hw/omap_gpio.c
+index 201ff77..8d5d9ee 100644
+--- a/hw/omap_gpio.c
++++ b/hw/omap_gpio.c
+@@ -383,7 +383,7 @@ static void omap2_gpio_module_write(void *opaque, target_phys_addr_t addr,
+     case 0x00:	/* GPIO_REVISION */
+     case 0x14:	/* GPIO_SYSSTATUS */
+     case 0x38:	/* GPIO_DATAIN */
+-        OMAP_RO_REG(addr);
++        /* read-only, ignore quietly */
+         break;
+ 
+     case 0x10:	/* GPIO_SYSCONFIG */
+@@ -529,7 +529,7 @@ static void omap2_gpio_module_writep(void *opaque, target_phys_addr_t addr,
+     case 0x00:	/* GPIO_REVISION */
+     case 0x14:	/* GPIO_SYSSTATUS */
+     case 0x38:	/* GPIO_DATAIN */
+-        OMAP_RO_REG(addr);
++        /* read-only, ignore quietly */
+         break;
+ 
+     case 0x10:	/* GPIO_SYSCONFIG */
+-- 
+1.7.9.5
+

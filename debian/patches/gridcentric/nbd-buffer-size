@@ -1,0 +1,22 @@
+Increase the NBD buffer size.
+
+When qemu-img talks to qemu-nbd, the buffer size used by the server is too
+small to support many operations, including 'convert'. This is a shame. This
+patch bumps the buffer size to a reasonable 4MB, allowing you to qemu-img
+convert from a qemu-nbd source.
+
+Signed-off-by: Adin Scannell <adin@scannell.ca>
+
+diff --git a/nbd.h b/nbd.h
+index 40d58d3..0edf800 100644
+--- a/nbd.h
++++ b/nbd.h
+@@ -57,7 +57,7 @@ enum {
+ 
+ #define NBD_DEFAULT_PORT	10809
+ 
+-#define NBD_BUFFER_SIZE (1024*1024)
++#define NBD_BUFFER_SIZE (4*1024*1024)
+ 
+ ssize_t nbd_wr_sync(int fd, void *buffer, size_t size, bool do_read);
+ int tcp_socket_outgoing(const char *address, uint16_t port);
