@@ -1,0 +1,204 @@
+# HG changeset patch
+# Parent 282dd187e87bc4370520aabd95edc8c37a2e0ea9
+Control saving of mmap-ed memory via an optional boolean qmp/hmp flag.
+
+The flag is savevm (-s). It's a boolean defaulting to true. Even if a memory
+region has do_not_save set (because it is an mmap of some file via the --pcram
+option), if this flag is set then the region will be saved. The flag is set via
+qmp/hmp only for the migrate command. So effectively, mmap-ed --pcram regions
+will not be saved only if the flag is explicitly encoded in the json qmp
+request.
+
+Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+
+diff --git a/arch_init.c b/arch_init.c
+index 0049d60..3525e27 100644
+--- a/arch_init.c
++++ b/arch_init.c
+@@ -351,7 +351,7 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
+     if (!block)
+         block = QLIST_FIRST(&ram_list.blocks);
+     
+-    while (block->do_not_save) {
++    while (block->will_not_save) {
+         last_block = block;
+         block = QLIST_NEXT(block, next);
+         if (!block) {
+@@ -471,6 +471,16 @@ static void sort_ram_list(void)
+     g_free(blocks);
+ }
+ 
++void tag_ram_blocks(int saveram)
++{
++    RAMBlock *block = QLIST_FIRST(&ram_list.blocks);
++    while (block) {
++        if (block->do_not_save)
++            block->will_not_save = !saveram;
++        block = QLIST_NEXT(block, next);
++    }
++}
++
+ static void migration_end(void)
+ {
+     memory_global_dirty_log_stop();
+diff --git a/arch_init.h b/arch_init.h
+index d9c572a..837a30b 100644
+--- a/arch_init.h
++++ b/arch_init.h
+@@ -33,6 +33,7 @@ void audio_init(ISABus *isa_bus, PCIBus *pci_bus);
+ int tcg_available(void);
+ int kvm_available(void);
+ int xen_available(void);
++extern void tag_ram_blocks(int saveram);
+ 
+ CpuDefinitionInfoList GCC_WEAK_DECL *arch_query_cpu_definitions(Error **errp);
+ 
+diff --git a/cpu-all.h b/cpu-all.h
+index feafe46..2150aec 100644
+--- a/cpu-all.h
++++ b/cpu-all.h
+@@ -501,6 +501,7 @@ typedef struct RAMBlock {
+     char idstr[256];
+     QLIST_ENTRY(RAMBlock) next;
+     int do_not_save;
++    int will_not_save;
+ #if defined(__linux__) && !defined(TARGET_S390X)
+     int fd;
+ #endif
+diff --git a/exec.c b/exec.c
+index 34bf828..2fb43e1 100644
+--- a/exec.c
++++ b/exec.c
+@@ -2384,6 +2384,7 @@ static void *mem_file_ram_alloc(RAMBlock *block,
+             abort();
+         }
+         block->do_not_save = 1;
++        block->will_not_save = 1;
+         return host;
+     }
+     return NULL;
+@@ -2827,7 +2828,7 @@ bool qemu_ram_is_page_saved(ram_addr_t addr)
+     RAMBlock *block;
+     QLIST_FOREACH(block, &ram_list.blocks, next) {
+         if (addr - block->offset < block->length) {
+-            return !block->do_not_save;
++            return !block->will_not_save;
+         }
+     }
+ 
+diff --git a/hmp-commands.hx b/hmp-commands.hx
+index f6104b0..62efa88 100644
+--- a/hmp-commands.hx
++++ b/hmp-commands.hx
+@@ -798,13 +798,15 @@ ETEXI
+ 
+     {
+         .name       = "migrate",
+-        .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
+-        .params     = "[-d] [-b] [-i] uri",
++        .args_type  = "detach:-d,blk:-b,inc:-i,saveram:-s,uri:s",
++        .params     = "[-d] [-b] [-i] [-s] uri",
+         .help       = "migrate to URI (using -d to not wait for completion)"
+ 		      "\n\t\t\t -b for migration without shared storage with"
+ 		      " full copy of disk\n\t\t\t -i for migration without "
+ 		      "shared storage with incremental copy of disk "
+-		      "(base image shared between src and destination)",
++		      "(base image shared between src and destination)"
++		      "\n\t\t\t -s to save ram regions even if they are"
++		      "mmaps via --pcram (default true)",
+         .mhandler.cmd = hmp_migrate,
+     },
+ 
+diff --git a/hmp.c b/hmp.c
+index 81c8acb..13f4ded 100644
+--- a/hmp.c
++++ b/hmp.c
+@@ -997,11 +997,12 @@ void hmp_migrate(Monitor *mon, const QDict *qdict)
+ {
+     int detach = qdict_get_try_bool(qdict, "detach", 0);
+     int blk = qdict_get_try_bool(qdict, "blk", 0);
++    int saveram = qdict_get_try_bool(qdict, "saveram", 1);
+     int inc = qdict_get_try_bool(qdict, "inc", 0);
+     const char *uri = qdict_get_str(qdict, "uri");
+     Error *err = NULL;
+ 
+-    qmp_migrate(uri, !!blk, blk, !!inc, inc, false, false, &err);
++    qmp_migrate(uri, !!blk, blk, !!saveram, saveram, !!inc, inc, false, false, &err);
+     if (err) {
+         monitor_printf(mon, "migrate: %s\n", error_get_pretty(err));
+         error_free(err);
+diff --git a/migration.c b/migration.c
+index 1edeec5..9e9b7b3 100644
+--- a/migration.c
++++ b/migration.c
+@@ -22,6 +22,7 @@
+ #include "qemu_socket.h"
+ #include "block-migration.h"
+ #include "qmp-commands.h"
++#include "arch_init.h"
+ 
+ //#define DEBUG_MIGRATION
+ 
+@@ -476,6 +477,7 @@ void migrate_del_blocker(Error *reason)
+ }
+ 
+ void qmp_migrate(const char *uri, bool has_blk, bool blk,
++                 bool has_saveram, bool saveram,
+                  bool has_inc, bool inc, bool has_detach, bool detach,
+                  Error **errp)
+ {
+@@ -503,6 +505,11 @@ void qmp_migrate(const char *uri, bool has_blk, bool blk,
+ 
+     s = migrate_init(&params);
+ 
++    /* Now tag whether ram blocks should not really be saved */
++#if defined(__linux__)
++    tag_ram_blocks(saveram);
++#endif
++
+     if (strstart(uri, "tcp:", &p)) {
+         ret = tcp_start_outgoing_migration(s, p, errp);
+ #if !defined(WIN32)
+diff --git a/qapi-schema.json b/qapi-schema.json
+index 173e93e..014ca40 100644
+--- a/qapi-schema.json
++++ b/qapi-schema.json
+@@ -1881,7 +1881,7 @@
+ # Since: 0.14.0
+ ##
+ { 'command': 'migrate',
+-  'data': {'uri': 'str', '*blk': 'bool', '*inc': 'bool', '*detach': 'bool' } }
++  'data': {'uri': 'str', '*blk': 'bool', '*saveram': 'bool', '*inc': 'bool', '*detach': 'bool' } }
+ 
+ # @xen-save-devices-state:
+ #
+diff --git a/qmp-commands.hx b/qmp-commands.hx
+index 3745a21..4be5925 100644
+--- a/qmp-commands.hx
++++ b/qmp-commands.hx
+@@ -469,7 +469,7 @@ EQMP
+ 
+     {
+         .name       = "migrate",
+-        .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
++        .args_type  = "detach:-d,blk:-b,inc:-i,saveram:-s,uri:s",
+         .mhandler.cmd_new = qmp_marshal_input_migrate,
+     },
+ 
+@@ -483,6 +483,7 @@ Arguments:
+ 
+ - "blk": block migration, full disk copy (json-bool, optional)
+ - "inc": incremental disk copy (json-bool, optional)
++- "saveram": Save RAM even if it's a file mmap via --pcram (json-bool, optional)
+ - "uri": Destination URI (json-string)
+ 
+ Example:
+@@ -494,7 +495,7 @@ Notes:
+ 
+ (1) The 'query-migrate' command should be used to check migration's progress
+     and final result (this information is provided by the 'status' member)
+-(2) All boolean arguments default to false
++(2) detach, blk and inc boolean arguments default to false. Saveram default to true
+ (3) The user Monitor's "detach" argument is invalid in QMP and should not
+     be used
+ 

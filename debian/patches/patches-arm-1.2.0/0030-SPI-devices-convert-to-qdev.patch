@@ -1,0 +1,1234 @@
+From 79a6e28a7ad16d94ce0a322b4b55250cd27c4970 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Wed, 4 Jul 2012 11:18:41 +0000
+Subject: [PATCH 30/77] SPI devices: convert to qdev
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Introduce a new SPI bus type, and use it to convert
+all the OMAP SPI devices to qdev.
+
+Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
+---
+ hw/Makefile.objs |    2 +-
+ hw/devices.h     |   11 ++---
+ hw/nseries.c     |   89 +++++++++++++++++++++-------------
+ hw/omap.h        |   14 ++----
+ hw/omap2.c       |   34 ++++++++-----
+ hw/omap_spi.c    |  140 +++++++++++++++++++++++++++++++++++-------------------
+ hw/spi.c         |  121 ++++++++++++++++++++++++++++++++++++++++++++++
+ hw/spi.h         |   62 ++++++++++++++++++++++++
+ hw/tsc2005.c     |   62 ++++++++++++++++--------
+ hw/tsc210x.c     |  113 +++++++++++++++++++++++++++++--------------
+ 10 files changed, 481 insertions(+), 167 deletions(-)
+ create mode 100644 hw/spi.c
+ create mode 100644 hw/spi.h
+
+diff --git a/hw/Makefile.objs b/hw/Makefile.objs
+index 6dfebd2..f2a5173 100644
+--- a/hw/Makefile.objs
++++ b/hw/Makefile.objs
+@@ -167,7 +167,7 @@ common-obj-$(CONFIG_SSD0323) += ssd0323.o
+ common-obj-$(CONFIG_ADS7846) += ads7846.o
+ common-obj-$(CONFIG_MAX111X) += max111x.o
+ common-obj-$(CONFIG_DS1338) += ds1338.o
+-common-obj-y += i2c.o smbus.o smbus_eeprom.o
++common-obj-y += i2c.o spi.o smbus.o smbus_eeprom.o
+ common-obj-y += eeprom93xx.o
+ common-obj-y += scsi-disk.o cdrom.o hd-geometry.o block-common.o
+ common-obj-y += scsi-generic.o scsi-bus.o
+diff --git a/hw/devices.h b/hw/devices.h
+index 571b003..2e03d8d 100644
+--- a/hw/devices.h
++++ b/hw/devices.h
+@@ -14,17 +14,14 @@ void lan9118_init(NICInfo *, uint32_t, qemu_irq);
+ 
+ /* tsc210x.c */
+ uWireSlave *tsc2102_init(qemu_irq pint);
+-uWireSlave *tsc2301_init(qemu_irq penirq, qemu_irq kbirq, qemu_irq dav);
+ I2SCodec *tsc210x_codec(uWireSlave *chip);
+-uint32_t tsc210x_txrx(void *opaque, uint32_t value, int len);
+-void tsc210x_set_transform(uWireSlave *chip,
+-                MouseTransformInfo *info);
++void tsc210x_set_transform(uWireSlave *chip, MouseTransformInfo *info);
++void tsc2301_set_transform(DeviceState *qdev, MouseTransformInfo *info);
+ void tsc210x_key_event(uWireSlave *chip, int key, int down);
++void tsc2301_key_event(DeviceState *qdev, int key, int down);
+ 
+ /* tsc2005.c */
+-void *tsc2005_init(qemu_irq pintdav);
+-uint32_t tsc2005_txrx(void *opaque, uint32_t value, int len);
+-void tsc2005_set_transform(void *opaque, MouseTransformInfo *info,
++void tsc2005_set_transform(DeviceState *qdev, MouseTransformInfo *info,
+                            int z1_cons, int z2_cons);
+ 
+ /* stellaris_input.c */
+diff --git a/hw/nseries.c b/hw/nseries.c
+index 4e642cb..7ccde0a 100644
+--- a/hw/nseries.c
++++ b/hw/nseries.c
+@@ -26,6 +26,7 @@
+ #include "console.h"
+ #include "boards.h"
+ #include "i2c.h"
++#include "spi.h"
+ #include "devices.h"
+ #include "flash.h"
+ #include "hw.h"
+@@ -40,11 +41,8 @@ struct n800_s {
+     struct omap_mpu_state_s *mpu;
+ 
+     struct rfbi_chip_s blizzard;
+-    struct {
+-        void *opaque;
+-        uint32_t (*txrx)(void *opaque, uint32_t value, int len);
+-        uWireSlave *chip;
+-    } ts;
++    DeviceState *mipid;
++    DeviceState *tsc;
+ 
+     int keymap[0x80];
+     DeviceState *kbd;
+@@ -234,7 +232,7 @@ static void n800_key_event(void *opaque, int keycode)
+         return;
+     }
+ 
+-    tsc210x_key_event(s->ts.chip, code, !(keycode & 0x80));
++    tsc2301_key_event(s->tsc, code, !(keycode & 0x80));
+ }
+ 
+ static const int n800_keys[16] = {
+@@ -262,13 +260,12 @@ static void n800_tsc_kbd_setup(struct n800_s *s)
+ 
+     /* XXX: are the three pins inverted inside the chip between the
+      * tsc and the cpu (N4111)?  */
+-    qemu_irq penirq = NULL;	/* NC */
+-    qemu_irq kbirq = qdev_get_gpio_in(s->mpu->gpio, N800_TSC_KP_IRQ_GPIO);
+-    qemu_irq dav = qdev_get_gpio_in(s->mpu->gpio, N800_TSC_TS_GPIO);
+-
+-    s->ts.chip = tsc2301_init(penirq, kbirq, dav);
+-    s->ts.opaque = s->ts.chip->opaque;
+-    s->ts.txrx = tsc210x_txrx;
++    s->tsc = spi_create_device(omap_mcspi_bus(s->mpu->mcspi, 0), "tsc2301", 0);
++    /* penirq NC */
++    qdev_connect_gpio_out(s->tsc, 1, qdev_get_gpio_in(s->mpu->gpio,
++                                                      N800_TSC_KP_IRQ_GPIO));
++    qdev_connect_gpio_out(s->tsc, 2, qdev_get_gpio_in(s->mpu->gpio,
++                                                      N800_TSC_TS_GPIO));
+ 
+     for (i = 0; i < 0x80; i ++)
+         s->keymap[i] = -1;
+@@ -278,17 +275,15 @@ static void n800_tsc_kbd_setup(struct n800_s *s)
+ 
+     qemu_add_kbd_event_handler(n800_key_event, s);
+ 
+-    tsc210x_set_transform(s->ts.chip, &n800_pointercal);
++    tsc2301_set_transform(s->tsc, &n800_pointercal);
+ }
+ 
+ static void n810_tsc_setup(struct n800_s *s)
+ {
+-    qemu_irq pintdav = qdev_get_gpio_in(s->mpu->gpio, N810_TSC_TS_GPIO);
+-
+-    s->ts.opaque = tsc2005_init(pintdav);
+-    s->ts.txrx = tsc2005_txrx;
+-
+-    tsc2005_set_transform(s->ts.opaque, &n810_pointercal, 400, 4000);
++    s->tsc = spi_create_device(omap_mcspi_bus(s->mpu->mcspi, 0), "tsc2005", 0);
++    qdev_connect_gpio_out(s->tsc, 0, qdev_get_gpio_in(s->mpu->gpio,
++                                                      N810_TSC_TS_GPIO));
++    tsc2005_set_transform(s->tsc, &n810_pointercal, 400, 4000);
+ }
+ 
+ /* N810 Keyboard controller */
+@@ -395,6 +390,7 @@ static void n810_kbd_setup(struct n800_s *s)
+ 
+ /* LCD MIPI DBI-C controller (URAL) */
+ struct mipid_s {
++    SPIDevice spi;
+     int resp[4];
+     int param[4];
+     int p;
+@@ -414,8 +410,10 @@ struct mipid_s {
+     uint32_t id;
+ };
+ 
+-static void mipid_reset(struct mipid_s *s)
++static void mipid_reset(DeviceState *qdev)
+ {
++    struct mipid_s *s = FROM_SPI_DEVICE(struct mipid_s,
++                                        SPI_DEVICE_FROM_QDEV(qdev));
+     if (!s->sleep)
+         fprintf(stderr, "%s: Display off\n", __FUNCTION__);
+ 
+@@ -437,9 +435,9 @@ static void mipid_reset(struct mipid_s *s)
+     s->gamma = 0;
+ }
+ 
+-static uint32_t mipid_txrx(void *opaque, uint32_t cmd, int len)
++static uint32_t mipid_txrx(SPIDevice *spidev, uint32_t cmd, int len)
+ {
+-    struct mipid_s *s = (struct mipid_s *) opaque;
++    struct mipid_s *s = FROM_SPI_DEVICE(struct mipid_s, spidev);
+     uint8_t ret;
+ 
+     if (len > 9)
+@@ -459,7 +457,7 @@ static uint32_t mipid_txrx(void *opaque, uint32_t cmd, int len)
+         break;
+ 
+     case 0x01:	/* SWRESET */
+-        mipid_reset(s);
++        mipid_reset(&s->spi.qdev);
+         break;
+ 
+     case 0x02:	/* BSTROFF */
+@@ -664,23 +662,40 @@ static uint32_t mipid_txrx(void *opaque, uint32_t cmd, int len)
+     return ret;
+ }
+ 
+-static void *mipid_init(void)
++static int mipid_init(SPIDevice *spidev)
+ {
+-    struct mipid_s *s = (struct mipid_s *) g_malloc0(sizeof(*s));
++    return 0;
++}
+ 
+-    s->id = 0x838f03;
+-    mipid_reset(s);
++static Property mipid_properties[] = {
++    DEFINE_PROP_UINT32("id", struct mipid_s, id, 0),
++    DEFINE_PROP_END_OF_LIST()
++};
++
++static void mipid_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    SPIDeviceClass *k = SPI_DEVICE_CLASS(klass);
+ 
+-    return s;
++    k->init = mipid_init;
++    k->txrx = mipid_txrx;
++    dc->reset = mipid_reset;
++    dc->props = mipid_properties;
+ }
+ 
++static TypeInfo mipid_info = {
++    .name = "lcd_mipid",
++    .parent = TYPE_SPI_DEVICE,
++    .instance_size = sizeof(struct mipid_s),
++    .class_init = mipid_class_init,
++};
++
+ static void n8x0_spi_setup(struct n800_s *s)
+ {
+-    void *tsc = s->ts.opaque;
+-    void *mipid = mipid_init();
+-
+-    omap_mcspi_attach(s->mpu->mcspi[0], s->ts.txrx, tsc, 0);
+-    omap_mcspi_attach(s->mpu->mcspi[0], mipid_txrx, mipid, 1);
++    s->mipid = spi_create_device_noinit(omap_mcspi_bus(s->mpu->mcspi, 0),
++                                        "lcd_mipid", 1);
++    qdev_prop_set_uint32(s->mipid, "id", 0x838f03);
++    qdev_init_nofail(s->mipid);
+ }
+ 
+ /* This task is normally performed by the bootloader.  If we're loading
+@@ -1417,10 +1432,16 @@ static QEMUMachine n810_machine = {
+     .init = n810_init,
+ };
+ 
++static void nseries_register_types(void)
++{
++    type_register_static(&mipid_info);
++}
++
+ static void nseries_machine_init(void)
+ {
+     qemu_register_machine(&n800_machine);
+     qemu_register_machine(&n810_machine);
+ }
+ 
++type_init(nseries_register_types);
+ machine_init(nseries_machine_init);
+diff --git a/hw/omap.h b/hw/omap.h
+index f7af9e2..98d46bc 100644
+--- a/hw/omap.h
++++ b/hw/omap.h
+@@ -20,6 +20,8 @@
+ #include "memory.h"
+ # define hw_omap_h		"omap.h"
+ 
++#include "spi.h"
++
+ # define OMAP_EMIFS_BASE	0x00000000
+ # define OMAP2_Q0_BASE		0x00000000
+ # define OMAP_CS0_BASE		0x00000000
+@@ -896,15 +898,7 @@ void omap_uwire_attach(struct omap_uwire_s *s,
+                 uWireSlave *slave, int chipselect);
+ 
+ /* OMAP2 spi */
+-struct omap_mcspi_s;
+-struct omap_mcspi_s *omap_mcspi_init(struct omap_target_agent_s *ta,
+-                                     struct omap_mpu_state_s *mp,
+-                                     int chnum, qemu_irq irq, qemu_irq *drq,
+-                                     omap_clk fclk, omap_clk iclk);
+-void omap_mcspi_attach(struct omap_mcspi_s *s,
+-                uint32_t (*txrx)(void *opaque, uint32_t, int), void *opaque,
+-                int chipselect);
+-void omap_mcspi_reset(struct omap_mcspi_s *s);
++SPIBus *omap_mcspi_bus(DeviceState *omap_mcspi, int bus_number);
+ 
+ struct I2SCodec {
+     void *opaque;
+@@ -1137,7 +1131,7 @@ struct omap_mpu_state_s {
+     struct omap_gpmc_s *gpmc;
+     struct omap_sysctl_s *sysc;
+ 
+-    struct omap_mcspi_s *mcspi[2];
++    DeviceState *mcspi;
+ 
+     struct omap_dss_s *dss;
+ 
+diff --git a/hw/omap2.c b/hw/omap2.c
+index 6b50798..5795d84 100644
+--- a/hw/omap2.c
++++ b/hw/omap2.c
+@@ -2220,8 +2220,6 @@ static void omap2_mpu_reset(void *opaque)
+     omap_uart_reset(mpu->uart[1]);
+     omap_uart_reset(mpu->uart[2]);
+     omap_mmc_reset(mpu->mmc);
+-    omap_mcspi_reset(mpu->mcspi[0]);
+-    omap_mcspi_reset(mpu->mcspi[1]);
+     cpu_reset(CPU(mpu->cpu));
+ }
+ 
+@@ -2464,16 +2462,28 @@ struct omap_mpu_state_s *omap2420_mpu_init(MemoryRegion *sysmem,
+                     &s->drq[OMAP24XX_DMA_MMC1_TX],
+                     omap_findclk(s, "mmc_fclk"), omap_findclk(s, "mmc_iclk"));
+ 
+-    s->mcspi[0] = omap_mcspi_init(omap_l4ta(s->l4, 35), s, 4,
+-                    qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_MCSPI1_IRQ),
+-                    &s->drq[OMAP24XX_DMA_SPI1_TX0],
+-                    omap_findclk(s, "spi1_fclk"),
+-                    omap_findclk(s, "spi1_iclk"));
+-    s->mcspi[1] = omap_mcspi_init(omap_l4ta(s->l4, 36), s, 2,
+-                    qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_MCSPI2_IRQ),
+-                    &s->drq[OMAP24XX_DMA_SPI2_TX0],
+-                    omap_findclk(s, "spi2_fclk"),
+-                    omap_findclk(s, "spi2_iclk"));
++    s->mcspi = qdev_create(NULL, "omap_mcspi");
++    qdev_prop_set_int32(s->mcspi, "mpu_model", s->mpu_model);
++    qdev_init_nofail(s->mcspi);
++    busdev = sysbus_from_qdev(s->mcspi);
++    sysbus_connect_irq(busdev, 0,
++                       qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_MCSPI1_IRQ));
++    sysbus_connect_irq(busdev, 1, s->drq[OMAP24XX_DMA_SPI1_TX0]);
++    sysbus_connect_irq(busdev, 2, s->drq[OMAP24XX_DMA_SPI1_RX0]);
++    sysbus_connect_irq(busdev, 3, s->drq[OMAP24XX_DMA_SPI1_TX1]);
++    sysbus_connect_irq(busdev, 4, s->drq[OMAP24XX_DMA_SPI1_RX1]);
++    sysbus_connect_irq(busdev, 5, s->drq[OMAP24XX_DMA_SPI1_TX2]);
++    sysbus_connect_irq(busdev, 6, s->drq[OMAP24XX_DMA_SPI1_RX2]);
++    sysbus_connect_irq(busdev, 7, s->drq[OMAP24XX_DMA_SPI1_TX3]);
++    sysbus_connect_irq(busdev, 8, s->drq[OMAP24XX_DMA_SPI1_RX3]);
++    sysbus_connect_irq(busdev, 9,
++                       qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_MCSPI2_IRQ));
++    sysbus_connect_irq(busdev, 10, s->drq[OMAP24XX_DMA_SPI2_TX0]);
++    sysbus_connect_irq(busdev, 11, s->drq[OMAP24XX_DMA_SPI2_RX0]);
++    sysbus_connect_irq(busdev, 12, s->drq[OMAP24XX_DMA_SPI2_TX1]);
++    sysbus_connect_irq(busdev, 13, s->drq[OMAP24XX_DMA_SPI2_RX1]);
++    sysbus_mmio_map(busdev, 0, omap_l4_region_base(omap_l4ta(s->l4, 35), 0));
++    sysbus_mmio_map(busdev, 1, omap_l4_region_base(omap_l4ta(s->l4, 36), 0));
+ 
+     s->dss = omap_dss_init(omap_l4ta(s->l4, 10), sysmem, 0x68000800,
+                     /* XXX wire M_IRQ_25, D_L2_IRQ_30 and I_IRQ_13 together */
+diff --git a/hw/omap_spi.c b/hw/omap_spi.c
+index e8c7409..a0129b2 100644
+--- a/hw/omap_spi.c
++++ b/hw/omap_spi.c
+@@ -21,6 +21,8 @@
+  */
+ #include "hw.h"
+ #include "omap.h"
++#include "sysbus.h"
++#include "spi.h"
+ 
+ //#define SPI_DEBUG
+ 
+@@ -36,7 +38,8 @@
+ #define SPI_REV_OMAP3430 0x21
+ #define IS_OMAP3_SPI(s) ((s)->revision >= SPI_REV_OMAP3430)
+ 
+-struct omap_mcspi_s {
++typedef struct omap_mcspi_bus_s {
++    SPIBus *bus;
+     MemoryRegion iomem;
+     qemu_irq irq;
+     int chnum;
+@@ -62,8 +65,6 @@ struct omap_mcspi_s {
+     struct omap_mcspi_ch_s {
+         qemu_irq txdrq;
+         qemu_irq rxdrq;
+-        uint32_t (*txrx)(void *opaque, uint32_t, int);
+-        void *opaque;
+ 
+         uint32_t tx;
+         uint32_t rx;
+@@ -71,15 +72,22 @@ struct omap_mcspi_s {
+         uint32_t config;
+         uint32_t status;
+         uint32_t control;
+-    } ch[0];
+-};
++    } *ch;
++} OMAPSPIBusState;
++
++typedef struct omap_mcspi_s {
++    SysBusDevice busdev;
++    int mpu_model;
++    int buscount;
++    OMAPSPIBusState *bus;
++} OMAPSPIState;
+ 
+-static inline void omap_mcspi_interrupt_update(struct omap_mcspi_s *s)
++static inline void omap_mcspi_interrupt_update(OMAPSPIBusState *s)
+ {
+     qemu_set_irq(s->irq, s->irqst & s->irqen);
+ }
+ 
+-static inline void omap_mcspi_dmarequest_update(struct omap_mcspi_s *s,
++static inline void omap_mcspi_dmarequest_update(OMAPSPIBusState *s,
+                                                 int chnum)
+ {
+     struct omap_mcspi_ch_s *ch = &s->ch[chnum];
+@@ -107,7 +115,7 @@ static inline void omap_mcspi_dmarequest_update(struct omap_mcspi_s *s,
+     }
+ }
+ 
+-static void omap_mcspi_fifo_reset(struct omap_mcspi_s *s)
++static void omap_mcspi_fifo_reset(OMAPSPIBusState *s)
+ {
+     struct omap_mcspi_ch_s *ch;
+ 
+@@ -156,7 +164,7 @@ static void omap_mcspi_fifo_put(struct omap_mcspi_fifo_s *s, int wl,
+     }
+ }
+ 
+-static void omap_mcspi_transfer_run(struct omap_mcspi_s *s, int chnum)
++static void omap_mcspi_transfer_run(OMAPSPIBusState *s, int chnum)
+ {
+     struct omap_mcspi_ch_s *ch = s->ch + chnum;
+     int trm = (ch->config >> 12) & 3;
+@@ -172,21 +180,20 @@ static void omap_mcspi_transfer_run(struct omap_mcspi_s *s, int chnum)
+ 
+     if (!(s->control & 1) ||        /* SINGLE */
+         (ch->config & (1 << 20))) { /* FORCE */
+-        if (ch->txrx) {
+             wl = 1 + (0x1f & (ch->config >> 7)); /* WL */
+             if (!IS_OMAP3_SPI(s) || s->fifo_ch != chnum ||
+                 !((ch->config >> 27) & 3)) {     /* FFER | FFEW */
+-                ch->rx = ch->txrx(ch->opaque, ch->tx, wl);
++                ch->rx = spi_txrx(s->bus, chnum, ch->tx, wl);
+             } else {
+                 switch ((ch->config >> 27) & 3) {
+                 case 1: /* !FFER, FFEW */
+                     if (trm != 1)
+                         ch->tx = omap_mcspi_fifo_get(&s->tx_fifo, wl);
+-                    ch->rx = ch->txrx(ch->opaque, ch->tx, wl);
++                    ch->rx = spi_txrx(s->bus, chnum, ch->tx, wl);
+                     s->fifo_wcnt--;
+                     break;
+                 case 2: /* FFER, !FFEW */
+-                    ch->rx = ch->txrx(ch->opaque, ch->tx, wl);
++                    ch->rx = spi_txrx(s->bus, chnum, ch->tx, wl);
+                     if (trm != 2)
+                         omap_mcspi_fifo_put(&s->rx_fifo, wl, ch->rx);
+                     s->fifo_wcnt--;
+@@ -196,7 +203,7 @@ static void omap_mcspi_transfer_run(struct omap_mcspi_s *s, int chnum)
+                            s->tx_fifo.len && s->fifo_wcnt) {
+                         if (trm != 1)
+                             ch->tx = omap_mcspi_fifo_get(&s->tx_fifo, wl);
+-                        ch->rx = ch->txrx(ch->opaque, ch->tx, wl);
++                        ch->rx = spi_txrx(s->bus, chnum, ch->tx, wl);
+                         if (trm != 2)
+                             omap_mcspi_fifo_put(&s->rx_fifo, wl, ch->rx);
+                         s->fifo_wcnt--;
+@@ -217,7 +224,6 @@ static void omap_mcspi_transfer_run(struct omap_mcspi_s *s, int chnum)
+                     ((s->xferlevel >> 16) & 0xffff))   /* WCNT */
+                     s->irqst |= 1 << 17;               /* EOW */
+             }
+-        }
+     }
+ 
+     ch->tx = 0;
+@@ -242,7 +248,7 @@ intr_update:
+     omap_mcspi_dmarequest_update(s, chnum);
+ }
+ 
+-void omap_mcspi_reset(struct omap_mcspi_s *s)
++static void omap_mcspi_bus_reset(OMAPSPIBusState *s)
+ {
+     int ch;
+ 
+@@ -270,7 +276,7 @@ void omap_mcspi_reset(struct omap_mcspi_s *s)
+ static uint64_t omap_mcspi_read(void *opaque, target_phys_addr_t addr,
+                                 unsigned size)
+ {
+-    struct omap_mcspi_s *s = (struct omap_mcspi_s *) opaque;
++    OMAPSPIBusState *s = (OMAPSPIBusState *) opaque;
+     int ch = 0;
+     uint32_t ret;
+ 
+@@ -400,7 +406,7 @@ static uint64_t omap_mcspi_read(void *opaque, target_phys_addr_t addr,
+ static void omap_mcspi_write(void *opaque, target_phys_addr_t addr,
+                              uint64_t value, unsigned size)
+ {
+-    struct omap_mcspi_s *s = (struct omap_mcspi_s *) opaque;
++    OMAPSPIBusState *s = (OMAPSPIBusState *) opaque;
+     uint32_t old;
+     int ch = 0;
+ 
+@@ -426,7 +432,7 @@ static void omap_mcspi_write(void *opaque, target_phys_addr_t addr,
+     case 0x10:	/* MCSPI_SYSCONFIG */
+         TRACE("SYSCONFIG = 0x%08x", value);
+         if (value & (1 << 1))				/* SOFTRESET */
+-            omap_mcspi_reset(s);
++            omap_mcspi_bus_reset(s);
+         s->sysconfig = value & 0x31d;
+         break;
+ 
+@@ -574,41 +580,79 @@ static const MemoryRegionOps omap_mcspi_ops = {
+     .endianness = DEVICE_NATIVE_ENDIAN,
+ };
+ 
+-struct omap_mcspi_s *omap_mcspi_init(struct omap_target_agent_s *ta,
+-                                     struct omap_mpu_state_s *mpu,
+-                                     int chnum, qemu_irq irq, qemu_irq *drq,
+-                                     omap_clk fclk, omap_clk iclk)
++static void omap_mcspi_reset(DeviceState *qdev)
+ {
+-    struct omap_mcspi_s *s = g_malloc0(sizeof(*s) +
+-        chnum * sizeof(struct omap_mcspi_ch_s));
+-    struct omap_mcspi_ch_s *ch = s->ch;
+-
+-    s->irq = irq;
+-    s->chnum = chnum;
+-    /* revision was hardcoded as 0x91 in original code -- odd */
+-    s->revision = cpu_class_omap3(mpu) ? SPI_REV_OMAP3430 : SPI_REV_OMAP2420;
+-    while (chnum --) {
+-        ch->txdrq = *drq ++;
+-        ch->rxdrq = *drq ++;
+-        ch ++;
++    int i;
++    OMAPSPIState *s = FROM_SYSBUS(OMAPSPIState, sysbus_from_qdev(qdev));
++    for (i = 0; i < s->buscount; i++) {
++        omap_mcspi_bus_reset(&s->bus[i]);
+     }
+-    omap_mcspi_reset(s);
++}
+ 
+-    memory_region_init_io(&s->iomem, &omap_mcspi_ops, s, "omap.mcspi",
+-                          omap_l4_region_size(ta, 0));
+-    omap_l4_attach(ta, 0, &s->iomem);
++static int omap_mcspi_init(SysBusDevice *busdev)
++{
++    int i, j;
++    OMAPSPIBusState *bs;
++    OMAPSPIState *s = FROM_SYSBUS(OMAPSPIState, busdev);
++    
++    s->buscount = (s->mpu_model < omap3430) ? 2 : 4;
++    s->bus = g_new0(OMAPSPIBusState, s->buscount);
++    for (i = 0; i < s->buscount; i++) {
++        bs = &s->bus[i];
++        if (s->mpu_model < omap3430) {
++            bs->revision = SPI_REV_OMAP2420;
++            bs->chnum = i ? 2 : 4;
++        } else {
++            bs->revision = SPI_REV_OMAP3430;
++            bs->chnum = (i > 2) ? 1 : (i ? 2 : 4);
++        }
++        sysbus_init_irq(busdev, &bs->irq);
++        bs->bus = spi_init_bus(&busdev->qdev, NULL, bs->chnum);
++        bs->ch = g_new0(struct omap_mcspi_ch_s, bs->chnum);
++        for (j = 0; j < bs->chnum; j++) {
++            sysbus_init_irq(busdev, &bs->ch[j].txdrq);
++            sysbus_init_irq(busdev, &bs->ch[j].rxdrq);
++        }
++        memory_region_init_io(&bs->iomem, &omap_mcspi_ops, bs, "omap.mcspi",
++                              0x1000);
++        sysbus_init_mmio(busdev, &bs->iomem);
++    }
++    return 0;
++}
+ 
+-    return s;
++SPIBus *omap_mcspi_bus(DeviceState *qdev, int bus_number)
++{
++    OMAPSPIState *s = FROM_SYSBUS(OMAPSPIState, sysbus_from_qdev(qdev));
++    if (bus_number < s->buscount) {
++        return s->bus[bus_number].bus;
++    }
++    hw_error("%s: invalid bus number %d\n", __FUNCTION__, bus_number);
+ }
+ 
+-void omap_mcspi_attach(struct omap_mcspi_s *s,
+-                       uint32_t (*txrx)(void *opaque, uint32_t, int),
+-                       void *opaque,
+-                       int chipselect)
++static Property omap_mcspi_properties[] = {
++    DEFINE_PROP_INT32("mpu_model", OMAPSPIState, mpu_model, 0),
++    DEFINE_PROP_END_OF_LIST()
++};
++
++static void omap_mcspi_class_init(ObjectClass *klass, void *data)
+ {
+-    if (chipselect < 0 || chipselect >= s->chnum)
+-        hw_error("%s: Bad chipselect %i\n", __FUNCTION__, chipselect);
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    SysBusDeviceClass *k = SYS_BUS_DEVICE_CLASS(klass);
++    k->init = omap_mcspi_init;
++    dc->props = omap_mcspi_properties;
++    dc->reset = omap_mcspi_reset;
++}
+ 
+-    s->ch[chipselect].txrx = txrx;
+-    s->ch[chipselect].opaque = opaque;
++static TypeInfo omap_mcspi_info = {
++    .name = "omap_mcspi",
++    .parent = TYPE_SYS_BUS_DEVICE,
++    .instance_size = sizeof(OMAPSPIState),
++    .class_init = omap_mcspi_class_init,
++};
++
++static void omap_mcspi_register_types(void)
++{
++    type_register_static(&omap_mcspi_info);
+ }
++
++type_init(omap_mcspi_register_types)
+diff --git a/hw/spi.c b/hw/spi.c
+new file mode 100644
+index 0000000..c48ac06
+--- /dev/null
++++ b/hw/spi.c
+@@ -0,0 +1,121 @@
++/*
++ * SPI interface.
++ *
++ * Copyright (C) 2007-2010 Nokia Corporation
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 or
++ * (at your option) any later version of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++#include "spi.h"
++
++struct SPIBus {
++    BusState qbus;
++    int channels;
++    SPIDevice **device;
++};
++
++#define TYPE_SPI_BUS "spi-bus"
++#define SPI_BUS(obj) OBJECT_CHECK(SPIBus, (obj), TYPE_SPI_BUS)
++
++static Property spi_props[] = {
++    DEFINE_PROP_UINT8("channel", SPIDevice, channel, 0),
++    DEFINE_PROP_END_OF_LIST()
++};
++
++static const TypeInfo spi_bus_info = {
++    .name = TYPE_SPI_BUS,
++    .parent = TYPE_BUS,
++    .instance_size = sizeof(SPIBus),
++};
++
++SPIBus *spi_init_bus(DeviceState *parent, const char *name, int num_channels)
++{
++    SPIBus *bus = FROM_QBUS(SPIBus, qbus_create(TYPE_SPI_BUS, parent, name));
++    bus->channels = num_channels;
++    bus->device = g_new0(SPIDevice*, bus->channels);
++    return bus;
++}
++
++uint32_t spi_txrx(SPIBus *bus, int channel, uint32_t data, int len)
++{
++    SPIDevice *dev;
++    SPIDeviceClass *sc;
++
++    if (channel < bus->channels) {
++        if ((dev = bus->device[channel])) {
++            sc = SPI_DEVICE_GET_CLASS(dev);
++            if (sc->txrx) {
++                return sc->txrx(dev, data, len);
++            }
++        }
++    } else {
++        hw_error("%s: invalid channel %d\n", __FUNCTION__, channel);
++    }
++    return 0;
++}
++
++DeviceState *spi_create_device_noinit(SPIBus *bus, const char *name, int ch)
++{
++    if (ch >= bus->channels) {
++        hw_error("%s: invalid channel %d\n", __FUNCTION__, ch);
++    }
++    if (bus->device[ch]) {
++        hw_error("%s: channel %d already has a device attached\n",
++                 __FUNCTION__, ch);
++    }
++    DeviceState *qdev = qdev_create(&bus->qbus, name);
++    qdev_prop_set_uint8(qdev, "channel", ch);
++    SPIDevice *dev = SPI_DEVICE_FROM_QDEV(qdev);
++    bus->device[ch] = dev;
++    return qdev;
++}
++
++DeviceState *spi_create_device(SPIBus *bus, const char *name, int ch)
++{
++    DeviceState *dev = spi_create_device_noinit(bus, name, ch);
++    qdev_init_nofail(dev);
++    return dev;
++}
++
++static int spi_device_qdev_init(DeviceState *dev)
++{
++    SPIDevice *s = SPI_DEVICE_FROM_QDEV(dev);
++    SPIDeviceClass *sc = SPI_DEVICE_GET_CLASS(s);
++    return sc->init(s);
++}
++
++static void spi_device_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *k = DEVICE_CLASS(klass);
++    k->init = spi_device_qdev_init;
++    k->bus_type = TYPE_SPI_BUS;
++    k->props = spi_props;
++}
++
++static TypeInfo spi_device_type_info = {
++    .name = TYPE_SPI_DEVICE,
++    .parent = TYPE_DEVICE,
++    .instance_size = sizeof(SPIDevice),
++    .abstract = true,
++    .class_size = sizeof(SPIDeviceClass),
++    .class_init = spi_device_class_init,
++};
++
++static void spi_device_register_types(void)
++{
++    type_register_static(&spi_bus_info);
++    type_register_static(&spi_device_type_info);
++}
++
++type_init(spi_device_register_types)
+diff --git a/hw/spi.h b/hw/spi.h
+new file mode 100644
+index 0000000..fa59f40
+--- /dev/null
++++ b/hw/spi.h
+@@ -0,0 +1,62 @@
++/*
++ * SPI interface.
++ *
++ * Copyright (C) 2007-2010 Nokia Corporation
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 or
++ * (at your option) any later version of the License.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License along
++ * with this program; if not, write to the Free Software Foundation, Inc.,
++ * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++#ifndef HW_SPI_H__
++#define HW_SPI_H__
++#include "hw.h"
++#include "qdev.h"
++
++typedef struct SPIDevice SPIDevice;
++typedef struct SPIBus SPIBus;
++
++#define TYPE_SPI_DEVICE "spi-device"
++#define SPI_DEVICE(obj) \
++    OBJECT_CHECK(SPIDevice, (obj), TYPE_SPI_DEVICE)
++#define SPI_DEVICE_CLASS(klass) \
++    OBJECT_CLASS_CHECK(SPIDeviceClass, (klass), TYPE_SPI_DEVICE)
++#define SPI_DEVICE_GET_CLASS(obj) \
++    OBJECT_GET_CLASS(SPIDeviceClass, (obj), TYPE_SPI_DEVICE)
++
++typedef int (*spi_device_initfn)(SPIDevice *dev);
++typedef uint32_t (*spi_txrx_cb)(SPIDevice *dev, uint32_t, int);
++
++typedef struct SPIDeviceClass {
++    DeviceClass parent_class;
++
++    spi_device_initfn init;
++    spi_txrx_cb txrx;
++} SPIDeviceClass;
++
++struct SPIDevice {
++    DeviceState qdev;
++
++    /* internal fields used by SPI code */
++    uint8_t channel;
++};
++
++SPIBus *spi_init_bus(DeviceState *parent, const char *name, int num_channels);
++uint32_t spi_txrx(SPIBus *bus, int channel, uint32_t data, int len);
++
++#define SPI_DEVICE_FROM_QDEV(dev) DO_UPCAST(SPIDevice, qdev, dev)
++#define FROM_SPI_DEVICE(type, dev) DO_UPCAST(type, spi, dev)
++
++DeviceState *spi_create_device(SPIBus *bus, const char *name, int ch);
++DeviceState *spi_create_device_noinit(SPIBus *bus, const char *name, int ch);
++
++#endif
+diff --git a/hw/tsc2005.c b/hw/tsc2005.c
+index 5a18607..ce05652 100644
+--- a/hw/tsc2005.c
++++ b/hw/tsc2005.c
+@@ -22,6 +22,7 @@
+ #include "qemu-timer.h"
+ #include "console.h"
+ #include "devices.h"
++#include "spi.h"
+ 
+ //#define TSC2005_DEBUG
+ 
+@@ -35,6 +36,7 @@
+ #define TSC_CUT_RESOLUTION(value, p)	((value) >> (16 - (p ? 12 : 10)))
+ 
+ typedef struct {
++    SPIDevice spi;
+     qemu_irq pint;	/* Combination of the nPENIRQ and DAV signals */
+     QEMUTimer *timer;
+     uint16_t model;
+@@ -326,8 +328,10 @@ static void tsc2005_pin_update(TSC2005State *s)
+     }
+ }
+ 
+-static void tsc2005_reset(TSC2005State *s)
++static void tsc2005_reset(DeviceState *qdev)
+ {
++    TSC2005State *s = FROM_SPI_DEVICE(TSC2005State,
++                                      SPI_DEVICE_FROM_QDEV(qdev));
+     s->state = 0;
+     s->pin_func = 0;
+     s->enabled = 0;
+@@ -350,18 +354,17 @@ static void tsc2005_reset(TSC2005State *s)
+     tsc2005_pin_update(s);
+ }
+ 
+-static uint8_t tsc2005_txrx_word(void *opaque, uint8_t value)
++static uint8_t tsc2005_txrx_word(TSC2005State *s, uint8_t value)
+ {
+-    TSC2005State *s = opaque;
+     uint32_t ret = 0;
+     TRACE("value = 0x%08x, state=%d", value, s->state + 1);
+     switch (s->state ++) {
+     case 0:
+         if (value & 0x80) {
+             /* Command */
+-            if (value & (1 << 1))
+-                tsc2005_reset(s);
+-            else {
++            if (value & (1 << 1)) {
++                tsc2005_reset(&s->spi.qdev);
++            } else {
+                 s->nextfunction = (value >> 3) & 0xf;
+                 s->nextprecision = (value >> 2) & 1;
+                 if (s->enabled != !(value & 1)) {
+@@ -415,14 +418,15 @@ static uint8_t tsc2005_txrx_word(void *opaque, uint8_t value)
+     return ret;
+ }
+ 
+-uint32_t tsc2005_txrx(void *opaque, uint32_t value, int len)
++static uint32_t tsc2005_txrx(SPIDevice *spidev, uint32_t value, int len)
+ {
++    TSC2005State *s = FROM_SPI_DEVICE(TSC2005State, spidev);
+     uint32_t ret = 0;
+     TRACE("value=0x%08x, len=%d", value, len);
+     len &= ~7;
+     while (len > 0) {
+         len -= 8;
+-        ret |= tsc2005_txrx_word(opaque, (value >> len) & 0xff) << len;
++        ret |= tsc2005_txrx_word(s, (value >> len) & 0xff) << len;
+     }
+ 
+     return ret;
+@@ -578,18 +582,16 @@ static int tsc2005_load(QEMUFile *f, void *opaque, int version_id)
+     return 0;
+ }
+ 
+-void *tsc2005_init(qemu_irq pintdav)
++static int tsc2005_init(SPIDevice *spidev)
+ {
+-    TSC2005State *s;
++    TSC2005State *s = FROM_SPI_DEVICE(TSC2005State, spidev);
+ 
+-    s = (TSC2005State *)
+-            g_malloc0(sizeof(TSC2005State));
+     s->x = 400;
+     s->y = 240;
+     s->pressure = 0;
+     s->precision = s->nextprecision = 0;
+     s->timer = qemu_new_timer_ns(vm_clock, tsc2005_timer_tick, s);
+-    s->pint = pintdav;
++    qdev_init_gpio_out(&spidev->qdev, &s->pint, 1);
+     s->model = 0x2005;
+ 
+     s->tr[0] = 0;
+@@ -604,15 +606,12 @@ void *tsc2005_init(qemu_irq pintdav)
+     s->z1_cons = 400;
+     s->z2_cons = 4000;
+ 
+-    tsc2005_reset(s);
+-
+     qemu_add_mouse_event_handler(tsc2005_touchscreen_event, s, 1,
+                     "QEMU TSC2005-driven Touchscreen");
+ 
+-    qemu_register_reset((void *) tsc2005_reset, s);
+     register_savevm(NULL, "tsc2005", -1, 0, tsc2005_save, tsc2005_load, s);
+ 
+-    return s;
++    return 0;
+ }
+ 
+ /*
+@@ -620,10 +619,11 @@ void *tsc2005_init(qemu_irq pintdav)
+  * from the touchscreen.  Assuming 12-bit precision was used during
+  * tslib calibration.
+  */
+-void tsc2005_set_transform(void *opaque, MouseTransformInfo *info,
++void tsc2005_set_transform(DeviceState *qdev, MouseTransformInfo *info,
+                            int z1_cons, int z2_cons)
+ {
+-    TSC2005State *s = (TSC2005State *) opaque;
++    TSC2005State *s = FROM_SPI_DEVICE(TSC2005State,
++                                      SPI_DEVICE_FROM_QDEV(qdev));
+ 
+     /* This version assumes touchscreen X & Y axis are parallel or
+      * perpendicular to LCD's  X & Y axis in some way.  */
+@@ -657,3 +657,27 @@ void tsc2005_set_transform(void *opaque, MouseTransformInfo *info,
+     s->z1_cons = z1_cons;
+     s->z2_cons = z2_cons;
+ }
++
++static void tsc2005_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    SPIDeviceClass *k = SPI_DEVICE_CLASS(klass);
++
++    k->init = tsc2005_init;
++    k->txrx = tsc2005_txrx;
++    dc->reset = tsc2005_reset;
++}
++
++static TypeInfo tsc2005_info = {
++    .name = "tsc2005",
++    .parent = TYPE_SPI_DEVICE,
++    .instance_size = sizeof(TSC2005State),
++    .class_init = tsc2005_class_init,
++};
++
++static void tsc2005_register_types(void)
++{
++    type_register_static(&tsc2005_info);
++}
++
++type_init(tsc2005_register_types)
+diff --git a/hw/tsc210x.c b/hw/tsc210x.c
+index 3c448a6..710245d 100644
+--- a/hw/tsc210x.c
++++ b/hw/tsc210x.c
+@@ -25,6 +25,7 @@
+ #include "console.h"
+ #include "omap.h"	/* For I2SCodec and uWireSlave */
+ #include "devices.h"
++#include "spi.h"
+ 
+ #define TSC_DATA_REGISTERS_PAGE		0x0
+ #define TSC_CONTROL_REGISTERS_PAGE	0x1
+@@ -35,9 +36,7 @@
+ #define TSC_CUT_RESOLUTION(value, p)	((value) >> (16 - resolution[p]))
+ 
+ typedef struct {
+-    qemu_irq pint;
+-    qemu_irq kbint;
+-    qemu_irq davint;
++    qemu_irq irq[3]; /* pint, kbint, davint */
+     QEMUTimer *timer;
+     QEMUSoundCard card;
+     uWireSlave chip;
+@@ -49,7 +48,7 @@ typedef struct {
+     int x, y;
+     int pressure;
+ 
+-    int state, page, offset, irq;
++    int state, page, offset, pint;
+     uint16_t command, dav;
+ 
+     int busy;
+@@ -94,6 +93,11 @@ typedef struct {
+     } kb;
+ } TSC210xState;
+ 
++typedef struct {
++    SPIDevice spi;
++    TSC210xState tsc210x;
++} TSC2301State;
++
+ static const int resolution[4] = { 12, 8, 10, 12 };
+ 
+ #define TSC_MODE_NO_SCAN	0x0
+@@ -160,7 +164,7 @@ static void tsc210x_reset(TSC210xState *s)
+     s->nextfunction = 0;
+     s->ref = 0;
+     s->timing = 0;
+-    s->irq = 0;
++    s->pint = 0;
+     s->dav = 0;
+ 
+     s->audio_ctrl1 = 0x0000;
+@@ -204,9 +208,15 @@ static void tsc210x_reset(TSC210xState *s)
+     s->kb.mode = 3;
+     s->kb.intr = 0;
+ 
+-    qemu_set_irq(s->pint, !s->irq);
+-    qemu_set_irq(s->davint, !s->dav);
+-    qemu_irq_raise(s->kbint);
++    qemu_set_irq(s->irq[0], !s->pint);
++    qemu_set_irq(s->irq[2], !s->dav);
++    qemu_irq_raise(s->irq[1]);
++}
++
++static void tsc2301_reset(DeviceState *qdev)
++{
++    tsc210x_reset(&FROM_SPI_DEVICE(TSC2301State,
++                                   SPI_DEVICE_FROM_QDEV(qdev))->tsc210x);
+ }
+ 
+ typedef struct {
+@@ -383,7 +393,7 @@ static uint16_t tsc2102_data_register_read(TSC210xState *s, int reg)
+         if ((s->model & 0xff00) == 0x2300) {
+             if (s->kb.intr && (s->kb.mode & 2)) {
+                 s->kb.intr = 0;
+-                qemu_irq_raise(s->kbint);
++                qemu_irq_raise(s->irq[1]);
+             }
+             return s->kb.down;
+         }
+@@ -609,7 +619,7 @@ static void tsc2102_control_register_write(
+             s->kb.debounce = (value >> 11) & 7;
+             if (s->kb.intr && s->kb.scan) {
+                 s->kb.intr = 0;
+-                qemu_irq_raise(s->kbint);
++                qemu_irq_raise(s->irq[1]);
+             }
+         }
+         return;
+@@ -819,9 +829,9 @@ static void tsc210x_pin_update(TSC210xState *s)
+     if (!s->enabled)
+         pin_state = 0;
+ 
+-    if (pin_state != s->irq) {
+-        s->irq = pin_state;
+-        qemu_set_irq(s->pint, !s->irq);
++    if (pin_state != s->pint) {
++        s->pint = pin_state;
++        qemu_set_irq(s->irq[0], !s->pint);
+     }
+ 
+     switch (s->nextfunction) {
+@@ -879,7 +889,7 @@ static uint16_t tsc210x_read(TSC210xState *s)
+     case TSC_DATA_REGISTERS_PAGE:
+         ret = tsc2102_data_register_read(s, s->offset);
+         if (!s->dav)
+-            qemu_irq_raise(s->davint);
++            qemu_irq_raise(s->irq[2]);
+         break;
+     case TSC_CONTROL_REGISTERS_PAGE:
+         ret = tsc2102_control_register_read(s, s->offset);
+@@ -933,9 +943,9 @@ static void tsc210x_write(TSC210xState *s, uint16_t value)
+     }
+ }
+ 
+-uint32_t tsc210x_txrx(void *opaque, uint32_t value, int len)
++static uint32_t tsc2301_txrx(SPIDevice *spidev, uint32_t value, int len)
+ {
+-    TSC210xState *s = opaque;
++    TSC210xState *s = &FROM_SPI_DEVICE(TSC2301State, spidev)->tsc210x;
+     uint32_t ret = 0;
+ 
+     if (len != 16)
+@@ -964,7 +974,7 @@ static void tsc210x_timer_tick(void *opaque)
+     s->busy = 0;
+     s->dav |= mode_regs[s->function];
+     tsc210x_pin_update(s);
+-    qemu_irq_lower(s->davint);
++    qemu_irq_lower(s->irq[2]);
+ }
+ 
+ static void tsc210x_touchscreen_event(void *opaque,
+@@ -1017,7 +1027,7 @@ static void tsc210x_save(QEMUFile *f, void *opaque)
+     qemu_put_byte(f, s->offset);
+     qemu_put_byte(f, s->command);
+ 
+-    qemu_put_byte(f, s->irq);
++    qemu_put_byte(f, s->pint);
+     qemu_put_be16s(f, &s->dav);
+ 
+     qemu_put_timer(f, s->timer);
+@@ -1063,7 +1073,7 @@ static int tsc210x_load(QEMUFile *f, void *opaque, int version_id)
+     s->offset = qemu_get_byte(f);
+     s->command = qemu_get_byte(f);
+ 
+-    s->irq = qemu_get_byte(f);
++    s->pint = qemu_get_byte(f);
+     qemu_get_be16s(f, &s->dav);
+ 
+     qemu_get_timer(f, s->timer);
+@@ -1094,8 +1104,8 @@ static int tsc210x_load(QEMUFile *f, void *opaque, int version_id)
+         qemu_get_be16s(f, &s->filter_data[i]);
+ 
+     s->busy = qemu_timer_pending(s->timer);
+-    qemu_set_irq(s->pint, !s->irq);
+-    qemu_set_irq(s->davint, !s->dav);
++    qemu_set_irq(s->irq[0], !s->pint);
++    qemu_set_irq(s->irq[2], !s->dav);
+ 
+     return 0;
+ }
+@@ -1112,7 +1122,7 @@ uWireSlave *tsc2102_init(qemu_irq pint)
+     s->pressure = 0;
+     s->precision = s->nextprecision = 0;
+     s->timer = qemu_new_timer_ns(vm_clock, tsc210x_timer_tick, s);
+-    s->pint = pint;
++    s->irq[0] = pint;
+     s->model = 0x2102;
+     s->name = "tsc2102";
+ 
+@@ -1149,21 +1159,16 @@ uWireSlave *tsc2102_init(qemu_irq pint)
+     return &s->chip;
+ }
+ 
+-uWireSlave *tsc2301_init(qemu_irq penirq, qemu_irq kbirq, qemu_irq dav)
++static int tsc2301_init(SPIDevice *spidev)
+ {
+-    TSC210xState *s;
++    TSC210xState *s = &FROM_SPI_DEVICE(TSC2301State, spidev)->tsc210x;
+ 
+-    s = (TSC210xState *)
+-            g_malloc0(sizeof(TSC210xState));
+-    memset(s, 0, sizeof(TSC210xState));
+     s->x = 400;
+     s->y = 240;
+     s->pressure = 0;
+     s->precision = s->nextprecision = 0;
+     s->timer = qemu_new_timer_ns(vm_clock, tsc210x_timer_tick, s);
+-    s->pint = penirq;
+-    s->kbint = kbirq;
+-    s->davint = dav;
++    qdev_init_gpio_out(&spidev->qdev, s->irq, 3);
+     s->model = 0x2301;
+     s->name = "tsc2301";
+ 
+@@ -1186,17 +1191,36 @@ uWireSlave *tsc2301_init(qemu_irq penirq, qemu_irq kbirq, qemu_irq dav)
+     s->codec.in.fifo = s->in_fifo;
+     s->codec.out.fifo = s->out_fifo;
+ 
+-    tsc210x_reset(s);
+-
+     qemu_add_mouse_event_handler(tsc210x_touchscreen_event, s, 1,
+                     "QEMU TSC2301-driven Touchscreen");
+ 
+     AUD_register_card(s->name, &s->card);
+ 
+-    qemu_register_reset((void *) tsc210x_reset, s);
+     register_savevm(NULL, s->name, -1, 0, tsc210x_save, tsc210x_load, s);
+ 
+-    return &s->chip;
++    return 0;
++}
++
++static void tsc2301_class_init(ObjectClass *klass, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    SPIDeviceClass *k = SPI_DEVICE_CLASS(klass);
++
++    k->init = tsc2301_init;
++    k->txrx = tsc2301_txrx;
++    dc->reset = tsc2301_reset;
++}
++
++static TypeInfo tsc2301_info = {
++    .name = "tsc2301",
++    .parent = TYPE_SPI_DEVICE,
++    .instance_size = sizeof(TSC2301State),
++    .class_init = tsc2301_class_init,
++};
++
++static void tsc210x_register_types(void)
++{
++    type_register_static(&tsc2301_info);
+ }
+ 
+ I2SCodec *tsc210x_codec(uWireSlave *chip)
+@@ -1273,6 +1297,14 @@ void tsc210x_set_transform(uWireSlave *chip,
+ #endif
+ }
+ 
++void tsc2301_set_transform(DeviceState *qdev, MouseTransformInfo *info)
++{
++    tsc210x_set_transform(
++        &FROM_SPI_DEVICE(TSC2301State,
++                         SPI_DEVICE_FROM_QDEV(qdev))->tsc210x.chip,
++        info);
++}
++
+ void tsc210x_key_event(uWireSlave *chip, int key, int down)
+ {
+     TSC210xState *s = (TSC210xState *) chip->opaque;
+@@ -1284,10 +1316,19 @@ void tsc210x_key_event(uWireSlave *chip, int key, int down)
+ 
+     if (down && (s->kb.down & ~s->kb.mask) && !s->kb.intr) {
+         s->kb.intr = 1;
+-        qemu_irq_lower(s->kbint);
++        qemu_irq_lower(s->irq[1]);
+     } else if (s->kb.intr && !(s->kb.down & ~s->kb.mask) &&
+                     !(s->kb.mode & 1)) {
+         s->kb.intr = 0;
+-        qemu_irq_raise(s->kbint);
++        qemu_irq_raise(s->irq[1]);
+     }
+ }
++
++void tsc2301_key_event(DeviceState *qdev, int key, int down)
++{
++    TSC2301State *s = FROM_SPI_DEVICE(TSC2301State,
++                                      SPI_DEVICE_FROM_QDEV(qdev));
++    tsc210x_key_event(&s->tsc210x.chip, key, down);
++}
++
++type_init(tsc210x_register_types)
+-- 
+1.7.9.5
+

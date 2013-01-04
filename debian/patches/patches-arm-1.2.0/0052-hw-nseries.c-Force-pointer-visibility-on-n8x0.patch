@@ -1,0 +1,24 @@
+From 0c5be2ade45ec6c49397ee09a0e1a94d4d624758 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Wed, 4 Jul 2012 11:18:47 +0000
+Subject: [PATCH 52/77] hw/nseries.c: Force pointer visibility on n8x0
+
+---
+ hw/nseries.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hw/nseries.c b/hw/nseries.c
+index 8e922eb..1f60c86 100644
+--- a/hw/nseries.c
++++ b/hw/nseries.c
+@@ -1466,6 +1466,7 @@ static void n8x0_init(ram_addr_t ram_size, const char *boot_device,
+         n810_tsc_setup(s);
+         n810_kbd_setup(s);
+     }
++    cursor_hide = 0; // who wants to use touchscreen without a pointer?
+     n8x0_spi_setup(s);
+     n8x0_dss_setup(s);
+     n8x0_cbus_setup(s);
+-- 
+1.7.9.5
+

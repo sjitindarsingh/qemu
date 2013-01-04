@@ -12709,7 +12709,7 @@ static void mips_tcg_init(void)
 
 #include "translate_init.c"
 
-CPUMIPSState *cpu_mips_init (const char *cpu_model)
+MIPSCPU *cpu_mips_init(const char *cpu_model)
 {
     MIPSCPU *cpu;
     CPUMIPSState *env;
@@ -12729,9 +12729,9 @@ CPUMIPSState *cpu_mips_init (const char *cpu_model)
     fpu_init(env, def);
     mvp_init(env, def);
     mips_tcg_init();
-    cpu_state_reset(env);
+    cpu_reset(CPU(cpu));
     qemu_init_vcpu(env);
-    return env;
+    return cpu;
 }
 
 void cpu_state_reset(CPUMIPSState *env)
@@ -12783,6 +12783,7 @@ void cpu_state_reset(CPUMIPSState *env)
     env->CP0_SRSConf3 = env->cpu_model->CP0_SRSConf3;
     env->CP0_SRSConf4_rw_bitmask = env->cpu_model->CP0_SRSConf4_rw_bitmask;
     env->CP0_SRSConf4 = env->cpu_model->CP0_SRSConf4;
+    env->active_fpu.fcr0 = env->cpu_model->CP1_fcr0;
     env->insn_flags = env->cpu_model->insn_flags;
 
 #if defined(CONFIG_USER_ONLY)

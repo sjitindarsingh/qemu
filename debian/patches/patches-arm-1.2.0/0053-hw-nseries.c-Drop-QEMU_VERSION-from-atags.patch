@@ -1,0 +1,27 @@
+From 4f01a42c7a3b3da107cebd0e5d4383f1a8265e2e Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Wed, 4 Jul 2012 11:18:47 +0000
+Subject: [PATCH 53/77] hw/nseries.c: Drop QEMU_VERSION from atags
+
+(Why?)
+---
+ hw/nseries.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/hw/nseries.c b/hw/nseries.c
+index 1f60c86..e86901c 100644
+--- a/hw/nseries.c
++++ b/hw/nseries.c
+@@ -1395,8 +1395,7 @@ static int n8x0_atag_setup(void *p, int model)
+     stw_raw(w ++, 24);				/* u16 len */
+     strcpy((void *) w, "hw-build");		/* char component[12] */
+     w += 6;
+-    strcpy((void *) w, "QEMU ");
+-    pstrcat((void *) w, 12, qemu_get_version()); /* char version[12] */
++    strcpy((void *) w, "QEMU");		/* char version[12] */
+     w += 6;
+ 
+     tag = (model == 810) ? "1.1.10-qemu" : "1.1.6-qemu";
+-- 
+1.7.9.5
+

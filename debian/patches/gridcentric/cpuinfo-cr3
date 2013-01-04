@@ -1,0 +1,62 @@
+Extra registers for qmp query. 
+
+Stringified to allow for easy interpretation while debugging, and no ambiguity
+while marshaling/parsing/unpacking.
+
+Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+
+diff --git a/cpus.c b/cpus.c
+index b182b3d..84224dc 100644
+--- a/cpus.c
++++ b/cpus.c
+@@ -1187,6 +1187,7 @@ CpuInfoList *qmp_query_cpus(Error **errp)
+ {
+     CpuInfoList *head = NULL, *cur_item = NULL;
+     CPUArchState *env;
++    int r;
+ 
+     for(env = first_cpu; env != NULL; env = env->next_cpu) {
+         CpuInfoList *info;
+@@ -1202,6 +1203,14 @@ CpuInfoList *qmp_query_cpus(Error **errp)
+ #if defined(TARGET_I386)
+         info->value->has_pc = true;
+         info->value->pc = env->eip + env->segs[R_CS].base;
++        r = asprintf(&info->value->cr0, TARGET_FMT_lx, env->cr[0]);
++        info->value->has_cr0 = r != -1;
++        r = asprintf(&info->value->cr3, TARGET_FMT_lx, env->cr[3]);
++        info->value->has_cr3 = r != -1;
++        r = asprintf(&info->value->cr4, TARGET_FMT_lx, env->cr[4]);
++        info->value->has_cr4 = r != -1;
++        r = asprintf(&info->value->efer, "%" PRIu64, env->efer);
++        info->value->has_efer = r != -1;
+ #elif defined(TARGET_PPC)
+         info->value->has_nip = true;
+         info->value->nip = env->nip;
+diff --git a/qapi-schema.json b/qapi-schema.json
+index 2ca7195..cceb611 100644
+--- a/qapi-schema.json
++++ b/qapi-schema.json
+@@ -324,6 +324,15 @@
+ #                If the target is Sparc, this is the PC component of the
+ #                instruction pointer.
+ #
++# @cr0: #optional If the target is i386 or x86_64, this is the CR1 register.
++#
++# @cr3: #optional If the target is i386 or x86_64, this is the CR3 register.
++#
++# @cr4: #optional If the target is i386 or x86_64, this is the CR4 register.
++#
++# @efer: #optional If the target is i386 or x86_64, this is the "efer"
++#                   (extended features) register.
++#
+ # @nip: #optional If the target is PPC, the instruction pointer
+ #
+ # @npc: #optional If the target is Sparc, the NPC component of the instruction
+@@ -340,6 +349,7 @@
+ ##
+ { 'type': 'CpuInfo',
+   'data': {'CPU': 'int', 'current': 'bool', 'halted': 'bool', '*pc': 'int',
++           '*cr0': 'str', '*cr3': 'str', '*cr4': 'str', '*efer', 'str', 
+            '*nip': 'int', '*npc': 'int', '*PC': 'int', 'thread_id': 'int'} }
+ 
+ ##

@@ -1,0 +1,192 @@
+From 8182d33841b94a05261302563f3f2939ce0ad586 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Wed, 8 Aug 2012 15:38:40 +0100
+Subject: [PATCH 73/77] linux-headers: Add ARM KVM headers (not for upstream)
+
+This commit adds the ARM KVM headers. This is not to go to QEMU
+upstream -- the correct path there is that the KVM code will be
+committed to a mainline upstream kernel, and then upstream QEMU
+can do a bulk header update from the upstream kernel, which will
+allow us to drop this temporary commit.
+
+This commit updates to the KVM ARM kernel tree commit
+5196b1b58c, including the changes to the cp15 access
+ioctls. It is the result of an update-linux-headers.sh run
+with the non-ARM changes removed.
+---
+ linux-headers/asm-arm/kvm.h          |  119 ++++++++++++++++++++++++++++++++++
+ linux-headers/asm-arm/kvm_para.h     |    1 +
+ linux-headers/asm-generic/kvm_para.h |    5 ++
+ linux-headers/linux/kvm.h            |    3 +
+ 4 files changed, 128 insertions(+)
+ create mode 100644 linux-headers/asm-arm/kvm.h
+ create mode 100644 linux-headers/asm-arm/kvm_para.h
+ create mode 100644 linux-headers/asm-generic/kvm_para.h
+
+diff --git a/linux-headers/asm-arm/kvm.h b/linux-headers/asm-arm/kvm.h
+new file mode 100644
+index 0000000..d040a2a
+--- /dev/null
++++ b/linux-headers/asm-arm/kvm.h
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (C) 2012 - Virtual Open Systems and Columbia University
++ * Author: Christoffer Dall <c.dall@virtualopensystems.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License, version 2, as
++ * published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++ */
++
++#ifndef __ARM_KVM_H__
++#define __ARM_KVM_H__
++
++#include <asm/types.h>
++
++#define __KVM_HAVE_GUEST_DEBUG
++#define __KVM_HAVE_IRQ_LINE
++
++/*
++ * KVM_IRQ_LINE macros to set/read IRQ/FIQ for specific VCPU index.
++ */
++enum KVM_ARM_IRQ_LINE_TYPE {
++	KVM_ARM_IRQ_LINE = 0,
++	KVM_ARM_FIQ_LINE = 1,
++};
++
++/*
++ * Modes used for short-hand mode determinition in the world-switch code and
++ * in emulation code.
++ *
++ * Note: These indices do NOT correspond to the value of the CPSR mode bits!
++ */
++enum vcpu_mode {
++	MODE_FIQ = 0,
++	MODE_IRQ,
++	MODE_SVC,
++	MODE_ABT,
++	MODE_UND,
++	MODE_USR,
++	MODE_SYS
++};
++
++struct kvm_regs {
++	__u32 regs0_7[8];	/* Unbanked regs. (r0 - r7)	   */
++	__u32 fiq_regs8_12[5];	/* Banked fiq regs. (r8 - r12)	   */
++	__u32 usr_regs8_12[5];	/* Banked usr registers (r8 - r12) */
++	__u32 reg13[6];		/* Banked r13, indexed by MODE_	   */
++	__u32 reg14[6];		/* Banked r13, indexed by MODE_	   */
++	__u32 reg15;
++	__u32 cpsr;
++	__u32 spsr[5];		/* Banked SPSR,  indexed by MODE_  */
++};
++
++/* Supported Processor Types */
++#define KVM_ARM_TARGET_CORTEX_A15	(0xC0F)
++
++struct kvm_vcpu_init {
++	__u32 target;
++	__u32 features[7];
++};
++
++struct kvm_sregs {
++};
++
++struct kvm_fpu {
++};
++
++struct kvm_guest_debug_arch {
++};
++
++struct kvm_debug_exit_arch {
++};
++
++struct kvm_sync_regs {
++};
++
++struct kvm_arch_memory_slot {
++};
++
++/* Based on x86, but we use KVM_GET_VCPU_MSR_INDEX_LIST. */
++struct kvm_msr_entry {
++	__u32 index;
++	__u32 reserved;
++	__u64 data;
++};
++
++/* for KVM_GET_MSRS and KVM_SET_MSRS */
++struct kvm_msrs {
++	__u32 nmsrs; /* number of msrs in entries */
++	__u32 pad;
++
++	struct kvm_msr_entry entries[0];
++};
++
++/* for KVM_VCPU_GET_MSR_INDEX_LIST */
++struct kvm_msr_list {
++	__u32 nmsrs; /* number of msrs in entries */
++	__u32 indices[0];
++};
++
++/* If you need to interpret the index values, here's the key. */
++#define KVM_ARM_MSR_COPROC_MASK		0xFFFF0000
++#define KVM_ARM_MSR_64_BIT_MASK		0x00008000
++#define KVM_ARM_MSR_64_OPC1_MASK	0x000000F0
++#define KVM_ARM_MSR_64_CRM_MASK		0x0000000F
++#define KVM_ARM_MSR_32_CRM_MASK		0x0000000F
++#define KVM_ARM_MSR_32_OPC2_MASK	0x00000070
++#define KVM_ARM_MSR_32_CRN_MASK		0x00000780
++#define KVM_ARM_MSR_32_OPC1_MASK	0x00003800
++
++#endif /* __ARM_KVM_H__ */
+diff --git a/linux-headers/asm-arm/kvm_para.h b/linux-headers/asm-arm/kvm_para.h
+new file mode 100644
+index 0000000..14fab8f
+--- /dev/null
++++ b/linux-headers/asm-arm/kvm_para.h
+@@ -0,0 +1 @@
++#include <asm-generic/kvm_para.h>
+diff --git a/linux-headers/asm-generic/kvm_para.h b/linux-headers/asm-generic/kvm_para.h
+new file mode 100644
+index 0000000..63df88b
+--- /dev/null
++++ b/linux-headers/asm-generic/kvm_para.h
+@@ -0,0 +1,5 @@
++#ifndef _ASM_GENERIC_KVM_PARA_H
++#define _ASM_GENERIC_KVM_PARA_H
++
++
++#endif
+diff --git a/linux-headers/linux/kvm.h b/linux-headers/linux/kvm.h
+index 4b9e575..ded8cc4 100644
+--- a/linux-headers/linux/kvm.h
++++ b/linux-headers/linux/kvm.h
+@@ -111,6 +111,7 @@ struct kvm_irq_level {
+ 	 * ACPI gsi notion of irq.
+ 	 * For IA-64 (APIC model) IOAPIC0: irq 0-23; IOAPIC1: irq 24-47..
+ 	 * For X86 (standard AT mode) PIC0/1: irq 0-15. IOAPIC0: 0-23..
++	 * For ARM: IRQ: irq = (2*vcpu_index). FIQ: irq = (2*vcpu_indx + 1).
+ 	 */
+ 	union {
+ 		__u32 irq;
+@@ -904,6 +905,8 @@ struct kvm_s390_ucas_mapping {
+ #define KVM_SET_ONE_REG		  _IOW(KVMIO,  0xac, struct kvm_one_reg)
+ /* VM is being stopped by host */
+ #define KVM_KVMCLOCK_CTRL	  _IO(KVMIO,   0xad)
++#define KVM_ARM_VCPU_INIT	  _IOW(KVMIO,  0xae, struct kvm_vcpu_init)
++#define KVM_VCPU_GET_MSR_INDEX_LIST    _IOWR(KVMIO, 0xaf, struct kvm_msr_list)
+ 
+ #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
+ #define KVM_DEV_ASSIGN_PCI_2_3		(1 << 1)
+-- 
+1.7.9.5
+

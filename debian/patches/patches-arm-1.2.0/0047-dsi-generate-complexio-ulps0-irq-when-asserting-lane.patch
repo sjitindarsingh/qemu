@@ -1,0 +1,33 @@
+From dc04e8688650393060193690830a797f2f5dd437 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
+Date: Wed, 4 Jul 2012 11:18:45 +0000
+Subject: [PATCH 47/77] dsi: generate complexio ulps0 irq when asserting lane
+ sig2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
+---
+ hw/omap_dss.c |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/hw/omap_dss.c b/hw/omap_dss.c
+index 4836621..a71ac4a 100644
+--- a/hw/omap_dss.c
++++ b/hw/omap_dss.c
+@@ -2324,6 +2324,11 @@ static void omap_dsi_write(void *opaque, target_phys_addr_t addr,
+         TRACEDSI("DSI_COMPLEXIO_CFG_2 = 0x%08x", value);
+         s->dsi.complexio_cfg2 = (value & 0xfffcffff)
+                                 | (s->dsi.complexio_cfg2 & (3 << 16));
++        if (((value >> 5) & 3)) {
++            s->dsi.complexio_irqst |= (1 << 30); /* ULPSACTIVENOT_ALL0_IRQ */
++            s->dsi.irqst |= (1 << 10);           /* COMPLEXIO_ERR_IRQ */
++            omap_dss_interrupt_update(s);
++        }
+         break;
+     case 0x080: /* DSI_VM_TIMING4 */
+         TRACEDSI("DSI_VM_TIMING4 = 0x%08x", value);
+-- 
+1.7.9.5
+

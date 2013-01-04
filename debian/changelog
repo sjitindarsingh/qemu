@@ -1,3 +1,97 @@
+qemu (1.2.0.dfsg-1~exp1-0ubuntu1) raring; urgency=low
+
+  [ Serge Hallyn ]
+  * debian/control:
+    - update maintainer
+    - remove vde2 recommends
+    - build-deps: remove libusbredir, libvdeplug2-dev,
+      libspice-server-dev, libspice-protocol-dev, libiscsi-dev,
+      and libxen-dev.
+    - qemu-keymaps: break/replace qemu-common
+    - qemu-system:
+      - break/replace qemu-common
+      - depend on udev
+      - remove openbios-ppc, openbios-sparc, and openhackware from
+        Depends.  (Intend to add them back once we can build them.)
+      - provides: qemu-kvm
+    - qemu-utils: break/replace qemu-kvm
+    - set up transitional packages for qemu-kvm, qemu-common, and kvm.
+  * debian/rules:
+    - install kvm-ifup and kvm-ifdown
+    - dh_installinit the qemu-kvm upstart job
+  * install a 30-qemu-kvm.conf into /etc/sysctl.c for nr_hugepages.
+  * qemu-kvm.upstart:
+    - add qemu-system.qemu-kvm.upstart
+    - add mv_confile to qemu-system.preinst, postinst, and .postrm to rename
+      /etc/init/qemu-kvm.conf to qemu-system.conf
+    - debian/rules: add dh_installinit to get qemu-system.upstart installed.
+    - take the defaults from the old qemu-kvm.defaults, and move them into
+      the upstart job
+  * debian/patches:
+    - apply gridcentric patches from lp:~amscanne/+junk/gridcentric-qemu-patches
+    - apply arm patches from git://git.linaro.org/qemu/qemu-linaro.git
+    - apply nbd-fixes-to-read-only-handling.patch from upstream to
+      make read-write mount after read-only mount work.  (LP: #1077838)
+  * ifup/down:
+    - copy Ubuntu qemu-kvm's kvm-ifup/down into debian/
+    - fix dh_install for kvm-ifup/down in debian/rules
+    - add links for qemu-ifup/down in qemu-system.links
+    - remove (debian's original) qemu-ifup from qemu-system.install
+  * debian/qemu-system.postinst
+    - udevadm trigger to fix up /dev/kvm perms
+    - make the 'qemu' symlink point to qemu-system-x86_64, not -i386.
+  * debian/qemu-system.links:
+    - point 'kvm' to qemu-system-x86_64
+    - remove pxe-virtio, pxe-e1000 and pxe-rtl8139 links (which conflict
+      with ones from kvm-ipxe).  We may want to move the links from kvm-ipxe
+      back to qemu-system at some point.
+    - add qemu-ifdown and qemu-ifup links
+  * debian/qemu-system.install:
+    - remove /etc/qemu-ifup link
+    - add /etc/sysctl.d/30-qemu-kvm.conf
+
+  [ Adam Conrad ]
+  * Appease apt-get's dist-upgrade resolver by creating a qemu-common
+    transitional package to upgrade more gracefully to qemu-keymaps.
+  * Move all the empty transitional packages to the oldlibs section. 
+  * Restore the versioned dep from qemu-kvm (and kvm) to qemu-system.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 04 Jan 2013 08:50:24 -0600
+
+qemu (1.2.0+dfsg-1~exp1) UNRELEASED; urgency=low
+
+  [ Michael Tokarev ]
+  * new upstream version (1.2.0) (Closes: #676374)
+    remove do-not-include-libutil.h.patch (included upstream)
+    update 02_kfreebsd.patch
+    do not build mpc8544ds.dtb
+  * Cleaned up the build system ALOT.  Larger changes:
+    - used explicit lists of emulated targets in debian/rules
+      and generate everything else from there, instead of repeating
+      these lists in lots of places.
+    - stop using debian/$pkg.manpages and other auxilary files like this,
+      moving eveything to debian/$pkg.install, because with the number
+      of packages growing, amount of these small files becomes very
+      large and the result is difficult to maintain.
+  * ship forgotten target-x86_64.conf and cpus-x86_64.conf in qemu-system-x86.
+  * ship virtfs-proxy-helper in qemu-utils.
+  * stop shipping tundev.c, since it does not reflect the reality for
+    a long time now (Closes: #325761, #325754).
+  * remove debian/patches/fix-armhf-prctl.patch, it is included
+    upstream in 1.1.0 version and is misapplied since 1.1.0~rc3+dfsg-1.
+  * drop -jN passing to downstream makes, as it breaks dpkg-buildpackage -j
+    and actually breaks build (Closes: #597524 - said to be fixed in 0.14.1
+    but was still present)
+  * add revert-serial-fix-retry-logic.patch that restores
+    old (semi-)working behavour of a virtual serial port.
+  * re-introduce support parallel build using DEB_BUULD_OPTIONS=parallel=N,
+    this time by adding to $MAKEFLAGS instead of passing down to submakes
+
+  [ Vagrant Cascadian ]
+  * Add libcap-dev to Build-Depends to support virtfs-proxy-helper.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 14 Sep 2012 12:23:27 +0400
+
 qemu (1.1.2+dfsg-1) unstable; urgency=low
 
   [Michael  Tokarev]
@@ -17,9 +111,9 @@ qemu (1.1.2+dfsg-1) unstable; urgency=low
 
   [Vagrant Cascadian]
   * qemu-system: Add symlinks for extboot.bin, kvmvapic.bin and vapic.bin to 
-    binaries shipped in seabios. Closes: #678217, #678217.
+    binaries shipped in seabios. Closes: #678217, #679004.
   * qemu-system: Remove dead link for ne2k_isa.rom, which is not included in 
-    ipxe. Closes: #678217. 
+    ipxe. Closes: #679004. 
   * qemu-system: Bump versioned openbios-sparc and openbios-ppc Depends to 
     1.0+svn1060, to ensure we use at least version which is used by upstream.
     Wheezy already has the right version, but we should not break partial

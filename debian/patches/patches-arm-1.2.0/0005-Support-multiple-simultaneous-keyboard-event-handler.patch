@@ -1,0 +1,128 @@
+From f031dab5b44c35a5c8683275eb405a395d8c5a61 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
+Date: Wed, 4 Jul 2012 11:18:33 +0000
+Subject: [PATCH 05/77] Support multiple simultaneous keyboard event handlers
+
+On some systems (such as n900), multiple physical devices can create
+keyboard events (gpio, lis302dl, twl4030, ..). Add hooks to make it
+possible to recieve keyboard input from multiple devices.
+
+merge our version with upstream multikb support
+multitouch, multi-keyboard and window close hook support
+
+TODO: make this look more like mouse version, ie return a handle
+which is passed to remove. Also who calls add_kbd_event_handler
+with a NULL function?? & if we send keycode to all kbd handlers
+this is ok for n900 but what about eg pc + usb kbd??
+---
+ console.h |    8 +++++++-
+ hw/hid.c  |    2 +-
+ input.c   |   33 ++++++++++++++++++++++++---------
+ 3 files changed, 32 insertions(+), 11 deletions(-)
+
+diff --git a/console.h b/console.h
+index 4334db5..4b0d1e5 100644
+--- a/console.h
++++ b/console.h
+@@ -37,6 +37,12 @@ typedef struct QEMUPutMouseEntry {
+     QTAILQ_ENTRY(QEMUPutMouseEntry) node;
+ } QEMUPutMouseEntry;
+ 
++typedef struct QEMUPutKBDEntry {
++    QEMUPutKBDEvent *put_kbd_event;
++    void *opaque;
++    QTAILQ_ENTRY(QEMUPutKBDEntry) next;
++} QEMUPutKBDEntry;
++
+ typedef struct QEMUPutLEDEntry {
+     QEMUPutLEDEvent *put_led;
+     void *opaque;
+@@ -44,7 +50,7 @@ typedef struct QEMUPutLEDEntry {
+ } QEMUPutLEDEntry;
+ 
+ void qemu_add_kbd_event_handler(QEMUPutKBDEvent *func, void *opaque);
+-void qemu_remove_kbd_event_handler(void);
++void qemu_remove_kbd_event_handler(QEMUPutKBDEvent *func, void *opaque);
+ QEMUPutMouseEntry *qemu_add_mouse_event_handler(QEMUPutMouseEvent *func,
+                                                 void *opaque, int absolute,
+                                                 const char *name);
+diff --git a/hw/hid.c b/hw/hid.c
+index 03761ab..e17776d 100644
+--- a/hw/hid.c
++++ b/hw/hid.c
+@@ -383,7 +383,7 @@ void hid_free(HIDState *hs)
+ {
+     switch (hs->kind) {
+     case HID_KEYBOARD:
+-        qemu_remove_kbd_event_handler();
++        qemu_remove_kbd_event_handler(hid_keyboard_event, hs);
+         break;
+     case HID_MOUSE:
+     case HID_TABLET:
+diff --git a/input.c b/input.c
+index 6968b31..f52cb59 100644
+--- a/input.c
++++ b/input.c
+@@ -29,8 +29,8 @@
+ #include "error.h"
+ #include "qmp-commands.h"
+ 
+-static QEMUPutKBDEvent *qemu_put_kbd_event;
+-static void *qemu_put_kbd_event_opaque;
++static QTAILQ_HEAD(, QEMUPutKBDEntry) kbd_handlers =
++    QTAILQ_HEAD_INITIALIZER(kbd_handlers);
+ static QTAILQ_HEAD(, QEMUPutLEDEntry) led_handlers = QTAILQ_HEAD_INITIALIZER(led_handlers);
+ static QTAILQ_HEAD(, QEMUPutMouseEntry) mouse_handlers =
+     QTAILQ_HEAD_INITIALIZER(mouse_handlers);
+@@ -39,14 +39,28 @@ static NotifierList mouse_mode_notifiers =
+ 
+ void qemu_add_kbd_event_handler(QEMUPutKBDEvent *func, void *opaque)
+ {
+-    qemu_put_kbd_event_opaque = opaque;
+-    qemu_put_kbd_event = func;
++    QEMUPutKBDEntry *s;
++
++    if (func != NULL) {
++        s = g_malloc0(sizeof(QEMUPutKBDEntry));
++
++        s->put_kbd_event = func;
++        s->opaque = opaque;
++
++        QTAILQ_INSERT_TAIL(&kbd_handlers, s, next);
++    }
+ }
+ 
+-void qemu_remove_kbd_event_handler(void)
++void qemu_remove_kbd_event_handler(QEMUPutKBDEvent *func, void *opaque)
+ {
+-    qemu_put_kbd_event_opaque = NULL;
+-    qemu_put_kbd_event = NULL;
++    QEMUPutKBDEntry *cursor, *cursor_next;
++    if (func != NULL) {
++        QTAILQ_FOREACH_SAFE(cursor, &kbd_handlers, next, cursor_next) {
++            if (cursor->put_kbd_event == func && cursor->opaque == opaque) {
++                QTAILQ_REMOVE(&kbd_handlers, cursor, next);
++            }
++        }
++    }
+ }
+ 
+ static void check_mode_change(void)
+@@ -130,11 +144,12 @@ void qemu_remove_led_event_handler(QEMUPutLEDEntry *entry)
+ 
+ void kbd_put_keycode(int keycode)
+ {
++    QEMUPutKBDEntry *cursor;
+     if (!runstate_is_running() && !runstate_check(RUN_STATE_SUSPENDED)) {
+         return;
+     }
+-    if (qemu_put_kbd_event) {
+-        qemu_put_kbd_event(qemu_put_kbd_event_opaque, keycode);
++    QTAILQ_FOREACH(cursor, &kbd_handlers, next) {
++        cursor->put_kbd_event(cursor->opaque, keycode);
+     }
+ }
+ 
+-- 
+1.7.9.5
+
