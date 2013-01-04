@@ -391,6 +391,8 @@ char *os_find_datadir(const char *argv0);
 void os_parse_cmd_args(int index, const char *optarg);
 void os_pidfile_error(void);
 
+void add_memory_file(const char *idstr, const char *path);
+
 /* Convert a byte between binary and BCD.  */
 static inline uint8_t to_bcd(uint8_t val)
 {

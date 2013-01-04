@@ -500,6 +500,7 @@ typedef struct RAMBlock {
     uint32_t flags;
     char idstr[256];
     QLIST_ENTRY(RAMBlock) next;
+    int do_not_save;
 #if defined(__linux__) && !defined(TARGET_S390X)
     int fd;
 #endif
@@ -509,8 +510,20 @@ typedef struct RAMList {
     uint8_t *phys_dirty;
     QLIST_HEAD(, RAMBlock) blocks;
     uint64_t dirty_pages;
+    uint64_t dirty_pages_not_saved;
 } RAMList;
 extern RAMList ram_list;
+
+typedef struct MemFile {
+    const char *idstr;
+    const char *path;
+    QLIST_ENTRY(MemFile) next;
+} MemFile;
+
+typedef struct MemFileList {
+    QLIST_HEAD(files, MemFile) files;
+} MemFileList;
+extern MemFileList mem_file_list;
 
 extern const char *mem_path;
 extern int mem_prealloc;

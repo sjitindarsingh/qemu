@@ -48,6 +48,8 @@ void qemu_put_ram_ptr(void *addr);
 int qemu_ram_addr_from_host(void *ptr, ram_addr_t *ram_addr);
 ram_addr_t qemu_ram_addr_from_host_nofail(void *ptr);
 void qemu_ram_set_idstr(ram_addr_t addr, const char *name, DeviceState *dev);
+/* Should this page be saved? */
+bool qemu_ram_is_page_saved(ram_addr_t addr);
 
 void cpu_physical_memory_rw(target_phys_addr_t addr, uint8_t *buf,
                             int len, int is_write);
