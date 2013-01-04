@@ -3350,7 +3350,7 @@ static const VMStateDescription vmstate_rtl8139 = {
         VMSTATE_UINT32(RxRingAddrLO, RTL8139State),
         VMSTATE_UINT32(RxRingAddrHI, RTL8139State),
 
-        VMSTATE_UINT16_ARRAY(eeprom.contents, RTL8139State, EEPROM_9346_SIZE),
+        VMSTATE_UNUSED(EEPROM_9346_SIZE * 16), /* was eeprom.contents */
         VMSTATE_INT32(eeprom.mode, RTL8139State),
         VMSTATE_UINT32(eeprom.tick, RTL8139State),
         VMSTATE_UINT8(eeprom.address, RTL8139State),

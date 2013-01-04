@@ -1107,7 +1107,7 @@ static const VMStateDescription vmstate_e1000 = {
         VMSTATE_INT8(tx.tcp, E1000State),
         VMSTATE_BUFFER(tx.header, E1000State),
         VMSTATE_BUFFER(tx.data, E1000State),
-        VMSTATE_UINT16_ARRAY(eeprom_data, E1000State, 64),
+        VMSTATE_UNUSED(64 * 16), /* was eeprom_data */
         VMSTATE_UINT16_ARRAY(phy_reg, E1000State, 0x20),
         VMSTATE_UINT32(mac_reg[CTRL], E1000State),
         VMSTATE_UINT32(mac_reg[EECD], E1000State),
