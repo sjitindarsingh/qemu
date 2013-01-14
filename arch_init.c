@@ -350,6 +350,14 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
 
     if (!block)
         block = QLIST_FIRST(&ram_list.blocks);
+    
+    while (block->do_not_save) {
+        last_block = block;
+        block = QLIST_NEXT(block, next);
+        if (!block) {
+            return 0;
+        }
+    }
 
     do {
         mr = block->mr;
@@ -410,7 +418,7 @@ static uint64_t bytes_transferred;
 
 static ram_addr_t ram_save_remaining(void)
 {
-    return ram_list.dirty_pages;
+    return ram_list.dirty_pages - ram_list.dirty_pages_not_saved;
 }
 
 uint64_t ram_bytes_remaining(void)

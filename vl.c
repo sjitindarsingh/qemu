@@ -2751,6 +2751,9 @@ int main(int argc, char **argv, char **envp)
                 }
                 break;
             }
+            case QEMU_OPTION_pcram_file:
+                add_memory_file("pc.ram", optarg); 
+                break;
             case QEMU_OPTION_mempath:
                 mem_path = optarg;
                 break;
