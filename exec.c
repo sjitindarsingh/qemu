@@ -2384,6 +2384,7 @@ static void *mem_file_ram_alloc(RAMBlock *block,
             abort();
         }
         block->do_not_save = 1;
+        block->will_not_save = 1;
         return host;
     }
     return NULL;
@@ -2827,7 +2828,7 @@ bool qemu_ram_is_page_saved(ram_addr_t addr)
     RAMBlock *block;
     QLIST_FOREACH(block, &ram_list.blocks, next) {
         if (addr - block->offset < block->length) {
-            return !block->do_not_save;
+            return !block->will_not_save;
         }
     }
 

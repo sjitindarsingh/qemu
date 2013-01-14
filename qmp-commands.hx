@@ -469,7 +469,7 @@ EQMP
 
     {
         .name       = "migrate",
-        .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
+        .args_type  = "detach:-d,blk:-b,inc:-i,saveram:-s,uri:s",
         .mhandler.cmd_new = qmp_marshal_input_migrate,
     },
 
@@ -483,6 +483,7 @@ Arguments:
 
 - "blk": block migration, full disk copy (json-bool, optional)
 - "inc": incremental disk copy (json-bool, optional)
+- "saveram": Save RAM even if it's a file mmap via --pcram (json-bool, optional)
 - "uri": Destination URI (json-string)
 
 Example:
@@ -494,7 +495,7 @@ Notes:
 
 (1) The 'query-migrate' command should be used to check migration's progress
     and final result (this information is provided by the 'status' member)
-(2) All boolean arguments default to false
+(2) detach, blk and inc boolean arguments default to false. Saveram default to true
 (3) The user Monitor's "detach" argument is invalid in QMP and should not
     be used
 
