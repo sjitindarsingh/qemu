@@ -1,3 +1,10 @@
+qemu (1.2.0.dfsg-1~exp1-0ubuntu2) raring; urgency=low
+
+  * Remove kvm package
+    - make qemu-system P/C/B: kvm.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 14 Jan 2013 12:03:19 -0600
+
 qemu (1.2.0.dfsg-1~exp1-0ubuntu1) raring; urgency=low
 
   [ Serge Hallyn ]
