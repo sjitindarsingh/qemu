@@ -1203,6 +1203,7 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 {
     CpuInfoList *head = NULL, *cur_item = NULL;
     CPUArchState *env;
+    int r;
 
     for(env = first_cpu; env != NULL; env = env->next_cpu) {
         CpuInfoList *info;
@@ -1218,6 +1219,14 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 #if defined(TARGET_I386)
         info->value->has_pc = true;
         info->value->pc = env->eip + env->segs[R_CS].base;
+        r = asprintf(&info->value->cr0, TARGET_FMT_lx, env->cr[0]);
+        info->value->has_cr0 = r != -1;
+        r = asprintf(&info->value->cr3, TARGET_FMT_lx, env->cr[3]);
+        info->value->has_cr3 = r != -1;
+        r = asprintf(&info->value->cr4, TARGET_FMT_lx, env->cr[4]);
+        info->value->has_cr4 = r != -1;
+        r = asprintf(&info->value->efer, "%" PRIu64, env->efer);
+        info->value->has_efer = r != -1;
 #elif defined(TARGET_PPC)
         info->value->has_nip = true;
         info->value->nip = env->nip;
