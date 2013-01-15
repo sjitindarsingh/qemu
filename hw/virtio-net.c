@@ -899,6 +899,7 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
     VirtIONet *n = opaque;
     int i;
     int ret;
+    unsigned char incoming_mac[ETH_ALEN];
 
     if (version_id < 2 || version_id > VIRTIO_NET_VM_VERSION)
         return -EINVAL;
@@ -908,7 +909,9 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
         return ret;
     }
 
-    qemu_get_buffer(f, n->mac, ETH_ALEN);
+    /* Suppress loading the mac address. We want to use the mac from the command
+     * line for more flexibility. */
+    qemu_get_buffer(f, incoming_mac, ETH_ALEN);
     n->tx_waiting = qemu_get_be32(f);
 
     virtio_net_set_mrg_rx_bufs(n, qemu_get_be32(f));
