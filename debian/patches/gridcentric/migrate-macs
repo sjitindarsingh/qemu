@@ -6,11 +6,11 @@ The MAC addresses are stored in the eeprom registers.
 
 Signed-off-by: Peter Feiner <peter@gridcentric.com>
 
-diff --git a/hw/e1000.c b/hw/e1000.c
-index 4573f13..e9da2db 100644
---- a/hw/e1000.c
-+++ b/hw/e1000.c
-@@ -1107,7 +1107,7 @@ static const VMStateDescription vmstate_e1000 = {
+Index: qemu/hw/e1000.c
+===================================================================
+--- qemu.orig/hw/e1000.c	2013-01-17 10:56:57.544404605 -0600
++++ qemu/hw/e1000.c	2013-01-17 10:56:57.536404605 -0600
+@@ -1140,7 +1140,7 @@
          VMSTATE_INT8(tx.tcp, E1000State),
          VMSTATE_BUFFER(tx.header, E1000State),
          VMSTATE_BUFFER(tx.data, E1000State),
@@ -19,11 +19,11 @@ index 4573f13..e9da2db 100644
          VMSTATE_UINT16_ARRAY(phy_reg, E1000State, 0x20),
          VMSTATE_UINT32(mac_reg[CTRL], E1000State),
          VMSTATE_UINT32(mac_reg[EECD], E1000State),
-diff --git a/hw/rtl8139.c b/hw/rtl8139.c
-index eb22d04..1b69c8f 100644
---- a/hw/rtl8139.c
-+++ b/hw/rtl8139.c
-@@ -3348,7 +3348,7 @@ static const VMStateDescription vmstate_rtl8139 = {
+Index: qemu/hw/rtl8139.c
+===================================================================
+--- qemu.orig/hw/rtl8139.c	2013-01-17 10:56:57.544404605 -0600
++++ qemu/hw/rtl8139.c	2013-01-17 10:56:57.536404605 -0600
+@@ -3319,7 +3319,7 @@
          VMSTATE_UINT32(RxRingAddrLO, RTL8139State),
          VMSTATE_UINT32(RxRingAddrHI, RTL8139State),
  
@@ -32,11 +32,11 @@ index eb22d04..1b69c8f 100644
          VMSTATE_INT32(eeprom.mode, RTL8139State),
          VMSTATE_UINT32(eeprom.tick, RTL8139State),
          VMSTATE_UINT8(eeprom.address, RTL8139State),
-diff --git a/hw/virtio-net.c b/hw/virtio-net.c
-index 3f190d4..2014da3 100644
---- a/hw/virtio-net.c
-+++ b/hw/virtio-net.c
-@@ -892,6 +892,7 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
+Index: qemu/hw/virtio-net.c
+===================================================================
+--- qemu.orig/hw/virtio-net.c	2013-01-17 10:56:57.544404605 -0600
++++ qemu/hw/virtio-net.c	2013-01-17 10:56:57.536404605 -0600
+@@ -899,6 +899,7 @@
      VirtIONet *n = opaque;
      int i;
      int ret;
@@ -44,7 +44,7 @@ index 3f190d4..2014da3 100644
  
      if (version_id < 2 || version_id > VIRTIO_NET_VM_VERSION)
          return -EINVAL;
-@@ -901,7 +902,9 @@ static int virtio_net_load(QEMUFile *f, void *opaque, int version_id)
+@@ -908,7 +909,9 @@
          return ret;
      }
  
@@ -53,5 +53,5 @@ index 3f190d4..2014da3 100644
 +     * line for more flexibility. */
 +    qemu_get_buffer(f, incoming_mac, ETH_ALEN);
      n->tx_waiting = qemu_get_be32(f);
-     n->mergeable_rx_bufs = qemu_get_be32(f);
  
+     virtio_net_set_mrg_rx_bufs(n, qemu_get_be32(f));

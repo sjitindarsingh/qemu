@@ -35,6 +35,6 @@ int kvm_available(void);
 int xen_available(void);
 extern void tag_ram_blocks(int saveram);
 
-CpuDefinitionInfoList GCC_WEAK_DECL *arch_query_cpu_definitions(Error **errp);
+CpuDefinitionInfoList *arch_query_cpu_definitions(Error **errp);
 
 #endif

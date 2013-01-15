@@ -11,3 +11,14 @@ present in the package. The qemu-system-ppc binary is still useful for
 emulating a PReP platform, which does not need video.x.
 
  -- Aurelien Jarno <aurel32@debian.org>  Sun, 16 Mar 2008 19:17:39 +0100
+
+KVM command line
+----------------
+
+As of Ubuntu raring (13.04), qemu-kvm is now built from the qemu sources.
+While behavior is mostly the same, there are a few observable differences.
+In particular:
+
+  * -enable-kvm is not implied.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 17 Jan 2013 16:54:59 -0600

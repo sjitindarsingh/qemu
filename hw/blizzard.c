@@ -162,8 +162,9 @@ static void blizzard_window(BlizzardState *s)
     /* FIXME: this is a hack - but nseries.c will use this function
      * before correct DisplayState is initialized so we need a way to
      * avoid drawing something when we actually have no clue about host bpp */
-	if (!s->state->listeners)
-		return;
+    if (QLIST_EMPTY(&s->state->listeners)) {
+        return;
+    }
 
     switch (ds_get_bits_per_pixel(s->state)) {
         case 8:
@@ -921,8 +922,6 @@ void s1d13745_write_block(void *opaque, int dc,
         len -= 2;
         buf += 2;
     }
-
-    return;
 }
 
 static void blizzard_update_display(void *opaque)
@@ -966,8 +965,8 @@ static void blizzard_update_display(void *opaque)
     for (; y < s->my[1]; y ++, src += bypl, dst += bypl)
         memcpy(dst, src, bwidth);
 
-    dpy_update(s->state, s->mx[0], s->my[0],
-                    s->mx[1] - s->mx[0], y - s->my[0]);
+    dpy_gfx_update(s->state, s->mx[0], s->my[0],
+                   s->mx[1] - s->mx[0], y - s->my[0]);
 
     s->mx[0] = s->x;
     s->mx[1] = 0;
@@ -976,13 +975,13 @@ static void blizzard_update_display(void *opaque)
 }
 
 static void blizzard_screen_dump(void *opaque, const char *filename,
-                                 bool cswitch)
+                                 bool cswitch, Error **errp)
 {
     BlizzardState *s = (BlizzardState *) opaque;
 
     blizzard_update_display(opaque);
     if (s && ds_get_data(s->state))
-        ppm_save(filename, s->state->surface);
+        ppm_save(filename, s->state->surface, errp);
 }
 
 void *s1d13745_init(qemu_irq gpio_int)

@@ -7,11 +7,11 @@ convert from a qemu-nbd source.
 
 Signed-off-by: Adin Scannell <adin@scannell.ca>
 
-diff --git a/nbd.h b/nbd.h
-index 40d58d3..0edf800 100644
---- a/nbd.h
-+++ b/nbd.h
-@@ -57,7 +57,7 @@ enum {
+Index: qemu/nbd.h
+===================================================================
+--- qemu.orig/nbd.h	2013-01-17 10:57:01.536404694 -0600
++++ qemu/nbd.h	2013-01-17 10:57:01.528404694 -0600
+@@ -57,7 +57,7 @@
  
  #define NBD_DEFAULT_PORT	10809
  

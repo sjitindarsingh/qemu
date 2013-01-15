@@ -5,19 +5,19 @@ while marshaling/parsing/unpacking.
 
 Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
 
-diff --git a/cpus.c b/cpus.c
-index b182b3d..84224dc 100644
---- a/cpus.c
-+++ b/cpus.c
-@@ -1187,6 +1187,7 @@ CpuInfoList *qmp_query_cpus(Error **errp)
+Index: qemu/cpus.c
+===================================================================
+--- qemu.orig/cpus.c	2013-01-17 10:57:02.956404726 -0600
++++ qemu/cpus.c	2013-01-17 10:57:02.948404726 -0600
+@@ -1204,6 +1204,7 @@
  {
      CpuInfoList *head = NULL, *cur_item = NULL;
      CPUArchState *env;
 +    int r;
  
-     for(env = first_cpu; env != NULL; env = env->next_cpu) {
-         CpuInfoList *info;
-@@ -1202,6 +1203,14 @@ CpuInfoList *qmp_query_cpus(Error **errp)
+     for (env = first_cpu; env != NULL; env = env->next_cpu) {
+         CPUState *cpu = ENV_GET_CPU(env);
+@@ -1220,6 +1221,14 @@
  #if defined(TARGET_I386)
          info->value->has_pc = true;
          info->value->pc = env->eip + env->segs[R_CS].base;
@@ -32,11 +32,11 @@ index b182b3d..84224dc 100644
  #elif defined(TARGET_PPC)
          info->value->has_nip = true;
          info->value->nip = env->nip;
-diff --git a/qapi-schema.json b/qapi-schema.json
-index 2ca7195..cceb611 100644
---- a/qapi-schema.json
-+++ b/qapi-schema.json
-@@ -324,6 +324,15 @@
+Index: qemu/qapi-schema.json
+===================================================================
+--- qemu.orig/qapi-schema.json	2013-01-17 10:57:02.956404726 -0600
++++ qemu/qapi-schema.json	2013-01-17 10:57:02.948404726 -0600
+@@ -569,6 +569,15 @@
  #                If the target is Sparc, this is the PC component of the
  #                instruction pointer.
  #
@@ -52,7 +52,7 @@ index 2ca7195..cceb611 100644
  # @nip: #optional If the target is PPC, the instruction pointer
  #
  # @npc: #optional If the target is Sparc, the NPC component of the instruction
-@@ -340,6 +349,7 @@
+@@ -585,6 +594,7 @@
  ##
  { 'type': 'CpuInfo',
    'data': {'CPU': 'int', 'current': 'bool', 'halted': 'bool', '*pc': 'int',

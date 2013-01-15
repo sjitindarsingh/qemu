@@ -17,5 +17,5 @@ usr/lib/ipxe/pcnet32.rom usr/share/qemu/pxe-pcnet.rom
 usr/lib/ipxe/ns8390.rom usr/share/qemu/pxe-ne2k_pci.rom
 usr/lib/ipxe/eepro100.rom usr/share/qemu/eepro100.rom
 usr/bin/qemu-system-x86_64 usr/bin/kvm
-usr/bin/qemu-ifdown etc/qemu-ifdown
-usr/bin/qemu-ifup etc/qemu-ifup
+usr/bin/kvm-ifup etc/kvm/kvm-ifup
+usr/bin/kvm-ifdown etc/kvm/kvm-ifdown

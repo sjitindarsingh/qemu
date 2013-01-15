@@ -2,34 +2,29 @@ Process incoming migration for the fd: case immediately.
 
 Signed-off-by: Adin Scannell <adin@scannell.ca>
 
-diff --git a/migration-fd.c b/migration-fd.c
-index 6211124..0e9c44b 100644
---- a/migration-fd.c
-+++ b/migration-fd.c
-@@ -97,15 +97,6 @@ err_after_get_fd:
-     return -1;
+Index: qemu/migration-fd.c
+===================================================================
+--- qemu.orig/migration-fd.c	2013-01-17 10:56:58.800404633 -0600
++++ qemu/migration-fd.c	2013-01-17 10:56:58.792404633 -0600
+@@ -85,13 +85,6 @@
+     migrate_fd_connect(s);
  }
  
 -static void fd_accept_incoming_migration(void *opaque)
 -{
 -    QEMUFile *f = opaque;
 -
+-    qemu_set_fd_handler2(qemu_get_fd(f), NULL, NULL, NULL, NULL);
 -    process_incoming_migration(f);
--    qemu_set_fd_handler2(qemu_stdio_fd(f), NULL, NULL, NULL, NULL);
--    qemu_fclose(f);
 -}
--
- int fd_start_incoming_migration(const char *infd)
+ 
+ void fd_start_incoming_migration(const char *infd, Error **errp)
  {
-     int fd;
-@@ -120,7 +111,9 @@ int fd_start_incoming_migration(const char *infd)
-         return -errno;
+@@ -107,5 +100,6 @@
+         return;
      }
  
 -    qemu_set_fd_handler2(fd, NULL, fd_accept_incoming_migration, NULL, f);
 +    /* XXX Process immediately XXX */
 +    process_incoming_migration(f);
-+    qemu_fclose(f);
- 
-     return 0;
  }

@@ -18,14 +18,6 @@ env VHOST_NET_ENABLED=0
 env KVM_NESTED=" nested=1"
 #env KVM_NESTED=""
 
-# Uncomment this if you want to specify a bridge for qemu-ifup to use
-# for tap devices
-#env TAPBR=virbr0
-
-# Set this to 1 if you want hugepages to be available to kvm under
-# /run/hugepages/kvm
-env KVM_HUGEPAGES=0
-
 pre-start script
 	# Silently exit if the package isn't installed anymore
 	if [ ! -e /usr/bin/kvm ]; then
@@ -52,28 +44,4 @@ pre-start script
 	if [ "$VHOST_NET_ENABLED" = "1" ]; then
 		modprobe -b vhost_net || true
 	fi
-	# mount hugepages if available and requested
-	if [ "$KVM_HUGEPAGES" -eq "1" ]; then
-		if ! grep -q hugetlbfs /proc/filesystems; then
-			logger -t qemu-kvm "Error: hugepages not available in the kernel!"
-		elif grep -q /run/hugepages/kvm /proc/mounts; then
-			logger -t qemu-kvm "/run/hugepages/kvm already mounted"
-		elif ! grep -q kvm /etc/group; then
-			logger -t qemu-kvm "Error: group kvm does not exist!"
-		else
-			kvmgid=`grep kvm /etc/group | cut -d: -f 3`
-			mkdir -p /run/hugepages/kvm
-			mount -t hugetlbfs hugetlbfs-kvm -o mode=775,gid=$kvmgid /run/hugepages/kvm
-		fi
-	fi
-end script
-
-post-stop script
-	# Unload the modules
-	if grep -qs "^flags.* vmx" /proc/cpuinfo; then
-		modprobe -r kvm_intel || true
-	elif grep -qs "^flags.* svm" /proc/cpuinfo; then
-		modprobe -r kvm_amd || true
-	fi
-	modprobe -r vhost_net || true
 end script

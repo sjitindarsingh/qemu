@@ -1,5 +1,5 @@
 # HG changeset patch
-# Parent 282dd187e87bc4370520aabd95edc8c37a2e0ea9
+# Parent 368b8250b4887365f650b19b5fd2c05ff314657d
 Control saving of mmap-ed memory via an optional boolean qmp/hmp flag.
 
 The flag is savevm (-s). It's a boolean defaulting to true. Even if a memory
@@ -11,20 +11,54 @@ request.
 
 Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
 
-diff --git a/arch_init.c b/arch_init.c
-index 0049d60..3525e27 100644
---- a/arch_init.c
-+++ b/arch_init.c
-@@ -351,7 +351,7 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
+Index: qemu/arch_init.c
+===================================================================
+--- qemu.orig/arch_init.c	2013-01-17 10:57:04.352404758 -0600
++++ qemu/arch_init.c	2013-01-17 10:57:04.336404757 -0600
+@@ -345,7 +345,7 @@
+ 
+     ret = test_and_clear_bit(nr, migration_bitmap);
+ 
+-    if (ret && !block->do_not_save) {
++    if (ret && !block->will_not_save) {
+         migration_dirty_pages--;
+     }
+     return ret;
+@@ -360,7 +360,7 @@
+ 
+     ret = test_and_set_bit(nr, migration_bitmap);
+ 
+-    if (!ret && !block->do_not_save) {
++    if (!ret && !block->will_not_save) {
+         migration_dirty_pages++;
+     }
+     return ret;
+@@ -427,7 +427,7 @@
      if (!block)
          block = QLIST_FIRST(&ram_list.blocks);
      
 -    while (block->do_not_save) {
 +    while (block->will_not_save) {
-         last_block = block;
          block = QLIST_NEXT(block, next);
          if (!block) {
-@@ -471,6 +471,16 @@ static void sort_ram_list(void)
+             return 0;
+@@ -476,12 +476,12 @@
+             block = QLIST_NEXT(block, next);
+             if (!block)
+                 block = QLIST_FIRST(&ram_list.blocks);
+-            /* We need to skip pcram if do_not_save, otherwise we'll loop all
++            /* We need to skip pcram if will_not_save, otherwise we'll loop all
+              * over again. */
+-            while (block->do_not_save) {
++            while (block->will_not_save) {
+                 block = QLIST_NEXT(block, next);
+                 /* This will not iterate forever because we only set pcram to
+-                 * do_not_save, and there are at least one other
++                 * will_not_save, and there are at least one other
+                  * ramblock(e.g. pc.rom or pc.bios). */
+                 if (!block)
+                     block = QLIST_FIRST(&ram_list.blocks);
+@@ -552,6 +552,16 @@
      g_free(blocks);
  }
  
@@ -41,23 +75,32 @@ index 0049d60..3525e27 100644
  static void migration_end(void)
  {
      memory_global_dirty_log_stop();
-diff --git a/arch_init.h b/arch_init.h
-index d9c572a..837a30b 100644
---- a/arch_init.h
-+++ b/arch_init.h
-@@ -33,6 +33,7 @@ void audio_init(ISABus *isa_bus, PCIBus *pci_bus);
+@@ -592,7 +602,7 @@
+     {
+         RAMBlock *block = QLIST_FIRST(&ram_list.blocks);
+         while (block) {
+-            if (block->do_not_save)
++            if (block->will_not_save)
+                 migration_dirty_pages -= block->length >> TARGET_PAGE_BITS;
+             block = QLIST_NEXT(block, next);
+         }
+Index: qemu/arch_init.h
+===================================================================
+--- qemu.orig/arch_init.h	2013-01-17 10:57:04.352404758 -0600
++++ qemu/arch_init.h	2013-01-17 10:57:04.340404758 -0600
+@@ -33,6 +33,7 @@
  int tcg_available(void);
  int kvm_available(void);
  int xen_available(void);
 +extern void tag_ram_blocks(int saveram);
  
- CpuDefinitionInfoList GCC_WEAK_DECL *arch_query_cpu_definitions(Error **errp);
+ CpuDefinitionInfoList *arch_query_cpu_definitions(Error **errp);
  
-diff --git a/cpu-all.h b/cpu-all.h
-index feafe46..2150aec 100644
---- a/cpu-all.h
-+++ b/cpu-all.h
-@@ -501,6 +501,7 @@ typedef struct RAMBlock {
+Index: qemu/cpu-all.h
+===================================================================
+--- qemu.orig/cpu-all.h	2013-01-17 10:57:04.352404758 -0600
++++ qemu/cpu-all.h	2013-01-17 10:57:04.340404758 -0600
+@@ -489,6 +489,7 @@
      char idstr[256];
      QLIST_ENTRY(RAMBlock) next;
      int do_not_save;
@@ -65,11 +108,11 @@ index feafe46..2150aec 100644
  #if defined(__linux__) && !defined(TARGET_S390X)
      int fd;
  #endif
-diff --git a/exec.c b/exec.c
-index 34bf828..2fb43e1 100644
---- a/exec.c
-+++ b/exec.c
-@@ -2384,6 +2384,7 @@ static void *mem_file_ram_alloc(RAMBlock *block,
+Index: qemu/exec.c
+===================================================================
+--- qemu.orig/exec.c	2013-01-17 10:57:04.352404758 -0600
++++ qemu/exec.c	2013-01-17 10:57:04.340404758 -0600
+@@ -2389,6 +2389,7 @@
              abort();
          }
          block->do_not_save = 1;
@@ -77,20 +120,11 @@ index 34bf828..2fb43e1 100644
          return host;
      }
      return NULL;
-@@ -2827,7 +2828,7 @@ bool qemu_ram_is_page_saved(ram_addr_t addr)
-     RAMBlock *block;
-     QLIST_FOREACH(block, &ram_list.blocks, next) {
-         if (addr - block->offset < block->length) {
--            return !block->do_not_save;
-+            return !block->will_not_save;
-         }
-     }
- 
-diff --git a/hmp-commands.hx b/hmp-commands.hx
-index f6104b0..62efa88 100644
---- a/hmp-commands.hx
-+++ b/hmp-commands.hx
-@@ -798,13 +798,15 @@ ETEXI
+Index: qemu/hmp-commands.hx
+===================================================================
+--- qemu.orig/hmp-commands.hx	2013-01-17 10:57:04.352404758 -0600
++++ qemu/hmp-commands.hx	2013-01-17 10:57:04.344404758 -0600
+@@ -841,13 +841,15 @@
  
      {
          .name       = "migrate",
@@ -109,11 +143,11 @@ index f6104b0..62efa88 100644
          .mhandler.cmd = hmp_migrate,
      },
  
-diff --git a/hmp.c b/hmp.c
-index 81c8acb..13f4ded 100644
---- a/hmp.c
-+++ b/hmp.c
-@@ -997,11 +997,12 @@ void hmp_migrate(Monitor *mon, const QDict *qdict)
+Index: qemu/hmp.c
+===================================================================
+--- qemu.orig/hmp.c	2013-01-17 10:57:04.352404758 -0600
++++ qemu/hmp.c	2013-01-17 10:57:04.344404758 -0600
+@@ -1073,11 +1073,12 @@
  {
      int detach = qdict_get_try_bool(qdict, "detach", 0);
      int blk = qdict_get_try_bool(qdict, "blk", 0);
@@ -127,10 +161,10 @@ index 81c8acb..13f4ded 100644
      if (err) {
          monitor_printf(mon, "migrate: %s\n", error_get_pretty(err));
          error_free(err);
-diff --git a/migration.c b/migration.c
-index 1edeec5..9e9b7b3 100644
---- a/migration.c
-+++ b/migration.c
+Index: qemu/migration.c
+===================================================================
+--- qemu.orig/migration.c	2013-01-17 10:57:04.352404758 -0600
++++ qemu/migration.c	2013-01-17 10:57:04.344404758 -0600
 @@ -22,6 +22,7 @@
  #include "qemu_socket.h"
  #include "block-migration.h"
@@ -139,7 +173,7 @@ index 1edeec5..9e9b7b3 100644
  
  //#define DEBUG_MIGRATION
  
-@@ -476,6 +477,7 @@ void migrate_del_blocker(Error *reason)
+@@ -497,6 +498,7 @@
  }
  
  void qmp_migrate(const char *uri, bool has_blk, bool blk,
@@ -147,7 +181,7 @@ index 1edeec5..9e9b7b3 100644
                   bool has_inc, bool inc, bool has_detach, bool detach,
                   Error **errp)
  {
-@@ -503,6 +505,11 @@ void qmp_migrate(const char *uri, bool has_blk, bool blk,
+@@ -524,6 +526,11 @@
  
      s = migrate_init(&params);
  
@@ -157,13 +191,13 @@ index 1edeec5..9e9b7b3 100644
 +#endif
 +
      if (strstart(uri, "tcp:", &p)) {
-         ret = tcp_start_outgoing_migration(s, p, errp);
+         tcp_start_outgoing_migration(s, p, &local_err);
  #if !defined(WIN32)
-diff --git a/qapi-schema.json b/qapi-schema.json
-index 173e93e..014ca40 100644
---- a/qapi-schema.json
-+++ b/qapi-schema.json
-@@ -1881,7 +1881,7 @@
+Index: qemu/qapi-schema.json
+===================================================================
+--- qemu.orig/qapi-schema.json	2013-01-17 10:57:04.352404758 -0600
++++ qemu/qapi-schema.json	2013-01-17 10:57:04.344404758 -0600
+@@ -2211,7 +2211,7 @@
  # Since: 0.14.0
  ##
  { 'command': 'migrate',
@@ -172,11 +206,11 @@ index 173e93e..014ca40 100644
  
  # @xen-save-devices-state:
  #
-diff --git a/qmp-commands.hx b/qmp-commands.hx
-index 3745a21..4be5925 100644
---- a/qmp-commands.hx
-+++ b/qmp-commands.hx
-@@ -469,7 +469,7 @@ EQMP
+Index: qemu/qmp-commands.hx
+===================================================================
+--- qemu.orig/qmp-commands.hx	2013-01-17 10:57:04.352404758 -0600
++++ qemu/qmp-commands.hx	2013-01-17 10:57:04.348404758 -0600
+@@ -518,7 +518,7 @@
  
      {
          .name       = "migrate",
@@ -185,7 +219,7 @@ index 3745a21..4be5925 100644
          .mhandler.cmd_new = qmp_marshal_input_migrate,
      },
  
-@@ -483,6 +483,7 @@ Arguments:
+@@ -532,6 +532,7 @@
  
  - "blk": block migration, full disk copy (json-bool, optional)
  - "inc": incremental disk copy (json-bool, optional)
@@ -193,7 +227,7 @@ index 3745a21..4be5925 100644
  - "uri": Destination URI (json-string)
  
  Example:
-@@ -494,7 +495,7 @@ Notes:
+@@ -543,7 +544,7 @@
  
  (1) The 'query-migrate' command should be used to check migration's progress
      and final result (this information is provided by the 'status' member)

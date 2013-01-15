@@ -1,0 +1,73 @@
+From e805e60f10141d76ebf24f50d5ab526d59d9c8e1 Mon Sep 17 00:00:00 2001
+From: Jan Vesely <jano.vesely@gmail.com>
+Date: Tue, 4 Dec 2012 14:10:10 +0000
+Subject: [PATCH 40/80] serial, omap_uart: Add support for fifo level regs
+
+Signed-off-by: Jan Vesely <jano.vesely@gmail.com>
+---
+ hw/omap_uart.c | 10 ++++++++++
+ hw/serial.c    | 12 ++++++++++++
+ hw/serial.h    |  3 +++
+ 3 files changed, 25 insertions(+)
+
+diff --git a/hw/omap_uart.c b/hw/omap_uart.c
+index 9fe8a96..e50f766 100644
+--- a/hw/omap_uart.c
++++ b/hw/omap_uart.c
+@@ -174,6 +174,16 @@ static uint64_t omap_uart_read(void *opaque, hwaddr addr,
+         return s->wkup;
+     case 0x60:	/* CFPS (OMAP2) */
+         return s->cfps;
++    case 0x64:  /* RXFIFO_LVL_REG (OMAP36xx) */
++        if (s->revision >= 0x52) {
++            return serial_rx_fifo_count(s->serial) & 0xff;
++        }
++        break;
++    case 0x68:  /* TXFIFO_LVL_REG (OMAP36xx) */
++        if (s->revision >= 0x52) {
++            return serial_tx_fifo_count(s->serial) & 0xff;
++        }
++        break;
+     }
+ 
+     OMAP_BAD_REG(addr);
+diff --git a/hw/serial.c b/hw/serial.c
+index 67ce24f..8f95d08 100644
+--- a/hw/serial.c
++++ b/hw/serial.c
+@@ -707,6 +707,18 @@ void serial_exit_core(SerialState *s)
+     qemu_unregister_reset(serial_reset, s);
+ }
+ 
++/* Get number of stored bytes in receive fifo. */
++unsigned serial_rx_fifo_count(SerialState *s)
++{
++    return s->recv_fifo.count;
++}
++
++/* Get number of stored bytes in transmit fifo. */
++unsigned serial_tx_fifo_count(SerialState *s)
++{
++    return s->xmit_fifo.count;
++}
++
+ /* Change the main reference oscillator frequency. */
+ void serial_set_frequency(SerialState *s, uint32_t frequency)
+ {
+diff --git a/hw/serial.h b/hw/serial.h
+index b2bdfcc..5261ec5 100644
+--- a/hw/serial.h
++++ b/hw/serial.h
+@@ -90,6 +90,9 @@ void serial_change_char_driver(SerialState *s, CharDriverState *chr);
+ const MemoryRegionOps *serial_get_memops(enum device_endian end);
+ qemu_irq *serial_get_irq(SerialState *s);
+ 
++unsigned serial_rx_fifo_count(SerialState *s);
++unsigned serial_tx_fifo_count(SerialState *s);
++
+ /* legacy pre qom */
+ SerialState *serial_init(int base, qemu_irq irq, int baudbase,
+                          CharDriverState *chr);
+-- 
+1.8.0
+

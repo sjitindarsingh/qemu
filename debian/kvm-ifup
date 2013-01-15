@@ -26,14 +26,6 @@ switch=$(ip route ls | \
          }'
         )
 
-if [ -f /etc/default/qemu-kvm ]; then
-    . /etc/default/qemu-kvm
-fi
-
-if [ -n "$TAPBR" ]; then
-    switch="$TAPBR"
-fi
-
 # only add the interface to default-route bridge if we
 # have such interface (with default route) and if that
 # interface is actually a bridge.

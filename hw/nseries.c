@@ -197,6 +197,17 @@ static void n8x0_nand_setup(struct n800_s *s)
     /* XXX: in theory should also update the OOB for both pages */
 }
 
+static qemu_irq n8x0_system_powerdown;
+
+static void n8x0_powerdown_req(Notifier *n, void *opaque)
+{
+    qemu_irq_raise(n8x0_system_powerdown);
+}
+
+static Notifier n8x0_system_powerdown_notifier = {
+    .notify = n8x0_powerdown_req
+};
+
 static void n8x0_i2c_setup(struct n800_s *s)
 {
     DeviceState *dev;
@@ -209,7 +220,8 @@ static void n8x0_i2c_setup(struct n800_s *s)
                           qdev_get_gpio_in(s->mpu->ih[0],
                                            OMAP_INT_24XX_SYS_NIRQ));
 
-    qemu_system_powerdown = qdev_get_gpio_in(dev, 3);
+    n8x0_system_powerdown = qdev_get_gpio_in(dev, 3);
+    qemu_register_powerdown_notifier(&n8x0_system_powerdown_notifier);
 
     /* Attach a TMP105 PM chip (A0 wired to ground) */
     dev = i2c_create_slave(i2c, "tmp105", N8X0_TMP105_ADDR);
@@ -1420,17 +1432,15 @@ static int n810_atag_setup(const struct arm_boot_info *info, void *p)
     return n8x0_atag_setup(p, 810);
 }
 
-static void n8x0_init(ram_addr_t ram_size, const char *boot_device,
-                const char *kernel_filename,
-                const char *kernel_cmdline, const char *initrd_filename,
-                const char *cpu_model, struct arm_boot_info *binfo, int model)
+static void n8x0_init(QEMUMachineInitArgs *args,
+                      struct arm_boot_info *binfo, int model)
 {
     MemoryRegion *sysmem = get_system_memory();
     struct n800_s *s = (struct n800_s *) g_malloc0(sizeof(*s));
     int sdram_size = binfo->ram_size;
     DisplayState *ds;
 
-    s->mpu = omap2420_mpu_init(sysmem, sdram_size, cpu_model);
+    s->mpu = omap2420_mpu_init(sysmem, sdram_size, args->cpu_model);
 
     /* Setup peripherals
      *
@@ -1471,20 +1481,22 @@ static void n8x0_init(ram_addr_t ram_size, const char *boot_device,
     n8x0_dss_setup(s);
     n8x0_cbus_setup(s);
     n8x0_uart_setup(s);
-    if (usb_enabled)
+    if (usb_enabled(false)) {
         n8x0_usb_setup(s);
+    }
 
-    if (kernel_filename) {
+    if (args->kernel_filename) {
         /* Or at the linux loader.  */
-        binfo->kernel_filename = kernel_filename;
-        binfo->kernel_cmdline = kernel_cmdline;
-        binfo->initrd_filename = initrd_filename;
+        binfo->kernel_filename = args->kernel_filename;
+        binfo->kernel_cmdline = args->kernel_cmdline;
+        binfo->initrd_filename = args->initrd_filename;
         arm_load_kernel(s->mpu->cpu, binfo);
 
         qemu_register_reset(n8x0_boot_init, s);
     }
 
-    if (option_rom[0].name && (boot_device[0] == 'n' || !kernel_filename)) {
+    if (option_rom[0].name &&
+        (args->boot_device[0] == 'n' || !args->kernel_filename)) {
         int rom_size;
         uint8_t nolo_tags[0x10000];
         /* No, wait, better start at the ROM.  */
@@ -1512,7 +1524,7 @@ static void n8x0_init(ram_addr_t ram_size, const char *boot_device,
        size until the guest activates the display.  */
     ds = get_displaystate();
     ds->surface = qemu_resize_displaysurface(ds, 800, 480);
-    dpy_resize(ds);
+    dpy_gfx_resize(ds);
 }
 
 static struct arm_boot_info n800_binfo = {
@@ -1534,24 +1546,14 @@ static struct arm_boot_info n810_binfo = {
     .atag_board = n810_atag_setup,
 };
 
-static void n800_init(ram_addr_t ram_size,
-                const char *boot_device,
-                const char *kernel_filename, const char *kernel_cmdline,
-                const char *initrd_filename, const char *cpu_model)
+static void n800_init(QEMUMachineInitArgs *args)
 {
-    return n8x0_init(ram_size, boot_device,
-                    kernel_filename, kernel_cmdline, initrd_filename,
-                    cpu_model, &n800_binfo, 800);
+    return n8x0_init(args, &n800_binfo, 800);
 }
 
-static void n810_init(ram_addr_t ram_size,
-                const char *boot_device,
-                const char *kernel_filename, const char *kernel_cmdline,
-                const char *initrd_filename, const char *cpu_model)
+static void n810_init(QEMUMachineInitArgs *args)
 {
-    return n8x0_init(ram_size, boot_device,
-                    kernel_filename, kernel_cmdline, initrd_filename,
-                    cpu_model, &n810_binfo, 810);
+    return n8x0_init(args, &n810_binfo, 810);
 }
 
 static QEMUMachine n800_machine = {
@@ -1608,7 +1610,7 @@ static QEMUMachine n810_machine = {
 #define TRACE_LIS302DL(...)
 #endif
 
-static uint64_t ssi_read(void *opaque, target_phys_addr_t addr, unsigned size)
+static uint64_t ssi_read(void *opaque, hwaddr addr, unsigned size)
 {
     switch (addr) {
         case 0x00: /* REVISION */
@@ -1622,7 +1624,7 @@ static uint64_t ssi_read(void *opaque, target_phys_addr_t addr, unsigned size)
     return 0;
 }
 
-static void ssi_write(void *opaque, target_phys_addr_t addr, uint64_t value,
+static void ssi_write(void *opaque, hwaddr addr, uint64_t value,
                       unsigned size)
 {
     //printf("%s: addr=" OMAP_FMT_plx ", value=0x%08x\n", __FUNCTION__, addr, value);
@@ -2502,12 +2504,7 @@ static MouseTransformInfo n900_pointercal = {
     .a = {14114,  18, -2825064,  34,  -8765, 32972906, 65536},
 };
 
-static void n900_init(ram_addr_t ram_size,
-                      const char *boot_device,
-                      const char *kernel_filename,
-                      const char *kernel_cmdline,
-                      const char *initrd_filename,
-                      const char *cpu_model)
+static void n900_init(QEMUMachineInitArgs *args)
 {
     MemoryRegion *sysmem = get_system_memory();
     MemoryRegion *ssi_iomem = g_new(MemoryRegion, 1);

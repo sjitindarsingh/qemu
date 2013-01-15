@@ -28,11 +28,11 @@ the registers were dirty, then we'd have another bug ...
 
 Signed-off-by: Peter Feiner <peter@gridcentric.com>
 
-diff --git a/target-i386/cpu.h b/target-i386/cpu.h
-index 2460f63..84a4008 100644
---- a/target-i386/cpu.h
-+++ b/target-i386/cpu.h
-@@ -760,6 +760,7 @@ typedef struct CPUX86State {
+Index: qemu/target-i386/cpu.h
+===================================================================
+--- qemu.orig/target-i386/cpu.h	2013-01-17 10:57:00.128404663 -0600
++++ qemu/target-i386/cpu.h	2013-01-17 10:57:00.120404663 -0600
+@@ -833,6 +833,7 @@
      uint32_t cpuid_svm_features;
      bool tsc_valid;
      int tsc_khz;
@@ -40,13 +40,13 @@ index 2460f63..84a4008 100644
      void *kvm_xsave_buf;
  
      /* in order to simplify APIC support, we leave this pointer to the
-diff --git a/target-i386/kvm.c b/target-i386/kvm.c
-index e74a9e4..e941f91 100644
---- a/target-i386/kvm.c
-+++ b/target-i386/kvm.c
-@@ -1529,6 +1529,10 @@ int kvm_arch_put_registers(CPUX86State *env, int level)
+Index: qemu/target-i386/kvm.c
+===================================================================
+--- qemu.orig/target-i386/kvm.c	2013-01-17 10:57:00.128404663 -0600
++++ qemu/target-i386/kvm.c	2013-01-17 10:57:00.120404663 -0600
+@@ -1589,6 +1589,10 @@
  
-     assert(cpu_is_stopped(env) || qemu_cpu_is_self(env));
+     assert(cpu_is_stopped(cpu) || qemu_cpu_is_self(cpu));
  
 +    if (!env->kvm_has_run && level == KVM_PUT_RUNTIME_STATE) {
 +        return 0;
@@ -55,7 +55,7 @@ index e74a9e4..e941f91 100644
      ret = kvm_getput_regs(env, 1);
      if (ret < 0) {
          return ret;
-@@ -1694,6 +1698,7 @@ void kvm_arch_post_run(CPUX86State *env, struct kvm_run *run)
+@@ -1755,6 +1759,7 @@
      }
      cpu_set_apic_tpr(env->apic_state, run->cr8);
      cpu_set_apic_base(env->apic_state, run->apic_base);

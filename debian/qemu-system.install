@@ -1,6 +1,8 @@
 debian/tmp/usr/share/man/man1/qemu.1
-system-build/pc-bios/*.dtb usr/share/qemu/
-debian/tmp/usr/share/qemu/cpus-x86_64.conf
+qemu-build/pc-bios/*.dtb usr/share/qemu/
+qemu-build/pc-bios/spapr-rtas.bin /usr/share/qemu/
 debian/tmp/etc/qemu/target-x86_64.conf
 pc-bios/qemu-icon.bmp /usr/share/qemu/
-debian/30-qemu-kvm.conf etc/sysctl.d/
+debian/tmp/usr/share/doc/qemu/qemu-tech.html
+debian/tmp/usr/share/doc/qemu/qemu-doc.html
+debian/tmp/usr/share/doc/qemu/qmp-commands.txt
