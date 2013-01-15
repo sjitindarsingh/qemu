@@ -1,0 +1,57 @@
+Don't override MAC addresses from the command line with migration state.
+
+When loading a VM (i.e., when doing an incoming migration), don't override the
+MAC addresses from the command line with the MAC addresses in the loaded state.
+The MAC addresses are stored in the eeprom registers.
+
+Signed-off-by: Peter Feiner <peter@gridcentric.com>
+
+Index: qemu/hw/e1000.c
+===================================================================
+--- qemu.orig/hw/e1000.c	2013-01-17 10:56:57.544404605 -0600
++++ qemu/hw/e1000.c	2013-01-17 10:56:57.536404605 -0600
+@@ -1140,7 +1140,7 @@
+         VMSTATE_INT8(tx.tcp, E1000State),
+         VMSTATE_BUFFER(tx.header, E1000State),
+         VMSTATE_BUFFER(tx.data, E1000State),
+-        VMSTATE_UINT16_ARRAY(eeprom_data, E1000State, 64),
++        VMSTATE_UNUSED(64 * 16), /* was eeprom_data */
+         VMSTATE_UINT16_ARRAY(phy_reg, E1000State, 0x20),
+         VMSTATE_UINT32(mac_reg[CTRL], E1000State),
+         VMSTATE_UINT32(mac_reg[EECD], E1000State),
+Index: qemu/hw/rtl8139.c
+===================================================================
+--- qemu.orig/hw/rtl8139.c	2013-01-17 10:56:57.544404605 -0600
++++ qemu/hw/rtl8139.c	2013-01-17 10:56:57.536404605 -0600
+@@ -3319,7 +3319,7 @@
+         VMSTATE_UINT32(RxRingAddrLO, RTL8139State),
+         VMSTATE_UINT32(RxRingAddrHI, RTL8139State),
+ 
+-        VMSTATE_UINT16_ARRAY(eeprom.contents, RTL8139State, EEPROM_9346_SIZE),
++        VMSTATE_UNUSED(EEPROM_9346_SIZE * 16), /* was eeprom.contents */
+         VMSTATE_INT32(eeprom.mode, RTL8139State),
+         VMSTATE_UINT32(eeprom.tick, RTL8139State),
+         VMSTATE_UINT8(eeprom.address, RTL8139State),
+Index: qemu/hw/virtio-net.c
+===================================================================
+--- qemu.orig/hw/virtio-net.c	2013-01-17 10:56:57.544404605 -0600
++++ qemu/hw/virtio-net.c	2013-01-17 10:56:57.536404605 -0600
+@@ -899,6 +899,7 @@
+     VirtIONet *n = opaque;
+     int i;
+     int ret;
++    unsigned char incoming_mac[ETH_ALEN];
+ 
+     if (version_id < 2 || version_id > VIRTIO_NET_VM_VERSION)
+         return -EINVAL;
+@@ -908,7 +909,9 @@
+         return ret;
+     }
+ 
+-    qemu_get_buffer(f, n->mac, ETH_ALEN);
++    /* Suppress loading the mac address. We want to use the mac from the command
++     * line for more flexibility. */
++    qemu_get_buffer(f, incoming_mac, ETH_ALEN);
+     n->tx_waiting = qemu_get_be32(f);
+ 
+     virtio_net_set_mrg_rx_bufs(n, qemu_get_be32(f));

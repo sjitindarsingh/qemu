@@ -1,24 +1,22 @@
 Source: qemu
 Section: misc
 Priority: optional
-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
 Uploaders: Aurelien Jarno <aurel32@debian.org>,
 	Riku Voipio <riku.voipio@iki.fi>,
 	Vagrant Cascadian <vagrant@debian.org>,
 	Michael Tokarev <mjt@tls.msk.ru>
+DM-Upload-Allowed: yes
 Build-Depends: debhelper (>= 9), device-tree-compiler, libfdt-dev,
  libx11-dev, libsdl1.2-dev (>> 1.2.1), libncurses5-dev, zlib1g-dev,
  texi2html, libbrlapi-dev,
  libpulse-dev, libcurl4-gnutls-dev, libgnutls-dev, libsasl2-dev, uuid-dev,
- libvdeplug2-dev, libasound2-dev [linux-any],
+ libasound2-dev [linux-any],
  libbluetooth-dev [linux-any], libattr1-dev, 
  linux-libc-dev (>= 2.6.34) [linux-any],
  libaio-dev [linux-any], xfslibs-dev [linux-any], texinfo,
  python,
- libspice-server-dev [amd64], libspice-protocol-dev [amd64],
- libxen-dev [amd64 i386],
- libiscsi-dev,
- libusbredirparser-dev [linux-any],
  libcap-dev [linux-any],
  libcap-ng-dev [linux-any],
  libpixman-1-dev
@@ -56,8 +54,8 @@ Package: qemu-keymaps
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}
-Breaks: qemu (<< 0.11.0-2), qemu-system (<< 0.12.4+dfsg-4)
-Replaces: qemu (<< 0.11.0-2), qemu-system (<< 0.12.4+dfsg-4)
+Breaks: qemu (<< 0.11.0-2), qemu-system (<< 0.12.4+dfsg-4), qemu-common (<< 1.2.0.dfsg-1)
+Replaces: qemu (<< 0.11.0-2), qemu-system (<< 0.12.4+dfsg-4), qemu-common (<< 1.2.0.dfsg-1)
 Description: QEMU keyboard maps
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -70,10 +68,12 @@ Description: QEMU keyboard maps
 Package: qemu-system
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
-Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-keymaps (>= ${source:Version}), vgabios (>= 0.6c-3~), seabios (>= 1.7.0~), openbios-ppc (>= 1.0+svn1060), openbios-sparc (>= 1.0+svn1060), openhackware, ipxe-qemu | ipxe (<< 1.0.0+git-20120202.f6840ba-2)
-Recommends: vde2, qemu-utils
-Breaks: qemu (<< 0.11.0-2)
-Replaces: qemu (<< 0.11.0-2)
+Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-keymaps (>= ${source:Version}), vgabios (>= 0.6c-3~), seabios (>= 1.7.0~), ipxe-qemu | ipxe (<< 1.0.0+git-20120202.f6840ba-2), acl, udev
+Recommends: qemu-utils
+Breaks: qemu (<< 0.11.0-2), qemu-kvm (<< 1.2.0.dfsg-1), qemu-common (<< 1.2.0.dfsg-1)
+Conflicts: kvm
+Replaces: qemu (<< 0.11.0-2), qemu-kvm (<< 1.2.0.dfsg-1), qemu-common (<< 1.2.0.dfsg-1), kvm
+Provides: qemu-kvm, kvm
 Suggests: samba
 Description: QEMU full system emulation binaries
  QEMU is a fast processor emulator: currently the package supports
@@ -126,8 +126,8 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sharutils
 Suggests: debootstrap
 Conflicts: kvm (= 85+dfsg-4.1)
-Breaks: qemu (<< 0.11.0-2), qemu-user (<< 0.11.1-2)
-Replaces: qemu (<< 0.11.0-2), qemu-user (<< 0.11.1-2)
+Breaks: qemu (<< 0.11.0-2), qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
+Replaces: qemu (<< 0.11.0-2), qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
 Description: QEMU utilities
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -139,3 +139,21 @@ Description: QEMU utilities
   * qemu-io:  QEMU disk exerciser
   * qemu-nbd: QEMU disk network block device server
   * virtfs-proxy-helper: QEMU proxy helper for virtfs (aka 9pfs)
+
+Package: qemu-kvm
+Architecture: amd64 armel armhf i386 powerpc sparc
+Depends: qemu-system (= ${source:Version}), ${misc:Depends}
+Section: oldlibs
+Description: dummy transitional package from qemu-kvm to qemu-system
+ This transitional package helps users transition from the qemu-kvm package
+ to the qemu-system package.  Once this package and its dependencies are
+ installed you can safely remove it.
+
+Package: qemu-common
+Architecture: all
+Depends: qemu-keymaps
+Section: oldlibs
+Description: dummy transitional package from qemu-common to qemu-keymaps
+ This transitional package helps users transition from the qemu-common package
+ to the qemu-keymaps package.  Once this package and its dependencies are
+ installed you can safely remove it.

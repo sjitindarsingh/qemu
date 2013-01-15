@@ -1,0 +1,39 @@
+From 42d7dff68f9dd0e764a210cc2f7befcb38d2754b Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 4 Dec 2012 14:10:05 +0000
+Subject: [PATCH 17/80] omap_i2c: clean up revision numbers
+
+---
+ hw/omap_i2c.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
+index ba08e64..7fa4975 100644
+--- a/hw/omap_i2c.c
++++ b/hw/omap_i2c.c
+@@ -48,8 +48,11 @@ typedef struct OMAPI2CState {
+     uint16_t test;
+ } OMAPI2CState;
+ 
+-#define OMAP2_INTR_REV	0x34
+-#define OMAP2_GC_REV	0x34
++/* I2C controller revision register values */
++#define OMAP1_INTR_REV    0x11
++#define OMAP2_INTR_REV    0x34
++#define OMAP3_INTR_REV    0x3c
++#define OMAP3630_INTR_REV 0x40
+ 
+ static void omap_i2c_interrupts_update(OMAPI2CState *s)
+ {
+@@ -263,7 +266,7 @@ static void omap_i2c_write(void *opaque, hwaddr addr,
+         return;
+ 
+     case 0x04:	/* I2C_IE */
+-        s->mask = value & (s->revision < OMAP2_GC_REV ? 0x1f : 0x3f);
++        s->mask = value & (s->revision < OMAP2_INTR_REV ? 0x1f : 0x3f);
+         break;
+ 
+     case 0x08:	/* I2C_STAT */
+-- 
+1.8.0
+

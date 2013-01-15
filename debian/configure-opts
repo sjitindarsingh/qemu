@@ -39,7 +39,7 @@ enable-sdl
 enable-vnc
 enable-vnc-tls
 enable-vnc-sasl
-enable-vnc-jpeg
+#enable-vnc-jpeg
 enable-vnc-png
 
 enable-curses
@@ -47,8 +47,8 @@ enable-curl
 enable-fdt
 enable-bluez		linux
 enable-uuid
-enable-vde
-enable-libiscsi
+#enable-vde
+#enable-libiscsi
 
 enable-linux-aio	linux
 

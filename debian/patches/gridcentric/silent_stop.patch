@@ -1,0 +1,188 @@
+# HG changeset patch
+# Parent 3337a2fcaa60479eb870ba0503dbfea71b7b092b
+Make some pause actions not raise a QMP STOP event.
+
+This is a workaround for the libvirt+Folsom collusion into killing paused VMs.
+
+Specifically, silence external QMP stops if explicitly asked for, and
+unconditionally silence all stops related to migration/save/restore.
+
+Signed-off-by: Andres Lagar-Cavilla <andres@lagarcavilla.org>
+Signed-off-by: Adin Scannell <adin@scannell.ca>
+
+Index: qemu/cpus.c
+===================================================================
+--- qemu.orig/cpus.c	2013-01-17 10:57:05.936404793 -0600
++++ qemu/cpus.c	2013-01-17 10:57:05.920404793 -0600
+@@ -435,7 +435,7 @@
+     return !runstate_is_running() || cpu->stopped;
+ }
+ 
+-static void do_vm_stop(RunState state)
++static void do_vm_stop(RunState state, bool silent)
+ {
+     if (runstate_is_running()) {
+         cpu_disable_ticks();
+@@ -444,7 +444,8 @@
+         vm_state_notify(0, state);
+         bdrv_drain_all();
+         bdrv_flush_all();
+-        monitor_protocol_event(QEVENT_STOP, NULL);
++        if (!silent)
++            monitor_protocol_event(QEVENT_STOP, NULL);
+     }
+ }
+ 
+@@ -1064,7 +1065,7 @@
+     }
+ }
+ 
+-void vm_stop(RunState state)
++void __vm_stop(RunState state, bool silent)
+ {
+     if (qemu_in_vcpu_thread()) {
+         qemu_system_vmstop_request(state);
+@@ -1075,7 +1076,7 @@
+         cpu_stop_current();
+         return;
+     }
+-    do_vm_stop(state);
++    do_vm_stop(state, silent);
+ }
+ 
+ /* does a state transition even if the VM is already stopped,
+@@ -1083,7 +1084,7 @@
+ void vm_stop_force_state(RunState state)
+ {
+     if (runstate_is_running()) {
+-        vm_stop(state);
++        vm_stop_silent(state);
+     } else {
+         runstate_set(state);
+     }
+Index: qemu/hmp.c
+===================================================================
+--- qemu.orig/hmp.c	2013-01-17 10:57:05.936404793 -0600
++++ qemu/hmp.c	2013-01-17 10:57:05.924404793 -0600
+@@ -636,7 +636,7 @@
+ 
+ void hmp_stop(Monitor *mon, const QDict *qdict)
+ {
+-    qmp_stop(NULL);
++    qmp_stop(0, 0, NULL);
+ }
+ 
+ void hmp_system_reset(Monitor *mon, const QDict *qdict)
+Index: qemu/monitor.c
+===================================================================
+--- qemu.orig/monitor.c	2013-01-17 10:57:05.936404793 -0600
++++ qemu/monitor.c	2013-01-17 10:57:05.924404793 -0600
+@@ -2070,7 +2070,7 @@
+     int saved_vm_running  = runstate_is_running();
+     const char *name = qdict_get_str(qdict, "name");
+ 
+-    vm_stop(RUN_STATE_RESTORE_VM);
++    vm_stop_silent(RUN_STATE_RESTORE_VM);
+ 
+     if (load_vmstate(name) == 0 && saved_vm_running) {
+         vm_start();
+Index: qemu/qapi-schema.json
+===================================================================
+--- qemu.orig/qapi-schema.json	2013-01-17 10:57:05.936404793 -0600
++++ qemu/qapi-schema.json	2013-01-17 10:57:05.928404793 -0600
+@@ -1257,7 +1257,7 @@
+ #         remains paused once migration finishes, as if the -S option was
+ #         passed on the command line.
+ ##
+-{ 'command': 'stop' }
++{ 'command': 'stop', 'data': {'*silent': 'bool'} }
+ 
+ ##
+ # @system_reset:
+Index: qemu/qemu-tool.c
+===================================================================
+--- qemu.orig/qemu-tool.c	2013-01-17 10:57:05.936404793 -0600
++++ qemu/qemu-tool.c	2013-01-17 10:57:05.928404793 -0600
+@@ -38,7 +38,7 @@
+ 
+ Monitor *cur_mon;
+ 
+-void vm_stop(RunState state)
++void __vm_stop(RunState state, bool silent)
+ {
+     abort();
+ }
+Index: qemu/qmp-commands.hx
+===================================================================
+--- qemu.orig/qmp-commands.hx	2013-01-17 10:57:05.936404793 -0600
++++ qemu/qmp-commands.hx	2013-01-17 10:57:05.928404793 -0600
+@@ -168,7 +168,9 @@
+ 
+     {
+         .name       = "stop",
+-        .args_type  = "",
++        .args_type  = "silent:b?",
++        .params     = "[silent]",
++        .help       = "stop emulation, optional silent for no event emission",
+         .mhandler.cmd_new = qmp_marshal_input_stop,
+     },
+ 
+@@ -178,7 +180,9 @@
+ 
+ Stop the emulator.
+ 
+-Arguments: None.
++Arguments:
++
++- silent: do not emit stop event (json-bool, optional)
+ 
+ Example:
+ 
+Index: qemu/qmp.c
+===================================================================
+--- qemu.orig/qmp.c	2013-01-17 10:57:05.936404793 -0600
++++ qemu/qmp.c	2013-01-17 10:57:05.928404793 -0600
+@@ -83,12 +83,13 @@
+     qemu_system_shutdown_request();
+ }
+ 
+-void qmp_stop(Error **errp)
++void qmp_stop(bool has_silent, bool silent, Error **errp)
+ {
+     if (runstate_check(RUN_STATE_INMIGRATE)) {
+         autostart = 0;
+     } else {
+-        vm_stop(RUN_STATE_PAUSED);
++        bool __silent = (has_silent) ? silent : 0;
++        __vm_stop(RUN_STATE_PAUSED, __silent);
+     }
+ }
+ 
+Index: qemu/savevm.c
+===================================================================
+--- qemu.orig/savevm.c	2013-01-17 10:57:05.936404793 -0600
++++ qemu/savevm.c	2013-01-17 10:57:05.928404793 -0600
+@@ -2112,7 +2112,7 @@
+     }
+ 
+     saved_vm_running = runstate_is_running();
+-    vm_stop(RUN_STATE_SAVE_VM);
++    vm_stop_silent(RUN_STATE_SAVE_VM);
+ 
+     memset(sn, 0, sizeof(*sn));
+ 
+Index: qemu/sysemu.h
+===================================================================
+--- qemu.orig/sysemu.h	2013-01-17 10:57:05.936404793 -0600
++++ qemu/sysemu.h	2013-01-17 10:57:05.932404793 -0600
+@@ -34,7 +34,9 @@
+ #define VMRESET_REPORT   true
+ 
+ void vm_start(void);
+-void vm_stop(RunState state);
++void __vm_stop(RunState state, bool silent);
++#define vm_stop(s)          __vm_stop(s, 0)
++#define vm_stop_silent(s)   __vm_stop(s, 1)
+ void vm_stop_force_state(RunState state);
+ 
+ typedef enum WakeupReason {

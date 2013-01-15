@@ -189,8 +189,13 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 		$(addprefix debian/binfmts/qemu-,${binfmt_targets})
 endif
 
+	# copy ifup/down and keymaps to Ubuntu's qemu-system
+	install -Dp -m 0755 debian/kvm-ifup debian/qemu-system/usr/bin/qemu-ifup
+	install -Dp -m 0755 debian/kvm-ifdown debian/qemu-system/usr/bin/qemu-ifdown
+
 	dh_install --list-missing
 	dh_installdocs
+	dh_installinit -pqemu-system --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 	dh_installchangelogs Changelog
 	dh_installudev
 	dh_link

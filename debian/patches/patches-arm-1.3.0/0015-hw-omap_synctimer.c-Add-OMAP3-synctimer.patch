@@ -1,0 +1,132 @@
+From b5d16315970910e60c8ff4f024a3ec0f6bc374b6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
+Date: Tue, 4 Dec 2012 14:10:04 +0000
+Subject: [PATCH 15/80] hw/omap_synctimer.c: Add OMAP3 synctimer
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add the OMAP3 synctimer.
+
+TODO: is the handling of halfword reads really correct??
+ -- yes, this is allowing a 32 bit counter to be read as two
+    16 bit reads without getting two out-of-sync parts
+    (the trm talks about this albeit extremely vaguely)
+TODO: can we avoid using the backcompat old_mmio ?
+
+Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
+[Riku Voipio: Fixes and restructuring patchset]
+Signed-off-by: Riku Voipio <riku.voipio@iki.fi>
+[Peter Maydell: More fixes and cleanups for upstream submission]
+Signed-off-by:  Peter Maydell <peter.maydell@linaro.org>
+---
+ hw/omap_synctimer.c | 60 +++++++++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 58 insertions(+), 2 deletions(-)
+
+diff --git a/hw/omap_synctimer.c b/hw/omap_synctimer.c
+index 7031a88..308b0fa 100644
+--- a/hw/omap_synctimer.c
++++ b/hw/omap_synctimer.c
+@@ -24,6 +24,7 @@ struct omap_synctimer_s {
+     MemoryRegion iomem;
+     uint32_t val;
+     uint16_t readh;
++    uint32_t sysconfig; /*OMAP3*/
+ };
+ 
+ /* 32-kHz Sync Timer of the OMAP2 */
+@@ -52,6 +53,14 @@ static uint32_t omap_synctimer_readw(void *opaque, hwaddr addr)
+     return 0;
+ }
+ 
++static uint32_t omap3_synctimer_readw(void *opaque, hwaddr addr)
++{
++    struct omap_synctimer_s *s = (struct omap_synctimer_s *)opaque;
++    return (addr == 0x04)
++        ? s->sysconfig
++        : omap_synctimer_readw(opaque, addr);
++}
++
+ static uint32_t omap_synctimer_readh(void *opaque, hwaddr addr)
+ {
+     struct omap_synctimer_s *s = (struct omap_synctimer_s *) opaque;
+@@ -66,12 +75,38 @@ static uint32_t omap_synctimer_readh(void *opaque, hwaddr addr)
+     }
+ }
+ 
++static uint32_t omap3_synctimer_readh(void *opaque, hwaddr addr)
++{
++    struct omap_synctimer_s *s = (struct omap_synctimer_s *) opaque;
++    uint32_t ret;
++
++    if (addr & 2) {
++        return s->readh;
++    }
++
++    ret = omap3_synctimer_readw(opaque, addr);
++    s->readh = ret >> 16;
++    return ret & 0xffff;
++}
++
+ static void omap_synctimer_write(void *opaque, hwaddr addr,
+                 uint32_t value)
+ {
+     OMAP_BAD_REG(addr);
+ }
+ 
++
++static void omap3_synctimer_write(void *opaque, hwaddr addr,
++                                  uint32_t value)
++{
++    struct omap_synctimer_s *s = (struct omap_synctimer_s *)opaque;
++    if (addr == 0x04) {
++        s->sysconfig = value & 0x0c;
++    } else {
++        OMAP_BAD_REG(addr);
++    }
++}
++
+ static const MemoryRegionOps omap_synctimer_ops = {
+     .old_mmio = {
+         .read = {
+@@ -88,14 +123,35 @@ static const MemoryRegionOps omap_synctimer_ops = {
+     .endianness = DEVICE_NATIVE_ENDIAN,
+ };
+ 
++static const MemoryRegionOps omap3_synctimer_ops = {
++    .old_mmio = {
++        .read = {
++            omap_badwidth_read32,
++            omap3_synctimer_readh,
++            omap3_synctimer_readw,
++        },
++        .write = {
++            omap_badwidth_write32,
++            omap3_synctimer_write,
++            omap3_synctimer_write,
++        },
++    },
++    .endianness = DEVICE_NATIVE_ENDIAN,
++};
++
+ struct omap_synctimer_s *omap_synctimer_init(struct omap_target_agent_s *ta,
+                 struct omap_mpu_state_s *mpu, omap_clk fclk, omap_clk iclk)
+ {
+     struct omap_synctimer_s *s = g_malloc0(sizeof(*s));
+ 
+     omap_synctimer_reset(s);
+-    memory_region_init_io(&s->iomem, &omap_synctimer_ops, s, "omap.synctimer",
+-                          omap_l4_region_size(ta, 0));
++    if (cpu_class_omap3(mpu)) {
++        memory_region_init_io(&s->iomem, &omap3_synctimer_ops, s,
++                              "omap.synctimer", omap_l4_region_size(ta, 0));
++    } else {
++        memory_region_init_io(&s->iomem, &omap_synctimer_ops, s,
++                              "omap.synctimer", omap_l4_region_size(ta, 0));
++    }
+     omap_l4_attach(ta, 0, &s->iomem);
+ 
+     return s;
+-- 
+1.8.0
+
