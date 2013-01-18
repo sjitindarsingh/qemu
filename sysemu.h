@@ -34,7 +34,9 @@ void vm_state_notify(int running, RunState state);
 #define VMRESET_REPORT   true
 
 void vm_start(void);
-void vm_stop(RunState state);
+void __vm_stop(RunState state, bool silent);
+#define vm_stop(s)          __vm_stop(s, 0)
+#define vm_stop_silent(s)   __vm_stop(s, 1)
 void vm_stop_force_state(RunState state);
 
 typedef enum WakeupReason {
