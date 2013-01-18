@@ -1,3 +1,10 @@
+qemu (1.3.0+dfsg-1~exp3ubuntu2) raring; urgency=low
+
+  * debian/rules: empty MAKEFLAGS when building spapr-rtas.bin on powerpc, to
+    fix FTBFS due to parallel compile.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 18 Jan 2013 15:51:09 -0600
+
 qemu (1.3.0+dfsg-1~exp3ubuntu1) raring; urgency=low
 
   * Merge 1.3.0+dfsg-1~exp3.  Remaining ubuntu delta:
