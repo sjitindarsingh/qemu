@@ -109,6 +109,8 @@ DMAContext dma_context_memory;
 MemoryRegion io_mem_ram, io_mem_rom, io_mem_unassigned, io_mem_notdirty;
 static MemoryRegion io_mem_subpage_ram;
 
+MemFileList mem_file_list = { .files = QLIST_HEAD_INITIALIZER(mem_file_list) };
+
 #endif
 
 CPUArchState *first_cpu;
@@ -2341,6 +2343,59 @@ void qemu_flush_coalesced_mmio_buffer(void)
 }
 
 #if defined(__linux__) && !defined(TARGET_S390X)
+static void *mem_file_ram_alloc(RAMBlock *block,
+                                ram_addr_t memory)
+{
+    void *host;
+    MemFile *mf;
+    struct stat buf;
+    int ret;
+
+    QLIST_FOREACH(mf, &mem_file_list.files, next) {
+        if (strcmp(mf->idstr, block->mr->name)) {
+            continue;
+        }
+
+        if (kvm_enabled() && !kvm_has_sync_mmu()) {
+            fprintf(stderr, "host lacks kvm mmu notifiers, "
+                            "MemFile unsupported, abort!\n");
+            abort();
+        }
+
+        block->fd = open(mf->path, O_RDWR);
+        if (block->fd == -1) {
+            fprintf(stderr, "Could not open %s for RAMBlock %s, abort!\n",
+                    mf->path, mf->idstr);
+            abort();
+        }
+        ret = fstat(block->fd, &buf);
+        if (ret != 0) {
+            fprintf(stderr, "Could not stat %s for RAMBlock %s, abort!\n",
+                    mf->path, mf->idstr);
+            abort();
+        }
+        if (buf.st_size != memory) {
+            fprintf(stderr,
+                    "File %s has size %luB. RAMBlock %s expects %luB. Abort!\n",
+                    mf->path, buf.st_size, block->idstr, memory);
+            abort();
+        }
+
+        host = mmap(NULL, memory, PROT_READ | PROT_WRITE, MAP_SHARED,
+                    block->fd, 0);
+        if (host == MAP_FAILED) {
+            fprintf(stderr, "Failed to mmap %s for RAMBlock %s, abort!\n",
+                    mf->path, mf->idstr);
+            abort();
+        }
+        block->do_not_save = 1;
+        return host;
+    }
+    return NULL;
+}
+#endif
+
+#if defined(__linux__) && !defined(TARGET_S390X)
 
 #include <sys/vfs.h>
 
@@ -2543,6 +2598,28 @@ static int memory_try_enable_merging(void *addr, size_t len)
     return qemu_madvise(addr, len, QEMU_MADV_MERGEABLE);
 }
 
+void add_memory_file(const char *idstr, const char *path)
+{
+#ifndef __linux__
+    fprintf(stderr, "MemFile only supported on Linux, abort!\n");
+    abort();
+#else
+    MemFile *mf;
+
+    QLIST_FOREACH(mf, &mem_file_list.files, next) {
+        if (!strcmp(mf->idstr, idstr)) {
+            fprintf(stderr, "MemFile for \"%s\" already specified, abort!\n",
+                    idstr);
+            abort();
+        }
+    }
+    mf = g_malloc0(sizeof(*mf));
+    mf->idstr = idstr;
+    mf->path = path;
+    QLIST_INSERT_HEAD(&mem_file_list.files, mf, next);
+#endif
+}
+
 ram_addr_t qemu_ram_alloc_from_ptr(ram_addr_t size, void *host,
                                    MemoryRegion *mr)
 {
@@ -2553,6 +2630,12 @@ ram_addr_t qemu_ram_alloc_from_ptr(ram_addr_t size, void *host,
 
     new_block->mr = mr;
     new_block->offset = find_ram_offset(size);
+#if defined(__linux__) && !defined(TARGET_S390X)
+    new_block->host = mem_file_ram_alloc(new_block, size);
+    if (new_block->host) {
+        assert(!host);
+    } else
+#endif
     if (host) {
         new_block->host = host;
         new_block->flags |= RAM_PREALLOC_MASK;
