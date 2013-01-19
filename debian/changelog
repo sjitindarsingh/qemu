@@ -1,3 +1,10 @@
+qemu (1.3.0+dfsg-1~exp3ubuntu3) raring; urgency=low
+
+  * debian/patches/CVE-2012-6075.patch: Fix guest denial of service and
+    possible code execution in hw/e1000.c by dropping oversize packets.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Sat, 19 Jan 2013 07:31:50 -0700
+
 qemu (1.3.0+dfsg-1~exp3ubuntu2) raring; urgency=low
 
   * debian/rules: empty MAKEFLAGS when building spapr-rtas.bin on powerpc, to
