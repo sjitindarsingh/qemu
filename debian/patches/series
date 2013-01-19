@@ -75,3 +75,4 @@ gridcentric/nbd-buffer-size
 gridcentric/cpuinfo-cr3
 gridcentric/save_pcram.patch
 gridcentric/silent_stop.patch
+CVE-2012-6075.patch
