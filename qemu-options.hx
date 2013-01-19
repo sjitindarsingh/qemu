@@ -459,6 +459,19 @@ Preallocate memory when using -mem-path.
 ETEXI
 #endif
 
+#ifdef __linux__
+DEF("pcram-file", HAS_ARG, QEMU_OPTION_pcram_file,
+    "-pcram-file FILE  provide backing storage for PC RAM\n", QEMU_ARCH_I386)
+STEXI
+@item -pcram-file @var{path}
+Populate guest PC RAM with memory mapped file @var{path}. All changes to guest
+ram are reflected in the file (i.e., it is a @code{MAP_SHARED} mapping).
+
+PC RAM is neither migrated nor saved.
+ETEXI
+#endif
+
+
 DEF("k", HAS_ARG, QEMU_OPTION_k,
     "-k language     use keyboard layout (for example 'fr' for French)\n",
     QEMU_ARCH_ALL)
