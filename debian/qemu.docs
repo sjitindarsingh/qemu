@@ -2,4 +2,5 @@ README
 TODO
 debian/tmp/usr/share/doc/qemu/qemu-doc.html
 debian/tmp/usr/share/doc/qemu/qemu-tech.html
+debian/tmp/usr/share/doc/qemu/qmp-commands.txt
 docs/*

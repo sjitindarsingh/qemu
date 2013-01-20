@@ -1,3 +1,9 @@
+qemu (1.3.0+dfsg-1~exp3ubuntu4) raring; urgency=low
+
+  * Move three docs from qemu-system.install to qemu.docs (LP: #1101798)
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Sat, 19 Jan 2013 20:12:48 -0700
+
 qemu (1.3.0+dfsg-1~exp3ubuntu3) raring; urgency=low
 
   * debian/patches/CVE-2012-6075.patch: Fix guest denial of service and
