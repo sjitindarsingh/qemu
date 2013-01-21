@@ -38,7 +38,7 @@ const char *qemu_get_vm_name(void)
 
 Monitor *cur_mon;
 
-void vm_stop(RunState state)
+void __vm_stop(RunState state, bool silent)
 {
     abort();
 }

@@ -2070,7 +2070,7 @@ static void do_loadvm(Monitor *mon, const QDict *qdict)
     int saved_vm_running  = runstate_is_running();
     const char *name = qdict_get_str(qdict, "name");
 
-    vm_stop(RUN_STATE_RESTORE_VM);
+    vm_stop_silent(RUN_STATE_RESTORE_VM);
 
     if (load_vmstate(name) == 0 && saved_vm_running) {
         vm_start();
