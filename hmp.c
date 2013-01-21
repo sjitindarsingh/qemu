@@ -636,7 +636,7 @@ void hmp_quit(Monitor *mon, const QDict *qdict)
 
 void hmp_stop(Monitor *mon, const QDict *qdict)
 {
-    qmp_stop(NULL);
+    qmp_stop(0, 0, NULL);
 }
 
 void hmp_system_reset(Monitor *mon, const QDict *qdict)
