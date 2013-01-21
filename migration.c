@@ -22,6 +22,7 @@
 #include "qemu_socket.h"
 #include "block-migration.h"
 #include "qmp-commands.h"
+#include "arch_init.h"
 
 //#define DEBUG_MIGRATION
 
@@ -497,6 +498,7 @@ void migrate_del_blocker(Error *reason)
 }
 
 void qmp_migrate(const char *uri, bool has_blk, bool blk,
+                 bool has_saveram, bool saveram,
                  bool has_inc, bool inc, bool has_detach, bool detach,
                  Error **errp)
 {
@@ -523,6 +525,11 @@ void qmp_migrate(const char *uri, bool has_blk, bool blk,
     }
 
     s = migrate_init(&params);
+
+    /* Now tag whether ram blocks should not really be saved */
+#if defined(__linux__)
+    tag_ram_blocks(saveram);
+#endif
 
     if (strstart(uri, "tcp:", &p)) {
         tcp_start_outgoing_migration(s, p, &local_err);
