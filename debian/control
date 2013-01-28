@@ -69,7 +69,7 @@ Package: qemu-system
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-keymaps (>= ${source:Version}), vgabios (>= 0.6c-3~), seabios (>= 1.7.0~), ipxe-qemu | ipxe (<< 1.0.0+git-20120202.f6840ba-2), acl, udev
-Recommends: qemu-utils
+Recommends: qemu-utils, cpu-checker
 Breaks: qemu (<< 0.11.0-2), qemu-kvm (<< 1.2.0.dfsg-1), qemu-common (<< 1.2.0.dfsg-1)
 Conflicts: kvm
 Replaces: qemu (<< 0.11.0-2), qemu-kvm (<< 1.2.0.dfsg-1), qemu-common (<< 1.2.0.dfsg-1), kvm
