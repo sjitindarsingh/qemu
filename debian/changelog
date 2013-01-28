@@ -1,3 +1,9 @@
+qemu (1.3.0+dfsg-1~exp3ubuntu7) raring; urgency=low
+
+  * debian/control: qemu-system should Recommend cpu-checker (LP: #1103982)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 28 Jan 2013 11:52:10 -0600
+
 qemu (1.3.0+dfsg-1~exp3ubuntu6) raring; urgency=low
 
   * configure-opts: add audio-cards list (LP: #1102487)
