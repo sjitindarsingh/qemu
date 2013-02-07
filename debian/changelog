@@ -1,3 +1,159 @@
+qemu (1.3.0+dfsg-5expubuntu1) raring; urgency=low
+
+  [ Serge Hallyn ]
+  * Merge 1.3.0+dfsg-5exp from Debian.
+  * remaining changes from 1.3.0+dfsg-1~exp3ubuntu1:
+    - debian/control:
+      * update maintainer
+      * remove vde2 recommends
+      * build-deps: remove libusbredir, libvdeplug2-dev,
+        libspice-server-dev, libspice-protocol-dev, libiscsi-dev
+      * qemu-system:
+        - break/replace qemu-common
+        - depend on udev
+        - remove openbios-ppc, openbios-sparc, and openhackware from
+          Depends.  (Intend to add them back once we can build them.)
+      * qemu-utils: break/replace qemu-kvm
+    - qemu-kvm.upstart:
+      - add qemu-system.qemu-kvm.upstart
+      - debian/rules: add dh_installinit to get qemu-system.upstart installed.
+      - take the defaults from the old qemu-kvm.defaults, and move them into
+        the upstart job
+    - debian/patches:
+      - apply gridcentric patches from lp:~amscanne/+junk/gridcentric-qemu-patches
+      - apply arm patches from git://git.linaro.org/qemu/qemu-linaro.git
+    - add links for qemu-ifup/down in qemu-system-common.links
+    - debian/qemu-system-common.postinst
+      - udevadm trigger to fix up /dev/kvm perms
+    - debian/qemu-system.links:
+      - remove pxe-virtio, pxe-e1000 and pxe-rtl8139 links (which conflict
+        with ones from kvm-ipxe).  We may want to move the links from kvm-ipxe
+        back to qemu-system at some point.
+  * remaining changes from after 1.3.0+dfsg-1~exp3ubuntu1:
+    - qemu-system-common.links: add link for OVMF
+    - Add qemu-utils.links for kvm-img and kvm-nbd utils and manpages.
+    - qemu-system.links:
+      * Add link to usr/share/ovmf/OVMF.fd
+      * Fix target of /etc/kvm/kvm-if{up,down} links
+    - debian/control: qemu-system should Recommend cpu-checker
+    - Add qemu-kvm breaks/replaces to qemu-user, to handle conflict over
+      (i.e.) qemu-x86_64.
+    - add qemu-kvm, and qemu-common transitional packages.
+    - Add breaks/replaces to qemu-keymaps for qemu-system.
+    - Add provides: qemu-kvm and kvm to qemu-system-ppc.
+    - Add breaks/replaces to qemu-system-ppc for qemu-kvm and qemu-common.
+    - Add breaks/replaces to qemu-kvm for qemu-common.
+    - Add breaks/replaces to qemu-utils for qemu-user and qemu-kvm.
+    - Add armhf, armel, powerpc and sparc arches to qemu-kvm transitional
+      package.
+    - Add qemu-common package.
+    - Make sure /dev/kvm gets its acls cleared:
+      * Add acl to qemu-system.depends
+      * update qemu-system.udev to run setfacl to set g::rw acl
+    - Remove vnc-jpeg, libiscsi-dev, and vde from debian/configure-opts
+  * dropped debian/patches/CVE-2012-6075.patch (duplicate of
+    e1000-discard-oversize-packets-based-on-SBP_LPE.patch)
+  * debian/{control,configure-opts}: enable rbd (LP: #1118406)
+  * add symlink for kvm.1 -> qemu.1 manpage (LP: #1117636)
+  * add replaces to qemu-system-common for qemu - we briefly moved conflicting
+    docs to qemu, which debian moved to qemu-system-common.  This can be
+    dropped after raring.
+  * move qemu-kvm.upstart from qemu-system to qemu-system-x86.
+  * Support upgrade from qemu-kvm on non-x86 arches:
+    - Add Provides: qemu-kvm, kvm to qemu-system-{arm,ppc,sparc,x86}
+    - Add Breaks/Replaces for qemu-{common,system,kvm} and kvm.
+  * Re-add expose_vms_qemu64cpu.patch (from Daviey) from quantal.
+  
+  [ Steve Langasek ]
+  * Pass --enable-uname-release=2.6.32 for the user emulation builds, so that
+    we have a sensible baseline kernel value regardless of what the
+    underlying host kernel is.  This makes eglibc happier when running under
+    emulation on a very old kernel for instance (whose host syscall ABI has
+    nothing to do with what emulated syscalls are supported), and probably
+    also lets us steer clear for the moment of code that has problem with
+    the new kernel upstream versioning convention.  LP: #921078.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 07 Feb 2013 14:15:26 -0600
+
+qemu (1.3.0+dfsg-5exp) experimental; urgency=low
+
+  * qemu-system-split: split qemu-system into several target-specific packages:
+    qemu-system-arm, qemu-system-mips, qemu-system-ppc, qemu-system-sparc,
+    qemu-system-x86, and qemu-system-misc, plus qemu-system-common.
+    (Closes: #636000)
+  * add initial qemu-guest-agent package (just the binary for now,
+    no startup script) (Closes: #676959)
+  * do not try to install (linux-specific) virtfs-proxy-helper on kfreebsd
+  * change order of audio drivers, in particular put pulseaudio (pa) first
+  * ship OS-specific qemu-ifup (use trivial ifconfig invocation on kfreebsd)
+  * qemu-system replaces qemu-utils due to virtfs-proxy-helper binary
+  * chmod +x qemu-ifdown
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 28 Jan 2013 15:05:57 +0400
+
+qemu (1.3.0+dfsg-4exp) experimental; urgency=low
+
+  * install forgotten /etc/qemu-ifdown (dummy, but qemu complains without it)
+  * install virtfs-proxy-helper in qemu-system not qemu-utils
+  * add qemu-kvm.NEWS mentioning transition from qemu-kvm to qemu-system-x86_64.
+  * do not pass -cpu kvm64 to qemu in kvm wrapper script, previous qemu-kvm
+    used qemu64 cpu instead - the same as new qemu uses.
+  * install kvm wrapper on x86 only, and install it as /usr/bin/kvm not
+    /usr/bin/kvm/kvm (Closes: #698736).
+  * stop shipping /usr/share/qemu/vapic.bin link (qemu uses kvmvapic.bin)
+  * stop shipping /usr/share/qemu/vgabios.bin link (qemu uses vgabios-*.bin)
+  * enable all guest audio devices
+  * add breaks/replaces/provides/conflicts with kvm (very old package),
+    qemu-kvm, and ubuntu's qemu-common.
+  * stop caring about old (pre-squeeze) qemu
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 23 Jan 2013 11:08:47 +0400
+
+qemu (1.3.0+dfsg-3exp) experimental; urgency=low
+
+  * add ability to specify os-arch in configure-opts
+  * libseccomp is linux-x86 not linux-any
+  * e1000-discard-oversized-packets-based-on-SBP_LPE.patch
+    CVE-2012-6075 (Closes: #696051)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 21 Jan 2013 02:54:15 +0400
+
+qemu (1.3.0+dfsg-2exp) experimental; urgency=low
+
+  * qemu-nbd and qemu-io should be installed on kFreeBSD too
+  * install qemu-system docs into /usr/share/doc/qemu-system,
+    not .../qemu (Closes: #697085)
+  * do not depend on ipxe, it does not provide our ROMs
+  * move vde2 from Recommends to Suggests, since it isn't
+    used often
+  * require libspice-server-dev >= 0.12.2 and require it on i386 too,
+    enable spice support
+  * require libusbredirparser-dev >= 0.6, enable usb-redir
+  * enable xen explicitly on amd64|i386
+  * enable xfsctl explicitly on linux
+  * sort build-deps in debian/control and add comments
+  * set permissions of /dev/kvm in qemu-system.postinst
+    the same way it is done in old qemu-kvm package
+  * set --localstatedir=/var (will be used later by guest agent)
+  * bump qemu-system dependency on seabios to 1.7.2
+    and add symlinks for acpi-dsdt.aml and q35-acpi-dsdt.aml
+  * import qemu-ifup and qemu-ifdown scripts from qemu-kvm,
+    and modify qemu-ifup to allow usage of just `ip' command
+    from iproute package (if installed) instead of old brctl+ifconfig.
+    Add Breaks: for old iproute without bridge controls.
+    Add iproute to Recomments, so that the scripts will actually work
+    (previous script used sudo which should be in recommends too)
+  * enable seccomp (and libseccomp-dev b-d) on linux,
+    and add link-seccomp-only-with-softmmu-targets.patch
+  * use $(MAKE) not make when building spapr-rtas.bin
+  * update debian/watch (new place and new extensions)
+  * add qemu-kvm package (transitional, depends on qemu-system),
+    and add /usr/bin/kvm wrapper that calls qemu-system-x86_64
+    with some arguments to match original qemu-kvm behavour.
+    (Closes: #560853)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sun, 20 Jan 2013 22:12:11 +0400
+
 qemu (1.3.0+dfsg-1~exp3ubuntu8) raring; urgency=low
 
   * qemu-system.links:

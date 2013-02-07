@@ -1,5 +1,5 @@
 #! /bin/sh
-# Script to bring a network (tap) device for qemu-kvm up
+# Script to bring a network (tap) device for qemu up.
 # The idea is to add the tap device to the same bridge
 # as we have default routing to.
 
@@ -10,14 +10,12 @@ ip=$(which ip)
 if [ -n "$ip" ]; then
    ip link set "$1" up
 else
+   brctl=$(which brctl)
+   if [ ! "$ip" -o ! "$brctl" ]; then
+     echo "W: $0: not doing any bridge processing: neither ip nor brctl utility not found" >&2
+     exit 0
+   fi
    ifconfig "$1" 0.0.0.0 up
-fi
-
-brctl=$(which brctl)
-
-if [ ! "$ip" -o ! "$brctl" ]; then
-   echo "W: $0: not doing any bridge processing: ip or brctl utility not found" >&2
-   exit 0
 fi
 
 switch=$(ip route ls | \
@@ -32,8 +30,12 @@ switch=$(ip route ls | \
 # It is possible to have several default routes too
 for br in $switch; do
     if [ -d /sys/class/net/$br/bridge/. ]; then
-        brctl addif $br "$1"
-        exit	# exit with status of brctl
+        if [ -n "$ip" ]; then
+          ip link set "$1" master "$br"
+        else
+          brctl addif $br "$1"
+        fi
+        exit	# exit with status of the previous command
     fi
 done
 

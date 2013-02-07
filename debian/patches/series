@@ -2,6 +2,8 @@
 qemu-ifunc-sparc.patch
 revert-serial-fix-retry-logic.patch
 savevm.c-cleanup-system-includes.patch
+link-seccomp-only-with-softmmu-targets.patch
+e1000-discard-oversized-packets-based-on-SBP_LPE.patch
 patches-arm-1.3.0/0001-blizzard-fix-for-non-32bpp-host-displays.patch
 patches-arm-1.3.0/0002-hw-sd-Expose-sd_reset-as-public-function.patch
 patches-arm-1.3.0/0003-sd-Allow-sd_init-callers-to-specify-whether-card-is-.patch
@@ -75,4 +77,4 @@ gridcentric/nbd-buffer-size
 gridcentric/cpuinfo-cr3
 gridcentric/save_pcram.patch
 gridcentric/silent_stop.patch
-CVE-2012-6075.patch
+expose-vmx_qemu64cpu.patch
