@@ -1,7 +1,8 @@
 Source: qemu
 Section: misc
 Priority: optional
-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
+Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
+XSBC-Original-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
 Uploaders: Aurelien Jarno <aurel32@debian.org>,
 	Riku Voipio <riku.voipio@iki.fi>,
 	Vagrant Cascadian <vagrant@debian.org>,
@@ -33,7 +34,7 @@ Build-Depends: debhelper (>= 9),
 # --enable-vnc-tls
  libgnutls-dev,
 # --enable-libiscsi
- libiscsi-dev,
+# libiscsi-dev,
 # --enable-curses
  libncurses5-dev,
 # --with-system-pixman
@@ -45,13 +46,13 @@ Build-Depends: debhelper (>= 9),
 # --enable-sdl
  libsdl1.2-dev (>> 1.2.1),
 # --enable-seccomp
- libseccomp-dev (>> 1.0.0) [linux-amd64 linux-i386],
+# libseccomp-dev (>> 1.0.0) [linux-amd64 linux-i386],
 # --enable-spice
- libspice-server-dev (>= 0.12.2~) [amd64 i386],
+# libspice-server-dev (>= 0.12.2~) [amd64 i386],
 # --enable-usb-redir
- libusbredirparser-dev (>= 0.6~) [linux-any],
+# libusbredirparser-dev (>= 0.6~) [linux-any],
 # --enable-vde
- libvdeplug2-dev,
+# libvdeplug2-dev,
 # needed for sdl
  libx11-dev,
 # --enable-xen
@@ -64,6 +65,7 @@ Build-Depends: debhelper (>= 9),
  xfslibs-dev [linux-any],
 # always needed
  zlib1g-dev,
+ librados-dev, librbd-dev,
 Build-Conflicts: oss4-dev
 Standards-Version: 3.9.3
 Homepage: http://www.qemu.org/
@@ -98,8 +100,8 @@ Package: qemu-keymaps
 Architecture: all
 Multi-Arch: foreign
 Depends: ${misc:Depends}
-Breaks: qemu-common (<< 1.2.0.dfsg-1)
-Replaces: qemu-common (<< 1.2.0.dfsg-1)
+Breaks: qemu-system (<< 0.12.4+dfsg-4), qemu-common (<< 1.2.0.dfsg-1)
+Replaces: qemu-system (<< 0.12.4+dfsg-4), qemu-common (<< 1.2.0.dfsg-1)
 Description: QEMU keyboard maps
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -134,7 +136,7 @@ Description: QEMU full system emulation binaries
 Package: qemu-system-common
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}, udev, acl
 Breaks:
 # qemu-system before qemu-system-split
   qemu-system (<< 1.3.0+dfsg-5),
@@ -145,6 +147,7 @@ Breaks:
 # iproute before 20110315 were unable to deal with bridge (set master device)
   iproute (<< 20110315-1)
 Replaces:
+  qemu (<< 1.3.0+dfsg-5),
   qemu-system (<< 1.3.0+dfsg-5),
   qemu-common (<< 1.2.0.dfsg-1),
   qemu-utils (<< 1.3.0+dfsg-4),
@@ -169,7 +172,7 @@ Provides: ${sysprovides:misc}
 Breaks: qemu-system (<< 1.3.0+dfsg-5)
 Replaces: qemu-system (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils
-Suggests: samba, vde2
+Suggests: samba
 Description: QEMU full system emulation binaries (miscelaneous)
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, M68k (ColdFire), MicroBlaze, and SH4
@@ -191,11 +194,19 @@ Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
-Provides: ${sysprovides:arm}
-Breaks: qemu-system (<< 1.3.0+dfsg-5)
-Replaces: qemu-system (<< 1.3.0+dfsg-5)
+Provides: ${sysprovides:arm}, qemu-kvm
+Breaks:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
+Replaces:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils
-Suggests: samba, vde2
+Suggests: samba
 Description: QEMU full system emulation binaries (arm)
  QEMU is a fast processor emulator: currently the package supports
  ARM emulation. By using dynamic translation it achieves
@@ -218,7 +229,7 @@ Provides: ${sysprovides:mips}
 Breaks: qemu-system (<< 1.3.0+dfsg-5)
 Replaces: qemu-system (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils
-Suggests: samba, vde2
+Suggests: samba
 Description: QEMU full system emulation binaries (mips)
  QEMU is a fast processor emulator: currently the package supports
  MIPS emulation. By using dynamic translation it achieves
@@ -236,13 +247,20 @@ Package: qemu-system-ppc
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
- qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
- openbios-ppc (>= 1.0+svn1060), openhackware
-Provides: ${sysprovides:ppc}
-Breaks: qemu-system (<< 1.3.0+dfsg-5)
-Replaces: qemu-system (<< 1.3.0+dfsg-5)
+ qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version})
+Provides: ${sysprovides:ppc}, qemu-kvm
+Breaks:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
+Replaces:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils
-Suggests: samba, vde2
+Suggests: samba
 Description: QEMU full system emulation binaries (ppc)
  QEMU is a fast processor emulator: currently the package supports
  PowerPC emulation. By using dynamic translation it achieves
@@ -260,13 +278,20 @@ Package: qemu-system-sparc
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
- qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
- openbios-sparc (>= 1.0+svn1060)
-Provides: ${sysprovides:sparc}
-Breaks: qemu-system (<< 1.3.0+dfsg-5)
-Replaces: qemu-system (<< 1.3.0+dfsg-5)
+ qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version})
+Provides: ${sysprovides:sparc}, qemu-kvm
+Breaks:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
+Replaces:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils
-Suggests: samba, vde2
+Suggests: samba
 Description: QEMU full system emulation binaries (sparc)
  QEMU is a fast processor emulator: currently the package supports
  SPARC emulation. By using dynamic translation it achieves
@@ -287,17 +312,19 @@ Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
  vgabios (>= 0.6c-3~), seabios (>= 1.7.2~), ipxe-qemu
 Provides: ${sysprovides:x86}, qemu-kvm, kvm
-Conflicts: kvm
+Conflicts: kvm (<< 1.3.0+dfsg-5)
 Breaks:
+  qemu-common (<< 1.3.0+dfsg-5),
   qemu-system (<< 1.3.0+dfsg-5),
   qemu-kvm (<< 1.2.0.dfsg-1),
-  kvm
+  kvm (<< 1.3.0+dfsg-5)
 Replaces:
+  qemu-common (<< 1.3.0+dfsg-5),
   qemu-system (<< 1.3.0+dfsg-5),
   qemu-kvm (<< 1.2.0.dfsg-1),
-  kvm
-Recommends: qemu-utils
-Suggests: samba, vde2
+  kvm (<< 1.3.0+dfsg-5)
+Recommends: qemu-utils, cpu-checker
+Suggests: samba
 Description: QEMU full system emulation binaries (x86)
  QEMU is a fast processor emulator: currently the package supports
  i386 and x86-64 emulation. By using dynamic translation it achieves
@@ -318,6 +345,8 @@ Package: qemu-user
 Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Breaks: qemu-kvm (<< 1.2.0.dfsg-1)
+Replaces: qemu-kvm (<< 1.2.0.dfsg-1)
 Suggests: sudo
 Description: QEMU user mode emulation binaries
  QEMU is a fast processor emulator: currently the package supports
@@ -350,6 +379,8 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sharutils
 Suggests: debootstrap
+Breaks: qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
+Replaces: qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
 Description: QEMU utilities
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -379,7 +410,7 @@ Description: Guest-side qemu-system agent
  qemu virtual machine.  It is not used on the host.
 
 Package: qemu-kvm
-Architecture: i386 amd64
+Architecture: i386 amd64 armhf armel powerpc sparc
 Multi-Arch: foreign
 Depends: qemu-system-x86 (>= ${source:Version})
 Section: oldlibs
@@ -387,3 +418,11 @@ Description: QEMU Full virtualization on x86 hardware (transitional package)
  QEMU is a fast processor emulator.  This package is a transitional
  package from old qemu-kvm to qemu-system-x86.  It is safe to remove it.
 
+Package: qemu-common
+Architecture: all
+Depends: qemu-keymaps
+Section: oldlibs
+Description: dummy transitional package from qemu-common to qemu-keymaps
+ This transitional package helps users transition from the qemu-common package
+ to the qemu-keymaps package.  Once this package and its dependencies are
+ installed you can safely remove it.

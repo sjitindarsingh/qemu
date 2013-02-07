@@ -31,6 +31,7 @@ common_configure_opts = \
 	--with-system-pixman \
 	--interp-prefix=/etc/qemu-binfmt/%M \
 	--localstatedir=/var \
+	--enable-uname-release=2.6.32 \
 
 # list of system (softmmu) targets, from ./configure
 system_targets = \
@@ -191,7 +192,7 @@ endif
 # virtfs-proxy-helper is linux-specific
 	for f in usr/bin/virtfs-proxy-helper \
 	         usr/share/man/man1/virtfs-proxy-helper.1 ; do \
-	  mkdir -p debian/qemu-system-common/$${f%.*} ; \
+	  mkdir -p debian/qemu-system-common/$${f%/*} ; \
 	  mv debian/tmp/$$f debian/qemu-system-common/$$f ; \
 	done
 
@@ -230,6 +231,7 @@ endif
 
 	dh_install --list-missing
 	dh_installdocs
+	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 	dh_installchangelogs Changelog
 	dh_installudev
 	dh_link

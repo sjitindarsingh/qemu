@@ -1,0 +1,248 @@
+From 6d4185954ff22728f8ed752d058889e7dbec4c0e Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 4 Dec 2012 14:10:16 +0000
+Subject: [PATCH 60/80] target-arm: add support for smc
+
+---
+ target-arm/cpu.h       | 10 +++++++---
+ target-arm/helper.c    | 46 +++++++++++++++++++++++++++++++++++++++++-----
+ target-arm/translate.c | 45 ++++++++++++++++++++++++++++++++++++---------
+ 3 files changed, 84 insertions(+), 17 deletions(-)
+
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index 260b9a8..c73c4d8 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -43,6 +43,7 @@
+ #define EXCP_EXCEPTION_EXIT  8   /* Return from v7M exception.  */
+ #define EXCP_KERNEL_TRAP     9   /* Jumped to kernel code page.  */
+ #define EXCP_STREX          10
++#define EXCP_SMC            11   /* secure monitor call */
+ 
+ #define ARMV7M_EXCP_RESET   1
+ #define ARMV7M_EXCP_NMI     2
+@@ -86,9 +87,9 @@ typedef struct CPUARMState {
+     uint32_t spsr;
+ 
+     /* Banked registers.  */
+-    uint32_t banked_spsr[6];
+-    uint32_t banked_r13[6];
+-    uint32_t banked_r14[6];
++    uint32_t banked_spsr[7];
++    uint32_t banked_r13[7];
++    uint32_t banked_r14[7];
+ 
+     /* These hold r8-r12.  */
+     uint32_t usr_regs[5];
+@@ -140,6 +141,8 @@ typedef struct CPUARMState {
+         uint32_t c9_pmxevtyper; /* perf monitor event type */
+         uint32_t c9_pmuserenr; /* perf monitor user enable */
+         uint32_t c9_pminten; /* perf monitor interrupt enables */
++        uint32_t c12_vbar; /* secure/nonsecure vector base address register. */
++        uint32_t c12_mvbar; /* monitor vector base address register. */
+         uint32_t c13_fcse; /* FCSE PID.  */
+         uint32_t c13_context; /* Context ID.  */
+         uint32_t c13_tls1; /* User RW Thread register.  */
+@@ -332,6 +335,7 @@ enum arm_cpu_mode {
+   ARM_CPU_MODE_FIQ = 0x11,
+   ARM_CPU_MODE_IRQ = 0x12,
+   ARM_CPU_MODE_SVC = 0x13,
++  ARM_CPU_MODE_SMC = 0x16,
+   ARM_CPU_MODE_ABT = 0x17,
+   ARM_CPU_MODE_UND = 0x1b,
+   ARM_CPU_MODE_SYS = 0x1f
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index e2eb8cd..9f6deed 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -1011,6 +1011,12 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
+     REGINFO_SENTINEL
+ };
+ 
++static int vbar_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
++{
++    CPREG_FIELD32(env, ri) = value & ~0x1f;
++    return 0;
++}
++
+ static const ARMCPRegInfo trustzone_cp_reginfo[] = {
+     /* Dummy implementations of registers; we don't enforce the
+      * 'secure mode only' access checks. TODO: revisit as part of
+@@ -1026,9 +1032,11 @@ static const ARMCPRegInfo trustzone_cp_reginfo[] = {
+       .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_nseac),
+       .resetvalue = 0 },
+     { .name = "VBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 0,
+-      .access = PL1_RW, .type = ARM_CP_CONST, .resetvalue = 0 },
++      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c12_vbar),
++      .writefn = vbar_write, .resetvalue = 0 },
+     { .name = "MVBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 1,
+-      .access = PL1_RW, .type = ARM_CP_CONST, .resetvalue = 0 },
++      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c12_mvbar),
++      .writefn = vbar_write, .resetvalue = 0 },
+     REGINFO_SENTINEL
+ };
+ 
+@@ -1651,6 +1659,8 @@ static inline int bank_number(CPUARMState *env, int mode)
+         return 4;
+     case ARM_CPU_MODE_FIQ:
+         return 5;
++    case ARM_CPU_MODE_SMC:
++        return 6;
+     }
+     cpu_abort(env, "Bad mode %x\n", mode);
+     return -1;
+@@ -1904,13 +1914,39 @@ void do_interrupt(CPUARMState *env)
+         mask = CPSR_A | CPSR_I | CPSR_F;
+         offset = 4;
+         break;
++    case EXCP_SMC:
++        if (semihosting_enabled) {
++            cpu_abort(env, "SMC handling under semihosting not implemented\n");
++            return;
++        }
++        if ((env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
++            env->cp15.c1_scr &= ~1;
++        }
++        offset = env->thumb ? 2 : 0;
++        new_mode = ARM_CPU_MODE_SMC;
++        addr = 0x08;
++        mask = CPSR_A | CPSR_I | CPSR_F;
++        break;
+     default:
+         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
+         return; /* Never happens.  Keep compiler happy.  */
+     }
+-    /* High vectors.  */
+-    if (env->cp15.c1_sys & (1 << 13)) {
+-        addr += 0xffff0000;
++    if (arm_feature(env, ARM_FEATURE_TRUSTZONE)) {
++        if (new_mode == ARM_CPU_MODE_SMC ||
++            (env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
++            addr += env->cp15.c12_mvbar;
++        } else {
++            if (env->cp15.c1_sys & (1 << 13)) {
++                addr += 0xffff0000;
++            } else {
++                addr += env->cp15.c12_vbar;
++            }
++        }
++    } else {
++        /* High vectors.  */
++        if (env->cp15.c1_sys & (1 << 13)) {
++            addr += 0xffff0000;
++        }
+     }
+     switch_mode (env, new_mode);
+     env->spsr = cpsr_read(env);
+diff --git a/target-arm/translate.c b/target-arm/translate.c
+index c42110a..c1e3e0d 100644
+--- a/target-arm/translate.c
++++ b/target-arm/translate.c
+@@ -80,6 +80,7 @@ static uint32_t gen_opc_condexec_bits[OPC_BUF_SIZE];
+    conditional execution state has been updated.  */
+ #define DISAS_WFI 4
+ #define DISAS_SWI 5
++#define DISAS_SMC 6
+ 
+ static TCGv_ptr cpu_env;
+ /* We reuse the same 64-bit temporaries for efficiency.  */
+@@ -798,6 +799,12 @@ static inline void store_reg_from_load(CPUARMState *env, DisasContext *s,
+     }
+ }
+ 
++static inline void gen_smc(CPUARMState *env, DisasContext *s)
++{
++    tcg_gen_movi_i32(cpu_R[15], s->pc);
++    s->is_jmp = DISAS_SMC;
++}
++
+ static inline TCGv gen_ld8s(TCGv addr, int index)
+ {
+     TCGv tmp = tcg_temp_new_i32();
+@@ -6759,8 +6766,13 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
+         } else if ((insn & 0x0fe00000) == 0x0c400000) {
+             /* Coprocessor double register transfer.  */
+             ARCH(5TE);
++            /* XXX doesn't belong in the trustzone patch: should just UNDEF? */
++            cpu_abort(env, "unsupported coprocessor double register transfer\n");
+         } else if ((insn & 0x0f000010) == 0x0e000010) {
+             /* Additional coprocessor register transfer.  */
++            if (!disas_coproc_insn(env, s, insn)) {
++                return;
++            }
+         } else if ((insn & 0x0ff10020) == 0x01000000) {
+             uint32_t mask;
+             uint32_t val;
+@@ -6911,15 +6923,19 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
+             store_reg(s, rd, tmp);
+             break;
+         case 7:
+-            /* SMC instruction (op1 == 3)
+-               and undefined instructions (op1 == 0 || op1 == 2)
+-               will trap */
+-            if (op1 != 1) {
++            if (op1 == 1) {
++                /* bkpt */
++                ARCH(5);
++                gen_exception_insn(s, 4, EXCP_BKPT);
++            } else if (op1 == 3) {
++                /* smi/smc */
++                if (!arm_feature(env, ARM_FEATURE_TRUSTZONE) || IS_USER(s)) {
++                    goto illegal_op;
++                }
++                gen_smc(env, s);
++            } else {
+                 goto illegal_op;
+             }
+-            /* bkpt */
+-            ARCH(5);
+-            gen_exception_insn(s, 4, EXCP_BKPT);
+             break;
+         case 0x8: /* signed multiply */
+         case 0xa:
+@@ -8574,8 +8590,12 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
+                     goto illegal_op;
+ 
+                 if (insn & (1 << 26)) {
+-                    /* Secure monitor call (v6Z) */
+-                    goto illegal_op; /* not implemented.  */
++                    /* Secure monitor call / smc (v6Z) */
++                    if (!arm_feature(env, ARM_FEATURE_TRUSTZONE)
++                        || IS_USER(s)) {
++                        goto illegal_op;
++                    }
++                    gen_smc(env, s);
+                 } else {
+                     op = (insn >> 20) & 7;
+                     switch (op) {
+@@ -9905,6 +9925,8 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
+             gen_set_condexec(dc);
+             if (dc->is_jmp == DISAS_SWI) {
+                 gen_exception(EXCP_SWI);
++            } else if (dc->is_jmp == DISAS_SMC) {
++                gen_exception(EXCP_SMC);
+             } else {
+                 gen_exception(EXCP_DEBUG);
+             }
+@@ -9917,6 +9939,8 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
+         gen_set_condexec(dc);
+         if (dc->is_jmp == DISAS_SWI && !dc->condjmp) {
+             gen_exception(EXCP_SWI);
++        } else if (dc->is_jmp == DISAS_SMC && !dc->condjmp) {
++            gen_exception(EXCP_SMC);
+         } else {
+             /* FIXME: Single stepping a WFI insn will not halt
+                the CPU.  */
+@@ -9951,6 +9975,9 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
+         case DISAS_SWI:
+             gen_exception(EXCP_SWI);
+             break;
++        case DISAS_SMC:
++            gen_exception(EXCP_SMC);
++            break;
+         }
+         if (dc->condjmp) {
+             gen_set_label(dc->condlabel);
+-- 
+1.8.0
+
