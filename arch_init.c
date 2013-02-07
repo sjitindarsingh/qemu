@@ -345,7 +345,7 @@ static inline bool migration_bitmap_test_and_reset_dirty(RAMBlock *block,
 
     ret = test_and_clear_bit(nr, migration_bitmap);
 
-    if (ret && !block->do_not_save) {
+    if (ret && !block->will_not_save) {
         migration_dirty_pages--;
     }
     return ret;
@@ -360,7 +360,7 @@ static inline bool migration_bitmap_set_dirty(RAMBlock *block,
 
     ret = test_and_set_bit(nr, migration_bitmap);
 
-    if (!ret && !block->do_not_save) {
+    if (!ret && !block->will_not_save) {
         migration_dirty_pages++;
     }
     return ret;
@@ -427,7 +427,7 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
     if (!block)
         block = QLIST_FIRST(&ram_list.blocks);
     
-    while (block->do_not_save) {
+    while (block->will_not_save) {
         block = QLIST_NEXT(block, next);
         if (!block) {
             return 0;
@@ -476,12 +476,12 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
             block = QLIST_NEXT(block, next);
             if (!block)
                 block = QLIST_FIRST(&ram_list.blocks);
-            /* We need to skip pcram if do_not_save, otherwise we'll loop all
+            /* We need to skip pcram if will_not_save, otherwise we'll loop all
              * over again. */
-            while (block->do_not_save) {
+            while (block->will_not_save) {
                 block = QLIST_NEXT(block, next);
                 /* This will not iterate forever because we only set pcram to
-                 * do_not_save, and there are at least one other
+                 * will_not_save, and there are at least one other
                  * ramblock(e.g. pc.rom or pc.bios). */
                 if (!block)
                     block = QLIST_FIRST(&ram_list.blocks);
@@ -552,6 +552,16 @@ static void sort_ram_list(void)
     g_free(blocks);
 }
 
+void tag_ram_blocks(int saveram)
+{
+    RAMBlock *block = QLIST_FIRST(&ram_list.blocks);
+    while (block) {
+        if (block->do_not_save)
+            block->will_not_save = !saveram;
+        block = QLIST_NEXT(block, next);
+    }
+}
+
 static void migration_end(void)
 {
     memory_global_dirty_log_stop();
@@ -592,7 +602,7 @@ static int ram_save_setup(QEMUFile *f, void *opaque)
     {
         RAMBlock *block = QLIST_FIRST(&ram_list.blocks);
         while (block) {
-            if (block->do_not_save)
+            if (block->will_not_save)
                 migration_dirty_pages -= block->length >> TARGET_PAGE_BITS;
             block = QLIST_NEXT(block, next);
         }
