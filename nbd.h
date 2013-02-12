@@ -57,7 +57,7 @@ enum {
 
 #define NBD_DEFAULT_PORT	10809
 
-#define NBD_BUFFER_SIZE (1024*1024)
+#define NBD_BUFFER_SIZE (4*1024*1024)
 
 ssize_t nbd_wr_sync(int fd, void *buffer, size_t size, bool do_read);
 int tcp_socket_outgoing(const char *address, uint16_t port);
