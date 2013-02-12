@@ -168,7 +168,9 @@ EQMP
 
     {
         .name       = "stop",
-        .args_type  = "",
+        .args_type  = "silent:b?",
+        .params     = "[silent]",
+        .help       = "stop emulation, optional silent for no event emission",
         .mhandler.cmd_new = qmp_marshal_input_stop,
     },
 
@@ -178,7 +180,9 @@ stop
 
 Stop the emulator.
 
-Arguments: None.
+Arguments:
+
+- silent: do not emit stop event (json-bool, optional)
 
 Example:
 
