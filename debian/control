@@ -48,7 +48,7 @@ Build-Depends: debhelper (>= 9),
 # --enable-seccomp
 # libseccomp-dev (>> 1.0.0) [linux-amd64 linux-i386],
 # --enable-spice
-# libspice-server-dev (>= 0.12.2~) [amd64 i386],
+ libspice-server-dev (>= 0.12.2~) [amd64 i386],
 # --enable-usb-redir
 # libusbredirparser-dev (>= 0.6~) [linux-any],
 # --enable-vde
@@ -412,7 +412,7 @@ Description: Guest-side qemu-system agent
 Package: qemu-kvm
 Architecture: i386 amd64 armhf armel powerpc sparc
 Multi-Arch: foreign
-Depends: qemu-system-x86 (>= ${source:Version})
+Depends: ${misc:Depends}, qemu-system-x86 (>= ${source:Version})
 Section: oldlibs
 Description: QEMU Full virtualization on x86 hardware (transitional package)
  QEMU is a fast processor emulator.  This package is a transitional
@@ -420,7 +420,7 @@ Description: QEMU Full virtualization on x86 hardware (transitional package)
 
 Package: qemu-common
 Architecture: all
-Depends: qemu-keymaps
+Depends: ${misc:Depends}, qemu-keymaps
 Section: oldlibs
 Description: dummy transitional package from qemu-common to qemu-keymaps
  This transitional package helps users transition from the qemu-common package
