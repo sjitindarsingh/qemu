@@ -435,7 +435,7 @@ bool cpu_is_stopped(CPUState *cpu)
     return !runstate_is_running() || cpu->stopped;
 }
 
-static void do_vm_stop(RunState state)
+static void do_vm_stop(RunState state, bool silent)
 {
     if (runstate_is_running()) {
         cpu_disable_ticks();
@@ -444,7 +444,8 @@ static void do_vm_stop(RunState state)
         vm_state_notify(0, state);
         bdrv_drain_all();
         bdrv_flush_all();
-        monitor_protocol_event(QEVENT_STOP, NULL);
+        if (!silent)
+            monitor_protocol_event(QEVENT_STOP, NULL);
     }
 }
 
@@ -1064,7 +1065,7 @@ void cpu_stop_current(void)
     }
 }
 
-void vm_stop(RunState state)
+void __vm_stop(RunState state, bool silent)
 {
     if (qemu_in_vcpu_thread()) {
         qemu_system_vmstop_request(state);
@@ -1075,7 +1076,7 @@ void vm_stop(RunState state)
         cpu_stop_current();
         return;
     }
-    do_vm_stop(state);
+    do_vm_stop(state, silent);
 }
 
 /* does a state transition even if the VM is already stopped,
@@ -1083,7 +1084,7 @@ void vm_stop(RunState state)
 void vm_stop_force_state(RunState state)
 {
     if (runstate_is_running()) {
-        vm_stop(state);
+        vm_stop_silent(state);
     } else {
         runstate_set(state);
     }
