@@ -412,6 +412,9 @@ Description: Guest-side qemu-system agent
 Package: qemu-kvm
 Architecture: i386 amd64 armhf armel powerpc sparc
 Multi-Arch: foreign
+Conflicts: qemu-kvm-spice
+Replaces: qemu-kvm-spice
+Provides: qemu-kvm-spice
 Depends: ${misc:Depends}, qemu-system-x86 (>= ${source:Version})
 Section: oldlibs
 Description: QEMU Full virtualization on x86 hardware (transitional package)
