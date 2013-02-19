@@ -569,6 +569,15 @@
 #                If the target is Sparc, this is the PC component of the
 #                instruction pointer.
 #
+# @cr0: #optional If the target is i386 or x86_64, this is the CR1 register.
+#
+# @cr3: #optional If the target is i386 or x86_64, this is the CR3 register.
+#
+# @cr4: #optional If the target is i386 or x86_64, this is the CR4 register.
+#
+# @efer: #optional If the target is i386 or x86_64, this is the "efer"
+#                   (extended features) register.
+#
 # @nip: #optional If the target is PPC, the instruction pointer
 #
 # @npc: #optional If the target is Sparc, the NPC component of the instruction
@@ -585,6 +594,7 @@
 ##
 { 'type': 'CpuInfo',
   'data': {'CPU': 'int', 'current': 'bool', 'halted': 'bool', '*pc': 'int',
+           '*cr0': 'str', '*cr3': 'str', '*cr4': 'str', '*efer', 'str', 
            '*nip': 'int', '*npc': 'int', '*PC': 'int', 'thread_id': 'int'} }
 
 ##
