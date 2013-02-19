@@ -489,6 +489,7 @@ typedef struct RAMBlock {
     char idstr[256];
     QLIST_ENTRY(RAMBlock) next;
     int do_not_save;
+    int will_not_save;
 #if defined(__linux__) && !defined(TARGET_S390X)
     int fd;
 #endif
