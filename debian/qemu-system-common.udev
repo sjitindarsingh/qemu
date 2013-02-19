@@ -1,1 +1,1 @@
-KERNEL=="kvm", GROUP:="kvm", MODE:="0660", TAG:="", RUN:="/usr/bin/setfacl -m g::rw $env{DEVNAME}"
+KERNEL=="kvm", GROUP="kvm", MODE="0660"

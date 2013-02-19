@@ -29,5 +29,6 @@ fi
 # recalculate:
 
 udevadm trigger --subsystem-match=misc --action=change
+/usr/bin/setfacl -m g::rw /dev/kvm
 
 exit 0
