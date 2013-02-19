@@ -1589,6 +1589,10 @@ int kvm_arch_put_registers(CPUX86State *env, int level)
 
     assert(cpu_is_stopped(cpu) || qemu_cpu_is_self(cpu));
 
+    if (!env->kvm_has_run && level == KVM_PUT_RUNTIME_STATE) {
+        return 0;
+    }
+
     ret = kvm_getput_regs(env, 1);
     if (ret < 0) {
         return ret;
@@ -1755,6 +1759,7 @@ void kvm_arch_post_run(CPUX86State *env, struct kvm_run *run)
     }
     cpu_set_apic_tpr(env->apic_state, run->cr8);
     cpu_set_apic_base(env->apic_state, run->apic_base);
+    env->kvm_has_run = 1;
 }
 
 int kvm_arch_process_async_events(CPUX86State *env)
