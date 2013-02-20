@@ -1,7 +1,7 @@
-From dbd0d6a18ecd15222efe389d9062f5432c037b8d Mon Sep 17 00:00:00 2001
+From 0b0d3d6f05df3920d8d9b58e7f8b10a2e5f09ad1 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:13 +0000
-Subject: [PATCH 51/80] hw/nseries.c: Add support for n900 MIPID
+Subject: [PATCH 51/77] hw/nseries.c: Add support for n900 MIPID
 
 NB: a few of these change the not-n900 behaviour slightly,
 need examination.
@@ -10,7 +10,7 @@ need examination.
  1 file changed, 93 insertions(+), 5 deletions(-)
 
 diff --git a/hw/nseries.c b/hw/nseries.c
-index 9b2d709..c752a67 100644
+index ed32997..bf5ce80 100644
 --- a/hw/nseries.c
 +++ b/hw/nseries.c
 @@ -429,6 +429,11 @@ struct mipid_s {
@@ -151,5 +151,5 @@ index 9b2d709..c752a67 100644
  };
  
 -- 
-1.8.0
+1.8.1.2
 

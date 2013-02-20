@@ -1,7 +1,7 @@
-From a51f36a70601968978657bebaf39eb1946cf9ed5 Mon Sep 17 00:00:00 2001
+From 7981c9ae691e79b0da15b30801acbdf8a09ce413 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:16 +0000
-Subject: [PATCH 62/80] hw/omap_intc.c: Don't complain about nonexistent
+Subject: [PATCH 62/77] hw/omap_intc.c: Don't complain about nonexistent
  register read by Linux
 
 The Linux omap kernel now deliberately reads from the nonexistent register
@@ -16,7 +16,7 @@ Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
  1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/hw/omap_intc.c b/hw/omap_intc.c
-index 61e0daf..dd55c47 100644
+index 4b0acd0..6191e19 100644
 --- a/hw/omap_intc.c
 +++ b/hw/omap_intc.c
 @@ -410,7 +410,11 @@ static uint64_t omap2_inth_read(void *opaque, hwaddr addr,
@@ -33,5 +33,5 @@ index 61e0daf..dd55c47 100644
          }
      }
 -- 
-1.8.0
+1.8.1.2
 

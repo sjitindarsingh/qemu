@@ -837,19 +837,55 @@ STEXI
 @item nmi @var{cpu}
 @findex nmi
 Inject an NMI on the given CPU (x86 only).
+
+ETEXI
+
+    {
+        .name       = "ringbuf_write",
+        .args_type  = "device:s,data:s",
+        .params     = "device data",
+        .help       = "Write to a ring buffer character device",
+        .mhandler.cmd = hmp_ringbuf_write,
+    },
+
+STEXI
+@item ringbuf_write @var{device} @var{data}
+@findex ringbuf_write
+Write @var{data} to ring buffer character device @var{device}.
+@var{data} must be a UTF-8 string.
+
+ETEXI
+
+    {
+        .name       = "ringbuf_read",
+        .args_type  = "device:s,size:i",
+        .params     = "device size",
+        .help       = "Read from a ring buffer character device",
+        .mhandler.cmd = hmp_ringbuf_read,
+    },
+
+STEXI
+@item ringbuf_read @var{device}
+@findex ringbuf_read
+Read and print up to @var{size} bytes from ring buffer character
+device @var{device}.
+Certain non-printable characters are printed \uXXXX, where XXXX is the
+character code in hexadecimal.  Character \ is printed \\.
+Bug: can screw up when the buffer contains invalid UTF-8 sequences,
+NUL characters, after the ring buffer lost data, and when reading
+stops because the size limit is reached.
+
 ETEXI
 
     {
         .name       = "migrate",
-        .args_type  = "detach:-d,blk:-b,inc:-i,saveram:-s,uri:s",
-        .params     = "[-d] [-b] [-i] [-s] uri",
+        .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
+        .params     = "[-d] [-b] [-i] uri",
         .help       = "migrate to URI (using -d to not wait for completion)"
 		      "\n\t\t\t -b for migration without shared storage with"
 		      " full copy of disk\n\t\t\t -i for migration without "
 		      "shared storage with incremental copy of disk "
-		      "(base image shared between src and destination)"
-		      "\n\t\t\t -s to save ram regions even if they are"
-		      "mmaps via --pcram (default true)",
+		      "(base image shared between src and destination)",
         .mhandler.cmd = hmp_migrate,
     },
 
@@ -1486,12 +1522,46 @@ passed since 1970, i.e. unix epoch.
 @end table
 ETEXI
 
+HXCOMM Disabled for now, because it isn't built on top of QMP's chardev-add
+HXCOMM     {
+HXCOMM         .name       = "chardev-add",
+HXCOMM         .args_type  = "args:s",
+HXCOMM         .params     = "args",
+HXCOMM         .help       = "add chardev",
+HXCOMM         .mhandler.cmd = hmp_chardev_add,
+HXCOMM     },
+HXCOMM
+HXCOMM STEXI
+HXCOMM @item chardev_add args
+HXCOMM @findex chardev_add
+HXCOMM
+HXCOMM chardev_add accepts the same parameters as the -chardev command line switch.
+HXCOMM
+HXCOMM ETEXI
+HXCOMM
+HXCOMM     {
+HXCOMM         .name       = "chardev-remove",
+HXCOMM         .args_type  = "id:s",
+HXCOMM         .params     = "id",
+HXCOMM         .help       = "remove chardev",
+HXCOMM         .mhandler.cmd = hmp_chardev_remove,
+HXCOMM     },
+HXCOMM
+HXCOMM STEXI
+HXCOMM @item chardev_remove id
+HXCOMM @findex chardev_remove
+HXCOMM
+HXCOMM Removes the chardev @var{id}.
+HXCOMM
+HXCOMM ETEXI
+
     {
         .name       = "info",
         .args_type  = "item:s?",
         .params     = "[subcommand]",
         .help       = "show various information about the system state",
-        .mhandler.cmd = do_info,
+        .mhandler.cmd = do_info_help,
+        .sub_table = info_cmds,
     },
 
 STEXI

@@ -1,18 +1,18 @@
-From 0599460d688cda9e6e13a96f853cde5df4b6fdea Mon Sep 17 00:00:00 2001
+From b9bbbc3578da55e2f46717908bfcc05d99859d3a Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:07 +0000
-Subject: [PATCH 27/80] hw/tsc2005: Add tracing
+Subject: [PATCH 27/77] hw/tsc2005: Add tracing
 
 ---
  hw/tsc2005.c | 68 ++++++++++++++++++++++++++++++++++++++++++++++++------------
  1 file changed, 55 insertions(+), 13 deletions(-)
 
 diff --git a/hw/tsc2005.c b/hw/tsc2005.c
-index aec8527..b575a2d 100644
+index acedd1a..345fb77 100644
 --- a/hw/tsc2005.c
 +++ b/hw/tsc2005.c
 @@ -23,6 +23,15 @@
- #include "console.h"
+ #include "ui/console.h"
  #include "devices.h"
  
 +//#define TSC2005_DEBUG
@@ -221,5 +221,5 @@ index aec8527..b575a2d 100644
      s->busy = 0;
      s->dav |= mode_regs[s->function];
 -- 
-1.8.0
+1.8.1.2
 

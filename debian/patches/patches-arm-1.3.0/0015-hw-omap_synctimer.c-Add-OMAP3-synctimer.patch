@@ -1,7 +1,7 @@
-From b5d16315970910e60c8ff4f024a3ec0f6bc374b6 Mon Sep 17 00:00:00 2001
+From bda3d2e44cfd0bb62d7817048d1a0d804036f526 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:04 +0000
-Subject: [PATCH 15/80] hw/omap_synctimer.c: Add OMAP3 synctimer
+Subject: [PATCH 15/77] hw/omap_synctimer.c: Add OMAP3 synctimer
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -24,7 +24,7 @@ Signed-off-by:  Peter Maydell <peter.maydell@linaro.org>
  1 file changed, 58 insertions(+), 2 deletions(-)
 
 diff --git a/hw/omap_synctimer.c b/hw/omap_synctimer.c
-index 7031a88..308b0fa 100644
+index 945711e..122cb4f 100644
 --- a/hw/omap_synctimer.c
 +++ b/hw/omap_synctimer.c
 @@ -24,6 +24,7 @@ struct omap_synctimer_s {
@@ -128,5 +128,5 @@ index 7031a88..308b0fa 100644
  
      return s;
 -- 
-1.8.0
+1.8.1.2
 

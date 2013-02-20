@@ -1,15 +1,14 @@
-From ff56b567a0c72c335b60e157a5ad8990362f90d1 Mon Sep 17 00:00:00 2001
+From 82bf855d4ebe4e375cdce1b2b8db4056c59e68b1 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:05 +0000
-Subject: [PATCH 19/80] hw/omap_i2c: non-whitespace changes from overhaul
- patch
+Subject: [PATCH 19/77] hw/omap_i2c: non-whitespace changes from overhaul patch
 
 ---
  hw/omap_i2c.c | 171 +++++++++++++++++++++++++++++++++++++++++++++-------------
  1 file changed, 135 insertions(+), 36 deletions(-)
 
 diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
-index 9dbf04f..db27545 100644
+index 4a2ca40..1951b2d 100644
 --- a/hw/omap_i2c.c
 +++ b/hw/omap_i2c.c
 @@ -2,6 +2,7 @@
@@ -316,5 +315,5 @@ index 9dbf04f..db27545 100644
  }
  
 -- 
-1.8.0
+1.8.1.2
 

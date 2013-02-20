@@ -1,7 +1,7 @@
-From 4266d515f9ea244ffa5b4a04e3bac05a0b185292 Mon Sep 17 00:00:00 2001
+From 3a091022530b6b7946851a1283b3536b6b2a9c43 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:04 +0000
-Subject: [PATCH 13/80] hw/omap_l4.c: Add OMAP3 support
+Subject: [PATCH 13/77] hw/omap_l4.c: Add OMAP3 support
 
 TODO: definitely need to look more closely at what's going on here.
 
@@ -13,7 +13,7 @@ Drop omap3_l4ta save/load support?
  3 files changed, 82 insertions(+), 19 deletions(-)
 
 diff --git a/hw/omap.h b/hw/omap.h
-index 42a14c6..0500b52 100644
+index 5e9d41d..161a217 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -73,17 +73,25 @@ void omap_clk_reparent(omap_clk clk, omap_clk parent);
@@ -78,7 +78,7 @@ index 42a14c6..0500b52 100644
  hwaddr omap_l4_attach(struct omap_target_agent_s *ta,
                                           int region, MemoryRegion *mr);
 diff --git a/hw/omap2.c b/hw/omap2.c
-index 96aba71..68fba4d 100644
+index 038a82a..e929690 100644
 --- a/hw/omap2.c
 +++ b/hw/omap2.c
 @@ -934,7 +934,7 @@ static const struct omap_l4_region_s omap_l4_region[125] = {
@@ -193,5 +193,5 @@ index 09e983f..cc61005 100644
 +    return ta;
 +}
 -- 
-1.8.0
+1.8.1.2
 

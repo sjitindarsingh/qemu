@@ -1,7 +1,7 @@
-From 6546724d3b1e2414b58c322fccf2552b6de22362 Mon Sep 17 00:00:00 2001
+From 8263bef446bf17703910a8c78be1f13934ac51ee Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:01 +0000
-Subject: [PATCH 02/80] hw/sd: Expose sd_reset() as public function
+Subject: [PATCH 02/77] hw/sd: Expose sd_reset() as public function
 
 Expose sd_reset() as a public function so MMC controllers
 can reset the SD card.
@@ -13,7 +13,7 @@ XXX: is this really right? Need to check specs.
  2 files changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/hw/sd.c b/hw/sd.c
-index 3c34d43..7636f19 100644
+index 428bd78..ed73285 100644
 --- a/hw/sd.c
 +++ b/hw/sd.c
 @@ -398,13 +398,13 @@ static inline uint64_t sd_addr_to_wpnum(uint64_t addr)
@@ -87,5 +87,5 @@ index d9b97e4..4ef822f 100644
                    uint8_t *response);
  void sd_write_data(SDState *sd, uint8_t value);
 -- 
-1.8.0
+1.8.1.2
 

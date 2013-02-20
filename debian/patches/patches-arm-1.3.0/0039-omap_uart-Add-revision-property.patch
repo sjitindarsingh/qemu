@@ -1,7 +1,7 @@
-From 1aad147620c4d8a45b05de9d75aaac2bb93117b2 Mon Sep 17 00:00:00 2001
+From 499244a345d13ec6fda06f6a145340a5d6724dcb Mon Sep 17 00:00:00 2001
 From: Jan Vesely <jano.vesely@gmail.com>
 Date: Tue, 4 Dec 2012 14:10:10 +0000
-Subject: [PATCH 39/80] omap_uart: Add revision property.
+Subject: [PATCH 39/77] omap_uart: Add revision property.
 
 Set revision to values reported by beagleboard(-xm) hw.
 
@@ -11,7 +11,7 @@ Signed-off-by: Jan Vesely <jano.vesely@gmail.com>
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/hw/omap_uart.c b/hw/omap_uart.c
-index bf0486b..9fe8a96 100644
+index 2f90cb7..578f4ab 100644
 --- a/hw/omap_uart.c
 +++ b/hw/omap_uart.c
 @@ -45,6 +45,7 @@ struct omap_uart_s {
@@ -40,5 +40,5 @@ index bf0486b..9fe8a96 100644
      DEFINE_PROP_UINT32("baudrate", struct omap_uart_s, baudrate, 0),
      DEFINE_PROP_CHR("chardev", struct omap_uart_s, chr),
 -- 
-1.8.0
+1.8.1.2
 

@@ -1,7 +1,7 @@
-From 322d2fa90d28f350e62da653a1b87761f1ace5d9 Mon Sep 17 00:00:00 2001
+From 15eb1255ab6343ad72fb0bfda0e6f4440c427d82 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:05 +0000
-Subject: [PATCH 16/80] hw/omap_tap.c: Return correct ID register values for
+Subject: [PATCH 16/77] hw/omap_tap.c: Return correct ID register values for
  OMAP3
 
 Add/correct the ID register values returned for OMAP3.
@@ -111,5 +111,5 @@ index e273e97..31b0752 100644
      case 0x218:	/* DIE_ID_reg */
          return ('Q' << 24) | ('E' << 16) | ('M' << 8) | ('U' << 0);
 -- 
-1.8.0
+1.8.1.2
 

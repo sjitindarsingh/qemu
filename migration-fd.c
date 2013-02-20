@@ -14,13 +14,11 @@
  */
 
 #include "qemu-common.h"
-#include "qemu_socket.h"
-#include "migration.h"
-#include "monitor.h"
-#include "qemu-char.h"
-#include "buffered_file.h"
-#include "block.h"
-#include "qemu_socket.h"
+#include "qemu/sockets.h"
+#include "migration/migration.h"
+#include "monitor/monitor.h"
+#include "migration/qemu-file.h"
+#include "block/block.h"
 
 //#define DEBUG_MIGRATION_FD
 
@@ -77,7 +75,6 @@ void fd_start_outgoing_migration(MigrationState *s, const char *fdname, Error **
         return;
     }
 
-    fcntl(s->fd, F_SETFL, O_NONBLOCK);
     s->get_error = fd_errno;
     s->write = fd_write;
     s->close = fd_close;
@@ -85,6 +82,13 @@ void fd_start_outgoing_migration(MigrationState *s, const char *fdname, Error **
     migrate_fd_connect(s);
 }
 
+static void fd_accept_incoming_migration(void *opaque)
+{
+    QEMUFile *f = opaque;
+
+    qemu_set_fd_handler2(qemu_get_fd(f), NULL, NULL, NULL, NULL);
+    process_incoming_migration(f);
+}
 
 void fd_start_incoming_migration(const char *infd, Error **errp)
 {
@@ -100,6 +104,5 @@ void fd_start_incoming_migration(const char *infd, Error **errp)
         return;
     }
 
-    /* XXX Process immediately XXX */
-    process_incoming_migration(f);
+    qemu_set_fd_handler2(fd, NULL, fd_accept_incoming_migration, NULL, f);
 }

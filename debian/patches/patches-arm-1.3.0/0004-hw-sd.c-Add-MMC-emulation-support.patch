@@ -1,18 +1,18 @@
-From e732c42615d9a93bd4733b8717e50fa99138df50 Mon Sep 17 00:00:00 2001
+From 0228169922f53a8a416a972ce03f1d2d65ea802c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:02 +0000
-Subject: [PATCH 04/80] hw/sd.c: Add MMC emulation support
+Subject: [PATCH 04/77] hw/sd.c: Add MMC emulation support
 
 This patch is basically just adding actual implementation
 of the mmc flag. It also has a few minor cleanups like
 printf->fprintf (but should be DPRINTF)
 ---
- hw/sd.c | 281 +++++++++++++++++++++++++++++++++++++++++++++++++++++-----------
+ hw/sd.c | 277 +++++++++++++++++++++++++++++++++++++++++++++++++++++-----------
  hw/sd.h |   1 +
- 2 files changed, 236 insertions(+), 46 deletions(-)
+ 2 files changed, 234 insertions(+), 44 deletions(-)
 
 diff --git a/hw/sd.c b/hw/sd.c
-index d9fe700..5928966 100644
+index c53815b..235963b 100644
 --- a/hw/sd.c
 +++ b/hw/sd.c
 @@ -4,6 +4,7 @@
@@ -457,17 +457,6 @@ index d9fe700..5928966 100644
      /* Lock card commands (Class 7) */
      case 42:	/* CMD42:  LOCK_UNLOCK */
          if (sd->spi)
-@@ -1438,8 +1605,8 @@ send_response:
-         int i;
-         DPRINTF("Response:");
-         for (i = 0; i < rsplen; i++)
--            printf(" %02x", response[i]);
--        printf(" state %d\n", sd->state);
-+            fprintf(stderr, " %02x", response[i]);
-+        fprintf(stderr, " state %d\n", sd->state);
-     } else {
-         DPRINTF("No response %d\n", sd->state);
-     }
 @@ -1538,6 +1705,11 @@ void sd_write_data(SDState *sd, uint8_t value)
          }
          break;
@@ -543,5 +532,5 @@ index 562eaa2..13ef5d3 100644
  
  #endif	/* __hw_sd_h */
 -- 
-1.8.0
+1.8.1.2
 

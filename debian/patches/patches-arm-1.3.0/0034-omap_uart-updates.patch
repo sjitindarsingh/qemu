@@ -1,7 +1,7 @@
-From 309a2c448f01bb1a6e42989317ca82870f1ef147 Mon Sep 17 00:00:00 2001
+From 6353522c329f515e3143808c261d6f654e6068c6 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:09 +0000
-Subject: [PATCH 34/80] omap_uart updates
+Subject: [PATCH 34/77] omap_uart updates
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -22,7 +22,7 @@ Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
  6 files changed, 326 insertions(+), 123 deletions(-)
 
 diff --git a/hw/omap.h b/hw/omap.h
-index 6b4c99a..77272b4 100644
+index 988c821..adc67a7 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -871,18 +871,7 @@ struct omap_synctimer_s *omap_synctimer_init(struct omap_target_agent_s *ta,
@@ -55,10 +55,10 @@ index 6b4c99a..77272b4 100644
      DeviceState *gpio;
  
 diff --git a/hw/omap1.c b/hw/omap1.c
-index 4d5815e..c49c630 100644
+index 623b101..c4cce09 100644
 --- a/hw/omap1.c
 +++ b/hw/omap1.c
-@@ -3687,9 +3687,6 @@ static void omap1_mpu_reset(void *opaque)
+@@ -3690,9 +3690,6 @@ static void omap1_mpu_reset(void *opaque)
      omap_dpll_reset(mpu->dpll[0]);
      omap_dpll_reset(mpu->dpll[1]);
      omap_dpll_reset(mpu->dpll[2]);
@@ -68,7 +68,7 @@ index 4d5815e..c49c630 100644
      omap_mmc_reset(mpu->mmc);
      omap_mpuio_reset(mpu->mpuio);
      omap_uwire_reset(mpu->microwire);
-@@ -3932,27 +3929,46 @@ struct omap_mpu_state_s *omap310_mpu_init(MemoryRegion *system_memory,
+@@ -3935,27 +3932,46 @@ struct omap_mpu_state_s *omap310_mpu_init(MemoryRegion *system_memory,
  
      omap_tcmi_init(system_memory, 0xfffecc00, s);
  
@@ -100,7 +100,7 @@ index 4d5815e..c49c630 100644
 +                         omap_clk_getrate(omap_findclk(s, "uart1_ck")) / 16);
 +    qdev_prop_set_chr(s->uart[0], "chardev", serial_hds[0]);
 +    qdev_init_nofail(s->uart[0]);
-+    busdev = sysbus_from_qdev(s->uart[0]);
++    busdev = SYS_BUS_DEVICE(s->uart[0]);
 +    sysbus_connect_irq(busdev, 0, qdev_get_gpio_in(s->ih[1], OMAP_INT_UART1));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP_DMA_UART1_TX]);
 +    sysbus_connect_irq(busdev, 2, s->drq[OMAP_DMA_UART1_RX]);
@@ -114,7 +114,7 @@ index 4d5815e..c49c630 100644
 +    qdev_prop_set_chr(s->uart[1], "chardev",
 +                      serial_hds[0] ? serial_hds[1] : NULL);
 +    qdev_init_nofail(s->uart[1]);
-+    busdev = sysbus_from_qdev(s->uart[1]);
++    busdev = SYS_BUS_DEVICE(s->uart[1]);
 +    sysbus_connect_irq(busdev, 0, qdev_get_gpio_in(s->ih[1], OMAP_INT_UART2));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP_DMA_UART2_TX]);
 +    sysbus_connect_irq(busdev, 2, s->drq[OMAP_DMA_UART2_RX]);
@@ -128,7 +128,7 @@ index 4d5815e..c49c630 100644
 +    qdev_prop_set_chr(s->uart[2], "chardev",
 +                      serial_hds[0] && serial_hds[1] ? serial_hds[2] : NULL);
 +    qdev_init_nofail(s->uart[2]);
-+    busdev = sysbus_from_qdev(s->uart[2]);
++    busdev = SYS_BUS_DEVICE(s->uart[2]);
 +    sysbus_connect_irq(busdev, 0, qdev_get_gpio_in(s->ih[0], OMAP_INT_UART3));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP_DMA_UART3_TX]);
 +    sysbus_connect_irq(busdev, 2, s->drq[OMAP_DMA_UART3_RX]);
@@ -137,7 +137,7 @@ index 4d5815e..c49c630 100644
      s->dpll[0] = omap_dpll_init(system_memory, 0xfffecf00,
                                  omap_findclk(s, "dpll1"));
 diff --git a/hw/omap2.c b/hw/omap2.c
-index 205a693..1d7f639 100644
+index 8ffd466..a7bab2c 100644
 --- a/hw/omap2.c
 +++ b/hw/omap2.c
 @@ -2216,9 +2216,6 @@ static void omap2_mpu_reset(void *opaque)
@@ -188,7 +188,7 @@ index 205a693..1d7f639 100644
 +                         omap_clk_getrate(omap_findclk(s, "uart1_fclk")) / 16);
 +    qdev_prop_set_chr(s->uart[0], "chardev", serial_hds[0]);
 +    qdev_init_nofail(s->uart[0]);
-+    busdev = sysbus_from_qdev(s->uart[0]);
++    busdev = SYS_BUS_DEVICE(s->uart[0]);
 +    sysbus_connect_irq(busdev, 0,
 +                       qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_UART1_IRQ));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP24XX_DMA_UART1_TX]);
@@ -203,7 +203,7 @@ index 205a693..1d7f639 100644
 +    qdev_prop_set_chr(s->uart[1], "chardev",
 +                      serial_hds[0] ? serial_hds[1] : NULL);
 +    qdev_init_nofail(s->uart[1]);
-+    busdev = sysbus_from_qdev(s->uart[1]);
++    busdev = SYS_BUS_DEVICE(s->uart[1]);
 +    sysbus_connect_irq(busdev, 0,
 +                       qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_UART2_IRQ));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP24XX_DMA_UART2_TX]);
@@ -218,7 +218,7 @@ index 205a693..1d7f639 100644
 +    qdev_prop_set_chr(s->uart[2], "chardev",
 +                      serial_hds[0] && serial_hds[1] ? serial_hds[2] : NULL);
 +    qdev_init_nofail(s->uart[2]);
-+    busdev = sysbus_from_qdev(s->uart[2]);
++    busdev = SYS_BUS_DEVICE(s->uart[2]);
 +    sysbus_connect_irq(busdev, 0,
 +                       qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_UART3_IRQ));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP24XX_DMA_UART3_TX]);
@@ -228,13 +228,13 @@ index 205a693..1d7f639 100644
      s->gptimer[0] = omap_gp_timer_init(omap_l4ta(s->l4, 7),
                      qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_GPTIMER1),
 diff --git a/hw/omap_uart.c b/hw/omap_uart.c
-index 73dc103..ce1ce48 100644
+index 33f7e33..1c1edb5 100644
 --- a/hw/omap_uart.c
 +++ b/hw/omap_uart.c
 @@ -22,16 +22,28 @@
  #include "omap.h"
  #include "serial.h"
- #include "exec-memory.h"
+ #include "exec/address-spaces.h"
 +#include "sysbus.h"
 +
 +/* The OMAP UART functionality is similar to the TI16C752 rather than
@@ -285,7 +285,7 @@ index 73dc103..ce1ce48 100644
 +static void omap_uart_reset(DeviceState *qdev)
  {
 +    struct omap_uart_s *s = FROM_SYSBUS(struct omap_uart_s,
-+                                        sysbus_from_qdev(qdev));
++                                        SYS_BUS_DEVICE(qdev));
      s->eblr = 0x00;
      s->syscontrol = 0;
      s->wkup = 0x3f;
@@ -573,17 +573,17 @@ index 73dc103..ce1ce48 100644
 -                               chr ?: qemu_chr_new(label, "null", NULL),
 -                               DEVICE_NATIVE_ENDIAN);
 +    struct omap_uart_s *s = FROM_SYSBUS(struct omap_uart_s,
-+                                        sysbus_from_qdev(qdev));
++                                        SYS_BUS_DEVICE(qdev));
 +    s->chr = chr ?: qemu_chr_new(label, "null", NULL);
 +    serial_change_char_driver(s->serial, s->chr);
  }
 +
 +type_init(omap_uart_register_types)
 diff --git a/hw/serial.c b/hw/serial.c
-index 60283ea..baf9477 100644
+index f0ce9b0..d71e8f8 100644
 --- a/hw/serial.c
 +++ b/hw/serial.c
-@@ -788,10 +788,32 @@ SerialState *serial_mm_init(MemoryRegion *address_space,
+@@ -786,10 +786,32 @@ SerialState *serial_mm_init(MemoryRegion *address_space,
      serial_init_core(s);
      vmstate_register(NULL, base, &vmstate_serial, s);
  
@@ -620,10 +620,10 @@ index 60283ea..baf9477 100644
 +    return &s->irq;
 +}
 diff --git a/hw/serial.h b/hw/serial.h
-index f1e3c4a..b2bdfcc 100644
+index 98ee424..c1be1f7 100644
 --- a/hw/serial.h
 +++ b/hw/serial.h
-@@ -86,6 +86,9 @@ extern const MemoryRegionOps serial_io_ops;
+@@ -88,6 +88,9 @@ extern const MemoryRegionOps serial_io_ops;
  void serial_init_core(SerialState *s);
  void serial_exit_core(SerialState *s);
  void serial_set_frequency(SerialState *s, uint32_t frequency);
@@ -634,5 +634,5 @@ index f1e3c4a..b2bdfcc 100644
  /* legacy pre qom */
  SerialState *serial_init(int base, qemu_irq irq, int baudbase,
 -- 
-1.8.0
+1.8.1.2
 

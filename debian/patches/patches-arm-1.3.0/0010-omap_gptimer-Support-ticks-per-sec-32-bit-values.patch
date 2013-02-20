@@ -1,7 +1,7 @@
-From 6d492fd16064e5c7928a32c250ad1a180700e80f Mon Sep 17 00:00:00 2001
+From ad427f83837068367b4b45c783b1d818a3edc681 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:03 +0000
-Subject: [PATCH 10/80] omap_gptimer: Support ticks-per-sec > 32 bit values
+Subject: [PATCH 10/77] omap_gptimer: Support ticks-per-sec > 32 bit values
 
 TODO: need to review this change still
 ---
@@ -9,7 +9,7 @@ TODO: need to review this change still
  1 file changed, 29 insertions(+), 8 deletions(-)
 
 diff --git a/hw/omap_gptimer.c b/hw/omap_gptimer.c
-index e39da74..5336bc4 100644
+index a5db710..e500884 100644
 --- a/hw/omap_gptimer.c
 +++ b/hw/omap_gptimer.c
 @@ -100,11 +100,19 @@ static inline void omap_gp_timer_out(struct omap_gp_timer_s *timer, int level)
@@ -74,5 +74,5 @@ index e39da74..5336bc4 100644
          qemu_del_timer(timer->timer);
          qemu_del_timer(timer->match);
 -- 
-1.8.0
+1.8.1.2
 

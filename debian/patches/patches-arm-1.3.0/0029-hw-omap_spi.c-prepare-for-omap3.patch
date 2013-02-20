@@ -1,7 +1,7 @@
-From d077a4bde678b0f3095e2f692ade344c8542819e Mon Sep 17 00:00:00 2001
+From a71f7ba5037e922fa5938a870cf4e80305213e6b Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:07 +0000
-Subject: [PATCH 29/80] hw/omap_spi.c prepare for omap3
+Subject: [PATCH 29/77] hw/omap_spi.c prepare for omap3
 
 ---
  hw/omap.h     |   6 +-
@@ -10,7 +10,7 @@ Subject: [PATCH 29/80] hw/omap_spi.c prepare for omap3
  3 files changed, 343 insertions(+), 76 deletions(-)
 
 diff --git a/hw/omap.h b/hw/omap.h
-index 0500b52..67bdbb6 100644
+index 161a217..9f2612e 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -898,8 +898,10 @@ void omap_uwire_attach(struct omap_uwire_s *s,
@@ -27,7 +27,7 @@ index 0500b52..67bdbb6 100644
                  uint32_t (*txrx)(void *opaque, uint32_t, int), void *opaque,
                  int chipselect);
 diff --git a/hw/omap2.c b/hw/omap2.c
-index 68fba4d..33c105a 100644
+index e929690..69141e2 100644
 --- a/hw/omap2.c
 +++ b/hw/omap2.c
 @@ -2464,12 +2464,12 @@ struct omap_mpu_state_s *omap2420_mpu_init(MemoryRegion *sysmem,
@@ -46,7 +46,7 @@ index 68fba4d..33c105a 100644
                      &s->drq[OMAP24XX_DMA_SPI2_TX0],
                      omap_findclk(s, "spi2_fclk"),
 diff --git a/hw/omap_spi.c b/hw/omap_spi.c
-index 42d5149..d64c42a 100644
+index 8ff01ed..0d641e4 100644
 --- a/hw/omap_spi.c
 +++ b/hw/omap_spi.c
 @@ -22,11 +22,25 @@
@@ -322,7 +322,7 @@ index 42d5149..d64c42a 100644
      }
  
      omap_mcspi_interrupt_update(s);
-@@ -143,61 +280,117 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
+@@ -143,27 +280,35 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
  
      switch (addr) {
      case 0x00:	/* MCSPI_REVISION */
@@ -359,8 +359,9 @@ index 42d5149..d64c42a 100644
          return s->control;
  
      case 0x68: ch ++;
-     case 0x54: ch ++;
+@@ -173,7 +318,9 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
      case 0x40: ch ++;
+         /* fall through */
      case 0x2c:	/* MCSPI_CHCONF */
 -        return s->ch[ch].config;
 +        TRACE("CHCONF%d = 0x%08x", ch,
@@ -368,8 +369,10 @@ index 42d5149..d64c42a 100644
 +        return (ch < s->chnum) ? s->ch[ch].config : 0;
  
      case 0x6c: ch ++;
-     case 0x58: ch ++;
+         /* fall through */
+@@ -182,7 +329,9 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
      case 0x44: ch ++;
+         /* fall through */
      case 0x30:	/* MCSPI_CHSTAT */
 -        return s->ch[ch].status;
 +        TRACE("CHSTAT%d = 0x%08x", ch,
@@ -377,8 +380,10 @@ index 42d5149..d64c42a 100644
 +        return (ch < s->chnum) ? s->ch[ch].status : 0;
  
      case 0x70: ch ++;
-     case 0x5c: ch ++;
+         /* fall through */
+@@ -191,7 +340,9 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
      case 0x48: ch ++;
+         /* fall through */
      case 0x34:	/* MCSPI_CHCTRL */
 -        return s->ch[ch].control;
 +        TRACE("CHCTRL%d = 0x%08x", ch,
@@ -386,8 +391,10 @@ index 42d5149..d64c42a 100644
 +        return (ch < s->chnum) ? s->ch[ch].control : 0;
  
      case 0x74: ch ++;
-     case 0x60: ch ++;
+         /* fall through */
+@@ -200,7 +351,9 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
      case 0x4c: ch ++;
+         /* fall through */
      case 0x38:	/* MCSPI_TX */
 -        return s->ch[ch].tx;
 +        TRACE("TX%d = 0x%08x", ch,
@@ -395,8 +402,10 @@ index 42d5149..d64c42a 100644
 +        return (ch < s->chnum) ? s->ch[ch].tx : 0;
  
      case 0x78: ch ++;
-     case 0x64: ch ++;
+         /* fall through */
+@@ -209,10 +362,50 @@ static uint64_t omap_mcspi_read(void *opaque, hwaddr addr,
      case 0x50: ch ++;
+         /* fall through */
      case 0x3c:	/* MCSPI_RX */
 -        s->ch[ch].status &= ~(1 << 0);			/* RXS */
 -        ret = s->ch[ch].rx;
@@ -449,7 +458,7 @@ index 42d5149..d64c42a 100644
      }
  
      OMAP_BAD_REG(addr);
-@@ -208,6 +401,7 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
+@@ -223,6 +416,7 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
                               uint64_t value, unsigned size)
  {
      struct omap_mcspi_s *s = (struct omap_mcspi_s *) opaque;
@@ -457,7 +466,7 @@ index 42d5149..d64c42a 100644
      int ch = 0;
  
      if (size != 4) {
-@@ -225,16 +419,19 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
+@@ -240,16 +434,19 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
      case 0x64:	/* MCSPI_RX2 */
      case 0x6c:	/* MCSPI_CHSTAT3 */
      case 0x78:	/* MCSPI_RX3 */
@@ -478,7 +487,7 @@ index 42d5149..d64c42a 100644
          if (!((s->control & (1 << 3)) && (s->systest & (1 << 11)))) {
              s->irqst &= ~value;
              omap_mcspi_interrupt_update(s);
-@@ -242,15 +439,18 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
+@@ -257,15 +454,18 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
          break;
  
      case 0x1c:	/* MCSPI_IRQENABLE */
@@ -498,7 +507,7 @@ index 42d5149..d64c42a 100644
          if (s->control & (1 << 3))			/* SYSTEM_TEST */
              if (value & (1 << 11)) {			/* SSB */
                  s->irqst |= 0x1777f;
-@@ -260,9 +460,10 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
+@@ -275,9 +475,10 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
          break;
  
      case 0x28:	/* MCSPI_MODULCTRL */
@@ -510,9 +519,9 @@ index 42d5149..d64c42a 100644
                  omap_mcspi_interrupt_update(s);
              }
          s->control = value & 0xf;
-@@ -272,34 +473,93 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
-     case 0x54: ch ++;
+@@ -290,14 +491,30 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
      case 0x40: ch ++;
+         /* fall through */
      case 0x2c:	/* MCSPI_CHCONF */
 -        if ((value ^ s->ch[ch].config) & (3 << 14))	/* DMAR | DMAW */
 -            omap_mcspi_dmarequest_update(s->ch + ch);
@@ -549,8 +558,9 @@ index 42d5149..d64c42a 100644
          break;
  
      case 0x70: ch ++;
-     case 0x5c: ch ++;
+@@ -307,11 +524,16 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
      case 0x48: ch ++;
+         /* fall through */
      case 0x34:	/* MCSPI_CHCTRL */
 -        if (value & ~s->ch[ch].control & 1) {		/* EN */
 -            s->ch[ch].control |= 1;
@@ -570,8 +580,9 @@ index 42d5149..d64c42a 100644
          break;
  
      case 0x74: ch ++;
-     case 0x60: ch ++;
+@@ -321,9 +543,47 @@ static void omap_mcspi_write(void *opaque, hwaddr addr,
      case 0x4c: ch ++;
+         /* fall through */
      case 0x38:	/* MCSPI_TX */
 -        s->ch[ch].tx = value;
 -        s->ch[ch].status &= ~(1 << 1);			/* TXS */
@@ -620,7 +631,7 @@ index 42d5149..d64c42a 100644
          break;
  
      default:
-@@ -314,15 +574,19 @@ static const MemoryRegionOps omap_mcspi_ops = {
+@@ -338,15 +598,19 @@ static const MemoryRegionOps omap_mcspi_ops = {
      .endianness = DEVICE_NATIVE_ENDIAN,
  };
  
@@ -644,7 +655,7 @@ index 42d5149..d64c42a 100644
      while (chnum --) {
          ch->txdrq = *drq ++;
          ch->rxdrq = *drq ++;
-@@ -338,8 +602,9 @@ struct omap_mcspi_s *omap_mcspi_init(struct omap_target_agent_s *ta, int chnum,
+@@ -362,8 +626,9 @@ struct omap_mcspi_s *omap_mcspi_init(struct omap_target_agent_s *ta, int chnum,
  }
  
  void omap_mcspi_attach(struct omap_mcspi_s *s,
@@ -657,5 +668,5 @@ index 42d5149..d64c42a 100644
      if (chipselect < 0 || chipselect >= s->chnum)
          hw_error("%s: Bad chipselect %i\n", __FUNCTION__, chipselect);
 -- 
-1.8.0
+1.8.1.2
 

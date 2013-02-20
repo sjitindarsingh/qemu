@@ -1,7 +1,7 @@
-From 341504518b1f90e072a661bdbe4a78a0602d5e6f Mon Sep 17 00:00:00 2001
+From 0e335416337e41b7f57ccb17e42ac56bf1f6862d Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:03 +0000
-Subject: [PATCH 11/80] omap_gptimer: Add omap_gp_timer_change_clk()
+Subject: [PATCH 11/77] omap_gptimer: Add omap_gp_timer_change_clk()
 
 Add omap_gp_timer_change_clk() functions to inform the gptimer code when
 the clock source for a timer has been changed.
@@ -13,7 +13,7 @@ TODO: is this the best way to do this??
  2 files changed, 7 insertions(+)
 
 diff --git a/hw/omap.h b/hw/omap.h
-index db1b409..42a14c6 100644
+index 086692f..5e9d41d 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -844,6 +844,7 @@ struct omap_gp_timer_s;
@@ -25,7 +25,7 @@ index db1b409..42a14c6 100644
  /* OMAP2 sysctimer */
  struct omap_synctimer_s;
 diff --git a/hw/omap_gptimer.c b/hw/omap_gptimer.c
-index 5336bc4..1f7c648 100644
+index e500884..b019295 100644
 --- a/hw/omap_gptimer.c
 +++ b/hw/omap_gptimer.c
 @@ -75,6 +75,12 @@ struct omap_gp_timer_s {
@@ -42,5 +42,5 @@ index 5336bc4..1f7c648 100644
  {
      if (timer->it_ena & it) {
 -- 
-1.8.0
+1.8.1.2
 

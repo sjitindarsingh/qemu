@@ -157,7 +157,7 @@ static void omap_i2c_fifo_run(OMAPI2CState *s)
 static void omap_i2c_reset(DeviceState *dev)
 {
     OMAPI2CState *s = FROM_SYSBUS(OMAPI2CState,
-                                  sysbus_from_qdev(dev));
+                                  SYS_BUS_DEVICE(dev));
     s->mask = 0;
     s->stat = 0;
     s->dma = 0;
@@ -727,7 +727,7 @@ static void omap_i2c_class_init(ObjectClass *klass, void *data)
     dc->vmsd = &vmstate_omap_i2c;
 }
 
-static TypeInfo omap_i2c_info = {
+static const TypeInfo omap_i2c_info = {
     .name = "omap_i2c",
     .parent = TYPE_SYS_BUS_DEVICE,
     .instance_size = sizeof(OMAPI2CState),
@@ -741,7 +741,7 @@ static void omap_i2c_register_types(void)
 
 i2c_bus *omap_i2c_bus(DeviceState *omap_i2c)
 {
-    OMAPI2CState *s = FROM_SYSBUS(OMAPI2CState, sysbus_from_qdev(omap_i2c));
+    OMAPI2CState *s = FROM_SYSBUS(OMAPI2CState, SYS_BUS_DEVICE(omap_i2c));
     return s->bus;
 }
 

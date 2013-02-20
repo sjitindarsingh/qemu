@@ -1,5 +1,3 @@
-# HG changeset patch
-# Parent 3337a2fcaa60479eb870ba0503dbfea71b7b092b
 Make some pause actions not raise a QMP STOP event.
 
 This is a workaround for the libvirt+Folsom collusion into killing paused VMs.
@@ -12,9 +10,9 @@ Signed-off-by: Adin Scannell <adin@scannell.ca>
 
 Index: qemu/cpus.c
 ===================================================================
---- qemu.orig/cpus.c	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/cpus.c	2013-01-17 10:57:05.920404793 -0600
-@@ -435,7 +435,7 @@
+--- qemu.orig/cpus.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/cpus.c	2013-02-21 08:10:46.407885866 -0600
+@@ -437,7 +437,7 @@
      return !runstate_is_running() || cpu->stopped;
  }
  
@@ -23,7 +21,7 @@ Index: qemu/cpus.c
  {
      if (runstate_is_running()) {
          cpu_disable_ticks();
-@@ -444,7 +444,8 @@
+@@ -446,7 +446,8 @@
          vm_state_notify(0, state);
          bdrv_drain_all();
          bdrv_flush_all();
@@ -33,7 +31,7 @@ Index: qemu/cpus.c
      }
  }
  
-@@ -1064,7 +1065,7 @@
+@@ -1066,7 +1067,7 @@
      }
  }
  
@@ -42,7 +40,7 @@ Index: qemu/cpus.c
  {
      if (qemu_in_vcpu_thread()) {
          qemu_system_vmstop_request(state);
-@@ -1075,7 +1076,7 @@
+@@ -1077,7 +1078,7 @@
          cpu_stop_current();
          return;
      }
@@ -51,7 +49,7 @@ Index: qemu/cpus.c
  }
  
  /* does a state transition even if the VM is already stopped,
-@@ -1083,7 +1084,7 @@
+@@ -1085,7 +1086,7 @@
  void vm_stop_force_state(RunState state)
  {
      if (runstate_is_running()) {
@@ -62,9 +60,9 @@ Index: qemu/cpus.c
      }
 Index: qemu/hmp.c
 ===================================================================
---- qemu.orig/hmp.c	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/hmp.c	2013-01-17 10:57:05.924404793 -0600
-@@ -636,7 +636,7 @@
+--- qemu.orig/hmp.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/hmp.c	2013-02-21 08:10:46.411885866 -0600
+@@ -615,7 +615,7 @@
  
  void hmp_stop(Monitor *mon, const QDict *qdict)
  {
@@ -73,11 +71,39 @@ Index: qemu/hmp.c
  }
  
  void hmp_system_reset(Monitor *mon, const QDict *qdict)
+Index: qemu/include/sysemu/sysemu.h
+===================================================================
+--- qemu.orig/include/sysemu/sysemu.h	2013-02-21 08:10:46.423885866 -0600
++++ qemu/include/sysemu/sysemu.h	2013-02-21 08:10:46.411885866 -0600
+@@ -34,7 +34,9 @@
+ #define VMRESET_REPORT   true
+ 
+ void vm_start(void);
+-void vm_stop(RunState state);
++void __vm_stop(RunState state, bool silent);
++#define vm_stop(s)          __vm_stop(s, 0)
++#define vm_stop_silent(s)   __vm_stop(s, 1)
+ void vm_stop_force_state(RunState state);
+ 
+ typedef enum WakeupReason {
+Index: qemu/migration.c
+===================================================================
+--- qemu.orig/migration.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/migration.c	2013-02-21 08:10:46.411885866 -0600
+@@ -704,7 +704,7 @@
+                 start_time = qemu_get_clock_ms(rt_clock);
+                 qemu_system_wakeup_request(QEMU_WAKEUP_REASON_OTHER);
+                 if (old_vm_running) {
+-                    vm_stop(RUN_STATE_FINISH_MIGRATE);
++                    vm_stop_silent(RUN_STATE_FINISH_MIGRATE);
+                 } else {
+                     vm_stop_force_state(RUN_STATE_FINISH_MIGRATE);
+                 }
 Index: qemu/monitor.c
 ===================================================================
---- qemu.orig/monitor.c	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/monitor.c	2013-01-17 10:57:05.924404793 -0600
-@@ -2070,7 +2070,7 @@
+--- qemu.orig/monitor.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/monitor.c	2013-02-21 08:10:46.411885866 -0600
+@@ -2062,7 +2062,7 @@
      int saved_vm_running  = runstate_is_running();
      const char *name = qdict_get_str(qdict, "name");
  
@@ -88,9 +114,9 @@ Index: qemu/monitor.c
          vm_start();
 Index: qemu/qapi-schema.json
 ===================================================================
---- qemu.orig/qapi-schema.json	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/qapi-schema.json	2013-01-17 10:57:05.928404793 -0600
-@@ -1257,7 +1257,7 @@
+--- qemu.orig/qapi-schema.json	2013-02-21 08:10:46.423885866 -0600
++++ qemu/qapi-schema.json	2013-02-21 08:10:46.415885866 -0600
+@@ -1298,7 +1298,7 @@
  #         remains paused once migration finishes, as if the -S option was
  #         passed on the command line.
  ##
@@ -99,23 +125,10 @@ Index: qemu/qapi-schema.json
  
  ##
  # @system_reset:
-Index: qemu/qemu-tool.c
-===================================================================
---- qemu.orig/qemu-tool.c	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/qemu-tool.c	2013-01-17 10:57:05.928404793 -0600
-@@ -38,7 +38,7 @@
- 
- Monitor *cur_mon;
- 
--void vm_stop(RunState state)
-+void __vm_stop(RunState state, bool silent)
- {
-     abort();
- }
 Index: qemu/qmp-commands.hx
 ===================================================================
---- qemu.orig/qmp-commands.hx	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/qmp-commands.hx	2013-01-17 10:57:05.928404793 -0600
+--- qemu.orig/qmp-commands.hx	2013-02-21 08:10:46.423885866 -0600
++++ qemu/qmp-commands.hx	2013-02-21 08:10:46.415885866 -0600
 @@ -168,7 +168,9 @@
  
      {
@@ -140,9 +153,9 @@ Index: qemu/qmp-commands.hx
  
 Index: qemu/qmp.c
 ===================================================================
---- qemu.orig/qmp.c	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/qmp.c	2013-01-17 10:57:05.928404793 -0600
-@@ -83,12 +83,13 @@
+--- qemu.orig/qmp.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/qmp.c	2013-02-21 08:10:46.415885866 -0600
+@@ -84,12 +84,13 @@
      qemu_system_shutdown_request();
  }
  
@@ -160,9 +173,9 @@ Index: qemu/qmp.c
  
 Index: qemu/savevm.c
 ===================================================================
---- qemu.orig/savevm.c	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/savevm.c	2013-01-17 10:57:05.928404793 -0600
-@@ -2112,7 +2112,7 @@
+--- qemu.orig/savevm.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/savevm.c	2013-02-21 08:10:46.415885866 -0600
+@@ -2143,7 +2143,7 @@
      }
  
      saved_vm_running = runstate_is_running();
@@ -171,18 +184,16 @@ Index: qemu/savevm.c
  
      memset(sn, 0, sizeof(*sn));
  
-Index: qemu/sysemu.h
+Index: qemu/stubs/vm-stop.c
 ===================================================================
---- qemu.orig/sysemu.h	2013-01-17 10:57:05.936404793 -0600
-+++ qemu/sysemu.h	2013-01-17 10:57:05.932404793 -0600
-@@ -34,7 +34,9 @@
- #define VMRESET_REPORT   true
+--- qemu.orig/stubs/vm-stop.c	2013-02-21 08:10:46.423885866 -0600
++++ qemu/stubs/vm-stop.c	2013-02-21 08:10:46.415885866 -0600
+@@ -1,7 +1,7 @@
+ #include "qemu-common.h"
+ #include "sysemu/sysemu.h"
  
- void vm_start(void);
--void vm_stop(RunState state);
-+void __vm_stop(RunState state, bool silent);
-+#define vm_stop(s)          __vm_stop(s, 0)
-+#define vm_stop_silent(s)   __vm_stop(s, 1)
- void vm_stop_force_state(RunState state);
- 
- typedef enum WakeupReason {
+-void vm_stop(RunState state)
++void __vm_stop(RunState state, bool silent)
+ {
+     abort();
+ }

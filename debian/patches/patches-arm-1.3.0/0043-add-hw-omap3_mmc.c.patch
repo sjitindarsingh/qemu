@@ -1,7 +1,7 @@
-From 1e5366576d65b90a5b23890eaa2c503f9803d9c2 Mon Sep 17 00:00:00 2001
+From fa11203608aa0344a2c26c7babe892e3036b76d3 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:11 +0000
-Subject: [PATCH 43/80] add hw/omap3_mmc.c
+Subject: [PATCH 43/77] add hw/omap3_mmc.c
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -69,7 +69,7 @@ index b94b6ae..0efefee 100644
  obj-y += nseries.o blizzard.o onenand.o cbus.o tusb6010.o usb/hcd-musb.o
  obj-y += mst_fpga.o mainstone.o
 diff --git a/hw/omap.h b/hw/omap.h
-index 922aac8..93be592 100644
+index de42447..2bf35a3 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -960,6 +960,10 @@ void omap_mmc_reset(struct omap_mmc_s *s);
@@ -85,7 +85,7 @@ index 922aac8..93be592 100644
  
 diff --git a/hw/omap3_mmc.c b/hw/omap3_mmc.c
 new file mode 100644
-index 0000000..ca4dbd2
+index 0000000..99adf58
 --- /dev/null
 +++ b/hw/omap3_mmc.c
 @@ -0,0 +1,797 @@
@@ -220,7 +220,7 @@ index 0000000..ca4dbd2
 +static void omap3_mmc_reset(DeviceState *dev)
 +{
 +    struct omap3_mmc_s *s = FROM_SYSBUS(struct omap3_mmc_s,
-+                                        sysbus_from_qdev(dev));
++                                        SYS_BUS_DEVICE(dev));
 +    s->sysconfig = 0x00000015;
 +    s->sysstatus = 0;
 +    s->csre      = 0;
@@ -878,7 +878,7 @@ index 0000000..ca4dbd2
 +                      int is_spi, int is_mmc)
 +{
 +    struct omap3_mmc_s *s = FROM_SYSBUS(struct omap3_mmc_s,
-+                                        sysbus_from_qdev(dev));
++                                        SYS_BUS_DEVICE(dev));
 +    if (s->card) {
 +        hw_error("%s: card already attached!", __FUNCTION__);
 +    }
@@ -887,5 +887,5 @@ index 0000000..ca4dbd2
 +
 +type_init(omap3_mmc_register_types)
 -- 
-1.8.0
+1.8.1.2
 

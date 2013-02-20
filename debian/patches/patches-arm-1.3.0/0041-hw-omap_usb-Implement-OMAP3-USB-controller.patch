@@ -1,7 +1,7 @@
-From 398f7c2a9cbfe20e90055a1657c3e522ff1ee203 Mon Sep 17 00:00:00 2001
+From 8c3e3cb669bcfd0ef69bf03d35e00369a2ef053f Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:10 +0000
-Subject: [PATCH 41/80] hw/omap_usb: Implement OMAP3 USB controller
+Subject: [PATCH 41/77] hw/omap_usb: Implement OMAP3 USB controller
 
 ---
  hw/arm/Makefile.objs |   1 +
@@ -23,7 +23,7 @@ index 6d049e7..bcf9de5 100644
  obj-y += mst_fpga.o mainstone.o
 diff --git a/hw/omap_usb.c b/hw/omap_usb.c
 new file mode 100644
-index 0000000..856a704
+index 0000000..92b1e0b
 --- /dev/null
 +++ b/hw/omap_usb.c
 @@ -0,0 +1,506 @@
@@ -47,7 +47,7 @@ index 0000000..856a704
 + * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 + */
 +#include "qemu-common.h"
-+#include "qemu-timer.h"
++#include "qemu/timer.h"
 +#include "usb.h"
 +#include "omap.h"
 +#include "irq.h"
@@ -106,7 +106,7 @@ index 0000000..856a704
 +static void omap3_hsusb_otg_reset(DeviceState *dev)
 +{
 +    OMAP3HSUSBOTGState *s = FROM_SYSBUS(OMAP3HSUSBOTGState,
-+                                        sysbus_from_qdev(dev));
++                                        SYS_BUS_DEVICE(dev));
 +    s->rev = 0x33;
 +    s->sysconfig = 0;
 +    s->interfsel = 0x1;
@@ -314,7 +314,7 @@ index 0000000..856a704
 +static void omap3_hsusb_host_reset(DeviceState *dev)
 +{
 +    OMAP3HSUSBHostState *s = FROM_SYSBUS(OMAP3HSUSBHostState,
-+                                         sysbus_from_qdev(dev));
++                                         SYS_BUS_DEVICE(dev));
 +    s->uhh_sysconfig = 1;
 +    s->uhh_hostconfig = 0x700;
 +    s->uhh_debug_csr = 0x20;
@@ -534,5 +534,5 @@ index 0000000..856a704
 +
 +type_init(omap3_hsusb_register_types)
 -- 
-1.8.0
+1.8.1.2
 

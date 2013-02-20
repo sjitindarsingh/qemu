@@ -1,7 +1,7 @@
-From 74ec7582ed989df611add3aee9ae25cbd87a95d0 Mon Sep 17 00:00:00 2001
+From 8bbe455e98d5115b7c984d0a30f29a3631a8e3d3 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:14 +0000
-Subject: [PATCH 55/80] hw/i2c-ddc.c: Implement DDC I2C slave
+Subject: [PATCH 55/77] hw/i2c-ddc.c: Implement DDC I2C slave
 
 Implement an I2C slave which implements DDC and returns the
 EDID data for an attached monitor.
@@ -14,10 +14,10 @@ Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
  create mode 100644 hw/i2c-ddc.c
 
 diff --git a/hw/Makefile.objs b/hw/Makefile.objs
-index ad5fb67..1d50d8b 100644
+index 5418796..54521f2 100644
 --- a/hw/Makefile.objs
 +++ b/hw/Makefile.objs
-@@ -173,6 +173,7 @@ common-obj-$(CONFIG_ADS7846) += ads7846.o
+@@ -177,6 +177,7 @@ common-obj-$(CONFIG_ADS7846) += ads7846.o
  common-obj-$(CONFIG_MAX111X) += max111x.o
  common-obj-$(CONFIG_DS1338) += ds1338.o
  common-obj-y += i2c.o spi.o smbus.o smbus_eeprom.o
@@ -27,7 +27,7 @@ index ad5fb67..1d50d8b 100644
  common-obj-y += scsi-generic.o scsi-bus.o
 diff --git a/hw/i2c-ddc.c b/hw/i2c-ddc.c
 new file mode 100644
-index 0000000..b7d7a52
+index 0000000..028aff4
 --- /dev/null
 +++ b/hw/i2c-ddc.c
 @@ -0,0 +1,300 @@
@@ -259,7 +259,7 @@ index 0000000..b7d7a52
 +
 +static void i2c_ddc_reset(DeviceState *ds)
 +{
-+    I2CDDCState *s = FROM_I2C_SLAVE(I2CDDCState, I2C_SLAVE_FROM_QDEV(ds));
++    I2CDDCState *s = FROM_I2C_SLAVE(I2CDDCState, I2C_SLAVE(ds));
 +    s->firstbyte = 0;
 +    s->reg = 0;
 +}
@@ -332,5 +332,5 @@ index 0000000..b7d7a52
 +
 +type_init(ddc_register_types);
 -- 
-1.8.0
+1.8.1.2
 

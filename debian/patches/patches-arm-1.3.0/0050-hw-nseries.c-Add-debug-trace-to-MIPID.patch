@@ -1,19 +1,19 @@
-From 484bd562196016e2763ee3850ee44f16d5211eb3 Mon Sep 17 00:00:00 2001
+From f2ed458500b68d826c81664fd3f5c252a00b752e Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:13 +0000
-Subject: [PATCH 50/80] hw/nseries.c: Add debug trace to MIPID
+Subject: [PATCH 50/77] hw/nseries.c: Add debug trace to MIPID
 
 ---
  hw/nseries.c | 63 +++++++++++++++++++++++++++++++++++++++++++++++++++---------
  1 file changed, 54 insertions(+), 9 deletions(-)
 
 diff --git a/hw/nseries.c b/hw/nseries.c
-index 12f597d..9b2d709 100644
+index 6891345..ed32997 100644
 --- a/hw/nseries.c
 +++ b/hw/nseries.c
 @@ -36,6 +36,15 @@
  #include "sysbus.h"
- #include "exec-memory.h"
+ #include "exec/address-spaces.h"
  
 +//#define MIPID_DEBUG
 +
@@ -251,5 +251,5 @@ index 12f597d..9b2d709 100644
      }
  
 -- 
-1.8.0
+1.8.1.2
 

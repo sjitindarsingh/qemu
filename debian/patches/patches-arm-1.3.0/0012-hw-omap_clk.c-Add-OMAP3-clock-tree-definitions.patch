@@ -1,7 +1,7 @@
-From 4c166b4da4115bd3602f818c84a38b83d0b3bd24 Mon Sep 17 00:00:00 2001
+From f57ac9b16fbed4199b5f89ff0343035b2927be0d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:04 +0000
-Subject: [PATCH 12/80] hw/omap_clk.c: Add OMAP3 clock tree definitions
+Subject: [PATCH 12/77] hw/omap_clk.c: Add OMAP3 clock tree definitions
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -790,5 +790,5 @@ index 8448006..a049c23 100644
      for (i = onchip_clks, count = 0; *i; i ++)
          if ((*i)->flags & flag)
 -- 
-1.8.0
+1.8.1.2
 

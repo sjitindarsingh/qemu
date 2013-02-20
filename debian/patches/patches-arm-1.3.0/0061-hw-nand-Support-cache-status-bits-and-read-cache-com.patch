@@ -1,7 +1,7 @@
-From 14b79752671d0be7791be94c335cb5d23dbd9f24 Mon Sep 17 00:00:00 2001
+From 5ad0cdcd12fb6e018da4e75cbeb6d7ec52431a06 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:16 +0000
-Subject: [PATCH 61/80] hw/nand: Support cache status bits and read cache
+Subject: [PATCH 61/77] hw/nand: Support cache status bits and read cache
  commands
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -24,7 +24,7 @@ Signed-off-by:  Peter Maydell <peter.maydell@linaro.org>
  1 file changed, 12 insertions(+), 3 deletions(-)
 
 diff --git a/hw/nand.c b/hw/nand.c
-index 01f3ada..5ff1a91 100644
+index 4a71265..6c99068 100644
 --- a/hw/nand.c
 +++ b/hw/nand.c
 @@ -28,6 +28,9 @@
@@ -85,5 +85,5 @@ index 01f3ada..5ff1a91 100644
  
          if (s->cmd != NAND_CMD_RANDOMREAD2) {
 -- 
-1.8.0
+1.8.1.2
 

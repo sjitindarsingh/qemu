@@ -19,6 +19,7 @@ LDFLAGS = $(shell dpkg-buildflags --get LDFLAGS) -Wl,--as-needed
 DEB_HOST_ARCH = $(shell dpkg-architecture -qDEB_HOST_ARCH)
 DEB_HOST_ARCH_OS = $(shell dpkg-architecture -qDEB_HOST_ARCH_OS)
 
+# we add another set of configure options from debian/control
 common_configure_opts = \
 	--with-pkgversion="Debian $(DEB_VERSION)" \
 	--extra-cflags="$(CFLAGS)" \
@@ -31,6 +32,7 @@ common_configure_opts = \
 	--with-system-pixman \
 	--interp-prefix=/etc/qemu-binfmt/%M \
 	--localstatedir=/var \
+	--audio-card-list=ac97,es1370,sb16,cs4231a,adlib,gus,hda \
 	--enable-uname-release=2.6.32 \
 
 # list of system (softmmu) targets, from ./configure
@@ -90,10 +92,11 @@ configure-stamp: configure
 
 	# system build
 	mkdir -p qemu-build && cd qemu-build && \
-		../configure ${common_configure_opts} \
-			--enable-system --disable-user ${enable_linux_user} \
-			$(shell sh debian/configure-opts $(DEB_HOST_ARCH) $(DEB_HOST_ARCH_OS)) \
-			$(QEMU_CONFIGURE_OPTIONS)
+	   ../configure ${common_configure_opts} \
+		--enable-system --disable-user ${enable_linux_user} \
+		$(shell sh debian/extract-config-opts \
+		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
+		$(QEMU_CONFIGURE_OPTIONS)
 
 ifeq ($(DEB_HOST_ARCH_OS),kfreebsd)
 # Hack alert.  qemu-1.3 still needs this.
@@ -161,7 +164,7 @@ define inst-system
 	mkdir -p debian/qemu-system-$1/usr/share/man/man1 debian/qemu-system-$1/usr/bin
 	for t in ${sysarch_$1}; do \
 	    mv debian/tmp/usr/bin/qemu-system-$$t debian/qemu-system-$1/usr/bin/; \
-	    echo ".so qemu.1" > debian/qemu-system-$1/usr/share/man/man1/qemu-system-$$t.1; \
+	    echo ".so man1/qemu.1" > debian/qemu-system-$1/usr/share/man/man1/qemu-system-$$t.1; \
 	done
 	echo sysarch:$1=${sysarch_$1} > debian/qemu-system-$1.substvars
 	echo sysprovides:$1=${addprefix qemu-system-,${filter-out $1,${sysarch_$1}}} | \
@@ -231,9 +234,12 @@ endif
 
 	dh_install --list-missing
 	dh_installdocs
-	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 	dh_installchangelogs Changelog
 	dh_installudev
+ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
+	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
+endif
+	dh_installinit -pqemu-guest-agent
 	dh_link
 	dh_strip
 	dh_compress

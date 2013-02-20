@@ -19,17 +19,17 @@
  */
 
 #include "qemu-common.h"
-#include "sysemu.h"
+#include "sysemu/sysemu.h"
 #include "omap.h"
 #include "arm-misc.h"
 #include "boards.h"
 #include "i2c.h"
-#include "net.h"
+#include "net/net.h"
 #include "devices.h"
 #include "flash.h"
 #include "sysbus.h"
-#include "blockdev.h"
-#include "exec-memory.h"
+#include "sysemu/blockdev.h"
+#include "exec/address-spaces.h"
 
 #define OVERO_NAND_CS       0
 #define OVERO_NET_CS        5
@@ -91,8 +91,8 @@ static void overo_init(QEMUMachineInitArgs *args)
         qdev_set_nic_properties(s->eth, nd);
         qdev_init_nofail(s->eth);
         omap_gpmc_attach(s->cpu->gpmc, OVERO_NET_CS,
-                         sysbus_mmio_get_region(sysbus_from_qdev(s->eth), 0));
-        sysbus_connect_irq(sysbus_from_qdev(s->eth), 0,
+                         sysbus_mmio_get_region(SYS_BUS_DEVICE(s->eth), 0));
+        sysbus_connect_irq(SYS_BUS_DEVICE(s->eth), 0,
                            qdev_get_gpio_in(s->cpu->gpio, 176));
     }
 }

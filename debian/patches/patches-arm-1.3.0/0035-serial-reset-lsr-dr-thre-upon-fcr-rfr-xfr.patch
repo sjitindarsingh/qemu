@@ -1,7 +1,7 @@
-From 5a1f9187160a3adb5fd573da3e72c29dbe65293f Mon Sep 17 00:00:00 2001
+From 83c005979b6ff38dd12eb4b3480a99e55e123102 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:09 +0000
-Subject: [PATCH 35/80] serial: reset lsr dr/thre upon fcr rfr/xfr
+Subject: [PATCH 35/77] serial: reset lsr dr/thre upon fcr rfr/xfr
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -24,10 +24,10 @@ Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
  1 file changed, 7 insertions(+)
 
 diff --git a/hw/serial.c b/hw/serial.c
-index baf9477..67ce24f 100644
+index d71e8f8..c8a015a 100644
 --- a/hw/serial.c
 +++ b/hw/serial.c
-@@ -374,10 +374,17 @@ static void serial_ioport_write(void *opaque, hwaddr addr, uint64_t val,
+@@ -372,10 +372,17 @@ static void serial_ioport_write(void *opaque, hwaddr addr, uint64_t val,
              qemu_del_timer(s->fifo_timeout_timer);
              s->timeout_ipending=0;
              fifo_clear(s,RECV_FIFO);
@@ -46,5 +46,5 @@ index baf9477..67ce24f 100644
  
          if (val & UART_FCR_FE) {
 -- 
-1.8.0
+1.8.1.2
 

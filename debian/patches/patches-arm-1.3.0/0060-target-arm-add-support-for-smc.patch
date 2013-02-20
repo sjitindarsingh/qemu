@@ -1,7 +1,7 @@
-From 6d4185954ff22728f8ed752d058889e7dbec4c0e Mon Sep 17 00:00:00 2001
+From 873513335852a2020fc13c0e8e2106272066c503 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:16 +0000
-Subject: [PATCH 60/80] target-arm: add support for smc
+Subject: [PATCH 60/77] target-arm: add support for smc
 
 ---
  target-arm/cpu.h       | 10 +++++++---
@@ -10,7 +10,7 @@ Subject: [PATCH 60/80] target-arm: add support for smc
  3 files changed, 84 insertions(+), 17 deletions(-)
 
 diff --git a/target-arm/cpu.h b/target-arm/cpu.h
-index 260b9a8..c73c4d8 100644
+index 36a2099..415017d 100644
 --- a/target-arm/cpu.h
 +++ b/target-arm/cpu.h
 @@ -43,6 +43,7 @@
@@ -52,10 +52,10 @@ index 260b9a8..c73c4d8 100644
    ARM_CPU_MODE_UND = 0x1b,
    ARM_CPU_MODE_SYS = 0x1f
 diff --git a/target-arm/helper.c b/target-arm/helper.c
-index e2eb8cd..9f6deed 100644
+index 9cce15d..8919fb7 100644
 --- a/target-arm/helper.c
 +++ b/target-arm/helper.c
-@@ -1011,6 +1011,12 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
+@@ -1012,6 +1012,12 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
      REGINFO_SENTINEL
  };
  
@@ -68,7 +68,7 @@ index e2eb8cd..9f6deed 100644
  static const ARMCPRegInfo trustzone_cp_reginfo[] = {
      /* Dummy implementations of registers; we don't enforce the
       * 'secure mode only' access checks. TODO: revisit as part of
-@@ -1026,9 +1032,11 @@ static const ARMCPRegInfo trustzone_cp_reginfo[] = {
+@@ -1027,9 +1033,11 @@ static const ARMCPRegInfo trustzone_cp_reginfo[] = {
        .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_nseac),
        .resetvalue = 0 },
      { .name = "VBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 0,
@@ -82,7 +82,7 @@ index e2eb8cd..9f6deed 100644
      REGINFO_SENTINEL
  };
  
-@@ -1651,6 +1659,8 @@ static inline int bank_number(CPUARMState *env, int mode)
+@@ -1654,6 +1662,8 @@ static inline int bank_number(CPUARMState *env, int mode)
          return 4;
      case ARM_CPU_MODE_FIQ:
          return 5;
@@ -91,7 +91,7 @@ index e2eb8cd..9f6deed 100644
      }
      cpu_abort(env, "Bad mode %x\n", mode);
      return -1;
-@@ -1904,13 +1914,39 @@ void do_interrupt(CPUARMState *env)
+@@ -1907,13 +1917,39 @@ void do_interrupt(CPUARMState *env)
          mask = CPSR_A | CPSR_I | CPSR_F;
          offset = 4;
          break;
@@ -135,7 +135,7 @@ index e2eb8cd..9f6deed 100644
      switch_mode (env, new_mode);
      env->spsr = cpsr_read(env);
 diff --git a/target-arm/translate.c b/target-arm/translate.c
-index c42110a..c1e3e0d 100644
+index a8893f7..fb1048d 100644
 --- a/target-arm/translate.c
 +++ b/target-arm/translate.c
 @@ -80,6 +80,7 @@ static uint32_t gen_opc_condexec_bits[OPC_BUF_SIZE];
@@ -159,7 +159,7 @@ index c42110a..c1e3e0d 100644
  static inline TCGv gen_ld8s(TCGv addr, int index)
  {
      TCGv tmp = tcg_temp_new_i32();
-@@ -6759,8 +6766,13 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
+@@ -6762,8 +6769,13 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
          } else if ((insn & 0x0fe00000) == 0x0c400000) {
              /* Coprocessor double register transfer.  */
              ARCH(5TE);
@@ -173,7 +173,7 @@ index c42110a..c1e3e0d 100644
          } else if ((insn & 0x0ff10020) == 0x01000000) {
              uint32_t mask;
              uint32_t val;
-@@ -6911,15 +6923,19 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
+@@ -6914,15 +6926,19 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
              store_reg(s, rd, tmp);
              break;
          case 7:
@@ -200,7 +200,7 @@ index c42110a..c1e3e0d 100644
              break;
          case 0x8: /* signed multiply */
          case 0xa:
-@@ -8574,8 +8590,12 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
+@@ -8577,8 +8593,12 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
                      goto illegal_op;
  
                  if (insn & (1 << 26)) {
@@ -215,7 +215,7 @@ index c42110a..c1e3e0d 100644
                  } else {
                      op = (insn >> 20) & 7;
                      switch (op) {
-@@ -9905,6 +9925,8 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
+@@ -9908,6 +9928,8 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
              gen_set_condexec(dc);
              if (dc->is_jmp == DISAS_SWI) {
                  gen_exception(EXCP_SWI);
@@ -224,7 +224,7 @@ index c42110a..c1e3e0d 100644
              } else {
                  gen_exception(EXCP_DEBUG);
              }
-@@ -9917,6 +9939,8 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
+@@ -9920,6 +9942,8 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
          gen_set_condexec(dc);
          if (dc->is_jmp == DISAS_SWI && !dc->condjmp) {
              gen_exception(EXCP_SWI);
@@ -233,7 +233,7 @@ index c42110a..c1e3e0d 100644
          } else {
              /* FIXME: Single stepping a WFI insn will not halt
                 the CPU.  */
-@@ -9951,6 +9975,9 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
+@@ -9954,6 +9978,9 @@ static inline void gen_intermediate_code_internal(CPUARMState *env,
          case DISAS_SWI:
              gen_exception(EXCP_SWI);
              break;
@@ -244,5 +244,5 @@ index c42110a..c1e3e0d 100644
          if (dc->condjmp) {
              gen_set_label(dc->condlabel);
 -- 
-1.8.0
+1.8.1.2
 

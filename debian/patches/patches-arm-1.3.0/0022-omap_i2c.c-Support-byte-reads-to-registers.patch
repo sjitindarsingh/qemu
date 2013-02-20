@@ -1,7 +1,7 @@
-From e5a64556046ac24a624ec4381f3f47b2dbedf910 Mon Sep 17 00:00:00 2001
+From d95771c87d60db56f048cf868114afa623fa8056 Mon Sep 17 00:00:00 2001
 From: Matt Waddel <matt.waddel@ubuntu.com>
 Date: Tue, 4 Dec 2012 14:10:06 +0000
-Subject: [PATCH 22/80] omap_i2c.c: Support byte reads to registers
+Subject: [PATCH 22/77] omap_i2c.c: Support byte reads to registers
 
 Added support for the byte read of the omap i2c system.
 Handling is similar to the way i2c_write and i2c_writeb work.
@@ -10,7 +10,7 @@ Handling is similar to the way i2c_write and i2c_writeb work.
  1 file changed, 56 insertions(+), 1 deletion(-)
 
 diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
-index 6c991ed..cabc019 100644
+index 79e16e9..6932484 100644
 --- a/hw/omap_i2c.c
 +++ b/hw/omap_i2c.c
 @@ -322,6 +322,61 @@ static uint32_t omap_i2c_read(void *opaque, hwaddr addr)
@@ -85,5 +85,5 @@ index 6c991ed..cabc019 100644
              omap_badwidth_read16,
          },
 -- 
-1.8.0
+1.8.1.2
 

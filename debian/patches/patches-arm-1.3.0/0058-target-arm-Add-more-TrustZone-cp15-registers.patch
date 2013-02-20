@@ -1,7 +1,7 @@
-From 8b6fd649821e6aafbcebb52fbafeb1c95577996f Mon Sep 17 00:00:00 2001
+From 532a3367cb4ddcd8b811a87571920236653cd7f8 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:15 +0000
-Subject: [PATCH 58/80] target-arm: Add more TrustZone cp15 registers
+Subject: [PATCH 58/77] target-arm: Add more TrustZone cp15 registers
 
 Add implementations of some more TrustZone cp15 registers
 (we already had the Secure Configuration Register) and
@@ -17,10 +17,10 @@ proposals.
  4 files changed, 35 insertions(+), 3 deletions(-)
 
 diff --git a/target-arm/cpu.c b/target-arm/cpu.c
-index b00f5fa..8c5e95d6 100644
+index 1c6a628..f489c49 100644
 --- a/target-arm/cpu.c
 +++ b/target-arm/cpu.c
-@@ -325,6 +325,7 @@ static void arm1176_initfn(Object *obj)
+@@ -344,6 +344,7 @@ static void arm1176_initfn(Object *obj)
      set_feature(&cpu->env, ARM_FEATURE_DUMMY_C15_REGS);
      set_feature(&cpu->env, ARM_FEATURE_CACHE_DIRTY_REG);
      set_feature(&cpu->env, ARM_FEATURE_CACHE_BLOCK_OPS);
@@ -28,7 +28,7 @@ index b00f5fa..8c5e95d6 100644
      cpu->midr = 0x410fb767;
      cpu->reset_fpsid = 0x410120b5;
      cpu->mvfr0 = 0x11111111;
-@@ -398,6 +399,7 @@ static void cortex_a8_initfn(Object *obj)
+@@ -417,6 +418,7 @@ static void cortex_a8_initfn(Object *obj)
      set_feature(&cpu->env, ARM_FEATURE_NEON);
      set_feature(&cpu->env, ARM_FEATURE_THUMB2EE);
      set_feature(&cpu->env, ARM_FEATURE_DUMMY_C15_REGS);
@@ -36,7 +36,7 @@ index b00f5fa..8c5e95d6 100644
      cpu->midr = 0x410fc080;
      cpu->reset_fpsid = 0x410330c0;
      cpu->mvfr0 = 0x11110222;
-@@ -467,6 +469,7 @@ static void cortex_a9_initfn(Object *obj)
+@@ -486,6 +488,7 @@ static void cortex_a9_initfn(Object *obj)
       * and valid configurations; we don't model A9UP).
       */
      set_feature(&cpu->env, ARM_FEATURE_V7MP);
@@ -44,7 +44,7 @@ index b00f5fa..8c5e95d6 100644
      cpu->midr = 0x410fc090;
      cpu->reset_fpsid = 0x41033090;
      cpu->mvfr0 = 0x11110222;
-@@ -536,6 +539,7 @@ static void cortex_a15_initfn(Object *obj)
+@@ -555,6 +558,7 @@ static void cortex_a15_initfn(Object *obj)
      set_feature(&cpu->env, ARM_FEATURE_GENERIC_TIMER);
      set_feature(&cpu->env, ARM_FEATURE_DUMMY_C15_REGS);
      set_feature(&cpu->env, ARM_FEATURE_LPAE);
@@ -53,7 +53,7 @@ index b00f5fa..8c5e95d6 100644
      cpu->reset_fpsid = 0x410430f0;
      cpu->mvfr0 = 0x10110222;
 diff --git a/target-arm/cpu.h b/target-arm/cpu.h
-index e4ff918..260b9a8 100644
+index ffddfcb..36a2099 100644
 --- a/target-arm/cpu.h
 +++ b/target-arm/cpu.h
 @@ -112,6 +112,8 @@ typedef struct CPUARMState {
@@ -74,7 +74,7 @@ index e4ff918..260b9a8 100644
  
  static inline int arm_feature(CPUARMState *env, int feature)
 diff --git a/target-arm/helper.c b/target-arm/helper.c
-index ab8b734..e2eb8cd 100644
+index eb7b291..9cce15d 100644
 --- a/target-arm/helper.c
 +++ b/target-arm/helper.c
 @@ -408,9 +408,6 @@ static const ARMCPRegInfo v7_cp_reginfo[] = {
@@ -87,7 +87,7 @@ index ab8b734..e2eb8cd 100644
      { .name = "CCSIDR", .cp = 15, .crn = 0, .crm = 0, .opc1 = 1, .opc2 = 0,
        .access = PL1_R, .readfn = ccsidr_read },
      { .name = "CSSELR", .cp = 15, .crn = 0, .crm = 0, .opc1 = 2, .opc2 = 0,
-@@ -1014,6 +1011,27 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
+@@ -1015,6 +1012,27 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
      REGINFO_SENTINEL
  };
  
@@ -115,7 +115,7 @@ index ab8b734..e2eb8cd 100644
  static int sctlr_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
  {
      env->cp15.c1_sys = value;
-@@ -1162,6 +1180,9 @@ void register_cp_regs_for_features(ARMCPU *cpu)
+@@ -1163,6 +1181,9 @@ void register_cp_regs_for_features(ARMCPU *cpu)
      if (arm_feature(env, ARM_FEATURE_LPAE)) {
          define_arm_cp_regs(cpu, lpae_cp_reginfo);
      }
@@ -148,5 +148,5 @@ index 68dca7f..57c6d86 100644
      env->cp15.c2_base0_hi = qemu_get_be32(f);
      env->cp15.c2_base1 = qemu_get_be32(f);
 -- 
-1.8.0
+1.8.1.2
 

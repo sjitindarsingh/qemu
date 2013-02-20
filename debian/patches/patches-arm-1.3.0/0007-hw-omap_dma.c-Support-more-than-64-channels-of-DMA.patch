@@ -1,7 +1,7 @@
-From 8cef1f276c5c2acce24cf84dd6b1a37e2656cb48 Mon Sep 17 00:00:00 2001
+From 1002b1382c7d7dad5a4dec94dcb3e35f15880791 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:02 +0000
-Subject: [PATCH 07/80] hw/omap_dma.c: Support more than 64 channels of DMA
+Subject: [PATCH 07/77] hw/omap_dma.c: Support more than 64 channels of DMA
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -23,7 +23,7 @@ Signed-off-by:  Peter Maydell <peter.maydell@linaro.org>
  3 files changed, 12 insertions(+), 8 deletions(-)
 
 diff --git a/hw/omap_dma.c b/hw/omap_dma.c
-index e619c7b..c316281 100644
+index 0c878b6..d2db99e 100644
 --- a/hw/omap_dma.c
 +++ b/hw/omap_dma.c
 @@ -248,8 +248,9 @@ static void omap_dma_deactivate_channel(struct omap_dma_s *s,
@@ -68,7 +68,7 @@ index e619c7b..c316281 100644
  
  /* XXX: this won't be needed once soc_dma knows about clocks.  */
 diff --git a/hw/soc_dma.c b/hw/soc_dma.c
-index 50d5f84..100e6ac 100644
+index 64e8ee1..b5fc26c 100644
 --- a/hw/soc_dma.c
 +++ b/hw/soc_dma.c
 @@ -229,7 +229,7 @@ void soc_dma_reset(struct soc_dma_s *soc)
@@ -81,11 +81,11 @@ index 50d5f84..100e6ac 100644
      s->enabled_count = 0;
      soc_dma_ch_freq_update(s);
 diff --git a/hw/soc_dma.h b/hw/soc_dma.h
-index 5948489..b84441b 100644
+index 7379731..94f1055 100644
 --- a/hw/soc_dma.h
 +++ b/hw/soc_dma.h
-@@ -21,6 +21,8 @@
- #include "memory.h"
+@@ -25,6 +25,8 @@
+ #include "exec/memory.h"
  #include "hw/irq.h"
  
 +#define DMA_MAX_DRQ 96
@@ -93,7 +93,7 @@ index 5948489..b84441b 100644
  struct soc_dma_s;
  struct soc_dma_ch_s;
  typedef void (*soc_dma_io_t)(void *opaque, uint8_t *buf, int len);
-@@ -68,7 +70,7 @@ struct soc_dma_ch_s {
+@@ -72,7 +74,7 @@ struct soc_dma_ch_s {
  struct soc_dma_s {
      /* Following fields are set by the SoC DMA module and can be used
       * by anybody.  */
@@ -103,5 +103,5 @@ index 5948489..b84441b 100644
      void *opaque;
      int64_t freq;
 -- 
-1.8.0
+1.8.1.2
 

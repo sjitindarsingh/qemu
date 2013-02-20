@@ -1,7 +1,7 @@
-From 07fb7a8ff850c7fce7156ce1e4cdea537afd6a82 Mon Sep 17 00:00:00 2001
+From af16d582c72cd5aa1a543a29b4e71f7b2527f3ad Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:02 +0000
-Subject: [PATCH 05/80] Support multiple simultaneous keyboard event handlers
+Subject: [PATCH 05/77] Support multiple simultaneous keyboard event handlers
 
 On some systems (such as n900), multiple physical devices can create
 keyboard events (gpio, lis302dl, twl4030, ..). Add hooks to make it
@@ -15,16 +15,29 @@ which is passed to remove. Also who calls add_kbd_event_handler
 with a NULL function?? & if we send keycode to all kbd handlers
 this is ok for n900 but what about eg pc + usb kbd??
 ---
- console.h |  8 +++++++-
- hw/hid.c  |  2 +-
- input.c   | 33 ++++++++++++++++++++++++---------
+ hw/hid.c             |  2 +-
+ include/ui/console.h |  8 +++++++-
+ ui/input.c           | 33 ++++++++++++++++++++++++---------
  3 files changed, 32 insertions(+), 11 deletions(-)
 
-diff --git a/console.h b/console.h
-index 50a0512..638ad4d 100644
---- a/console.h
-+++ b/console.h
-@@ -40,6 +40,12 @@ typedef struct QEMUPutMouseEntry {
+diff --git a/hw/hid.c b/hw/hid.c
+index 89b5415..d159460 100644
+--- a/hw/hid.c
++++ b/hw/hid.c
+@@ -415,7 +415,7 @@ void hid_free(HIDState *hs)
+ {
+     switch (hs->kind) {
+     case HID_KEYBOARD:
+-        qemu_remove_kbd_event_handler();
++        qemu_remove_kbd_event_handler(hid_keyboard_event, hs);
+         break;
+     case HID_MOUSE:
+     case HID_TABLET:
+diff --git a/include/ui/console.h b/include/ui/console.h
+index fc23baa..753af2b 100644
+--- a/include/ui/console.h
++++ b/include/ui/console.h
+@@ -39,6 +39,12 @@ typedef struct QEMUPutMouseEntry {
      QTAILQ_ENTRY(QEMUPutMouseEntry) node;
  } QEMUPutMouseEntry;
  
@@ -37,7 +50,7 @@ index 50a0512..638ad4d 100644
  typedef struct QEMUPutLEDEntry {
      QEMUPutLEDEvent *put_led;
      void *opaque;
-@@ -47,7 +53,7 @@ typedef struct QEMUPutLEDEntry {
+@@ -46,7 +52,7 @@ typedef struct QEMUPutLEDEntry {
  } QEMUPutLEDEntry;
  
  void qemu_add_kbd_event_handler(QEMUPutKBDEvent *func, void *opaque);
@@ -46,24 +59,11 @@ index 50a0512..638ad4d 100644
  QEMUPutMouseEntry *qemu_add_mouse_event_handler(QEMUPutMouseEvent *func,
                                                  void *opaque, int absolute,
                                                  const char *name);
-diff --git a/hw/hid.c b/hw/hid.c
-index 03761ab..e17776d 100644
---- a/hw/hid.c
-+++ b/hw/hid.c
-@@ -383,7 +383,7 @@ void hid_free(HIDState *hs)
- {
-     switch (hs->kind) {
-     case HID_KEYBOARD:
--        qemu_remove_kbd_event_handler();
-+        qemu_remove_kbd_event_handler(hid_keyboard_event, hs);
-         break;
-     case HID_MOUSE:
-     case HID_TABLET:
-diff --git a/input.c b/input.c
-index 25d3973..1ffdd1b 100644
---- a/input.c
-+++ b/input.c
-@@ -30,8 +30,8 @@
+diff --git a/ui/input.c b/ui/input.c
+index 9abef0c..c354852 100644
+--- a/ui/input.c
++++ b/ui/input.c
+@@ -29,8 +29,8 @@
  #include "qmp-commands.h"
  #include "qapi-types.h"
  
@@ -74,7 +74,7 @@ index 25d3973..1ffdd1b 100644
  static QTAILQ_HEAD(, QEMUPutLEDEntry) led_handlers = QTAILQ_HEAD_INITIALIZER(led_handlers);
  static QTAILQ_HEAD(, QEMUPutMouseEntry) mouse_handlers =
      QTAILQ_HEAD_INITIALIZER(mouse_handlers);
-@@ -291,14 +291,28 @@ void qmp_send_key(KeyValueList *keys, bool has_hold_time, int64_t hold_time,
+@@ -290,14 +290,28 @@ void qmp_send_key(KeyValueList *keys, bool has_hold_time, int64_t hold_time,
  
  void qemu_add_kbd_event_handler(QEMUPutKBDEvent *func, void *opaque)
  {
@@ -108,7 +108,7 @@ index 25d3973..1ffdd1b 100644
  }
  
  static void check_mode_change(void)
-@@ -382,11 +396,12 @@ void qemu_remove_led_event_handler(QEMUPutLEDEntry *entry)
+@@ -381,11 +395,12 @@ void qemu_remove_led_event_handler(QEMUPutLEDEntry *entry)
  
  void kbd_put_keycode(int keycode)
  {
@@ -124,5 +124,5 @@ index 25d3973..1ffdd1b 100644
  }
  
 -- 
-1.8.0
+1.8.1.2
 

@@ -1,7 +1,7 @@
-From 82b8427807dc223bbc5ce38fe162dde33b5d0f55 Mon Sep 17 00:00:00 2001
+From aaba6da40ad0b2f94ba6f909ebac21eac11ddf9b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:12 +0000
-Subject: [PATCH 46/80] dsi: add transfer done callback
+Subject: [PATCH 46/77] dsi: add transfer done callback
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -68,7 +68,7 @@ index 21ee6cc..fa11976 100644
  /* device -> host functions */
  void dsi_te_trigger(const DSIDevice *dev);
 diff --git a/hw/omap_dss.c b/hw/omap_dss.c
-index eca11b2..a894fdb 100644
+index 08d5e92..4e2fea2 100644
 --- a/hw/omap_dss.c
 +++ b/hw/omap_dss.c
 @@ -184,6 +184,7 @@ struct omap_dss_s {
@@ -148,5 +148,5 @@ index eca11b2..a894fdb 100644
                                "omap.dsi", 0x400);
          sysbus_init_mmio(dev, &s->iomem_dsi);
 -- 
-1.8.0
+1.8.1.2
 

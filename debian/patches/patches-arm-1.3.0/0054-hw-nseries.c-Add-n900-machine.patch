@@ -1,7 +1,7 @@
-From 5a58339033744fa1c694ca006a2c7cfa9f40474e Mon Sep 17 00:00:00 2001
+From 48e9d5b57f25de399089d157ddffeb2b06f94d49 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:14 +0000
-Subject: [PATCH 54/80] hw/nseries.c: Add n900 machine
+Subject: [PATCH 54/77] hw/nseries.c: Add n900 machine
 
 add n900 to nseries.c
 ---
@@ -9,19 +9,19 @@ add n900 to nseries.c
  1 file changed, 1048 insertions(+)
 
 diff --git a/hw/nseries.c b/hw/nseries.c
-index 0e3f338..83c33a9 100644
+index 6d0265d..f8e1c0a 100644
 --- a/hw/nseries.c
 +++ b/hw/nseries.c
 @@ -31,6 +31,7 @@
  #include "flash.h"
  #include "hw.h"
  #include "bt.h"
-+#include "net.h"
++#include "net/net.h"
  #include "loader.h"
- #include "blockdev.h"
+ #include "sysemu/blockdev.h"
  #include "sysbus.h"
-@@ -1567,8 +1568,1054 @@ static QEMUMachine n810_machine = {
-     .init = n810_init,
+@@ -1569,8 +1570,1054 @@ static QEMUMachine n810_machine = {
+     DEFAULT_MACHINE_OPTIONS,
  };
  
 +#define N900_SDRAM_SIZE (256 * 1024 * 1024)
@@ -235,7 +235,7 @@ index 0e3f338..83c33a9 100644
 +
 +static void lis302dl_reset(DeviceState *ds)
 +{
-+    LIS302DLState *s = FROM_I2C_SLAVE(LIS302DLState, I2C_SLAVE_FROM_QDEV(ds));
++    LIS302DLState *s = FROM_I2C_SLAVE(LIS302DLState, I2C_SLAVE(ds));
 +    
 +    s->firstbyte = 0;
 +    s->reg = 0;
@@ -560,7 +560,7 @@ index 0e3f338..83c33a9 100644
 +
 +static void bq2415x_reset(DeviceState *ds)
 +{
-+    BQ2415XState *s = FROM_I2C_SLAVE(BQ2415XState, I2C_SLAVE_FROM_QDEV(ds));
++    BQ2415XState *s = FROM_I2C_SLAVE(BQ2415XState, I2C_SLAVE(ds));
 +    
 +    s->firstbyte = 0;
 +    s->reg = 0;
@@ -685,7 +685,7 @@ index 0e3f338..83c33a9 100644
 +
 +static void tpa6130_reset(DeviceState *ds)
 +{
-+    TPA6130State *s = FROM_I2C_SLAVE(TPA6130State, I2C_SLAVE_FROM_QDEV(ds));
++    TPA6130State *s = FROM_I2C_SLAVE(TPA6130State, I2C_SLAVE(ds));
 +    s->firstbyte = 0;
 +    s->reg = 0;
 +    memset(s->data, 0, sizeof(s->data));
@@ -1003,10 +1003,10 @@ index 0e3f338..83c33a9 100644
 +        qdev_prop_set_drive_nofail(s->nand, "drive", dmtd->bdrv);
 +    }
 +    qdev_init_nofail(s->nand);
-+    sysbus_connect_irq(sysbus_from_qdev(s->nand), 0,
++    sysbus_connect_irq(SYS_BUS_DEVICE(s->nand), 0,
 +                       qdev_get_gpio_in(s->cpu->gpio, N900_ONENAND_GPIO));
 +    omap_gpmc_attach(s->cpu->gpmc, 0,
-+                     sysbus_mmio_get_region(sysbus_from_qdev(s->nand), 0));
++                     sysbus_mmio_get_region(SYS_BUS_DEVICE(s->nand), 0));
 +
 +    if (dsd) {
 +        omap3_mmc_attach(s->cpu->omap3_mmc[1], dsd->bdrv, 0, 1);
@@ -1048,10 +1048,10 @@ index 0e3f338..83c33a9 100644
 +        s->smc = qdev_create(NULL, "smc91c111");
 +        qdev_set_nic_properties(s->smc, &nd_table[i]);
 +        qdev_init_nofail(s->smc);
-+        sysbus_connect_irq(sysbus_from_qdev(s->smc), 0,
++        sysbus_connect_irq(SYS_BUS_DEVICE(s->smc), 0,
 +                           qdev_get_gpio_in(s->cpu->gpio, 54));
 +        omap_gpmc_attach(s->cpu->gpmc, 1,
-+                         sysbus_mmio_get_region(sysbus_from_qdev(s->smc), 0));
++                         sysbus_mmio_get_region(SYS_BUS_DEVICE(s->smc), 0));
 +    } else {
 +        hw_error("%s: no NIC for smc91c111\n", __FUNCTION__);
 +    }
@@ -1075,7 +1075,7 @@ index 0e3f338..83c33a9 100644
      type_register_static(&mipid_info);
  }
  
-@@ -1576,6 +2623,7 @@ static void nseries_machine_init(void)
+@@ -1578,6 +2625,7 @@ static void nseries_machine_init(void)
  {
      qemu_register_machine(&n800_machine);
      qemu_register_machine(&n810_machine);
@@ -1084,5 +1084,5 @@ index 0e3f338..83c33a9 100644
  
  type_init(nseries_register_types);
 -- 
-1.8.0
+1.8.1.2
 

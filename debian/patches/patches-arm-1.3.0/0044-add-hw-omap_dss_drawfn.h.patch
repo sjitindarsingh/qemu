@@ -1,7 +1,7 @@
-From 98ddcb11f294f6fd4d28982e959ff15612fce532 Mon Sep 17 00:00:00 2001
+From 9ee6feed1a06a330fbb61ba96904041b342e2ef8 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:11 +0000
-Subject: [PATCH 44/80] add hw/omap_dss_drawfn.h
+Subject: [PATCH 44/77] add hw/omap_dss_drawfn.h
 
 Omap DSS draw functions
 ---
@@ -300,5 +300,5 @@ index 0000000..37ba136
 +
 +#undef SWAP_WORDS
 -- 
-1.8.0
+1.8.1.2
 

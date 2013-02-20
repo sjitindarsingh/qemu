@@ -1,7 +1,7 @@
-From 3cdabd46afba5daed4726132e5c0d47b8a87ae2a Mon Sep 17 00:00:00 2001
+From b9eeabf8ea86ec1f8aabc0a2e2acb4adfbce6a4e Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:05 +0000
-Subject: [PATCH 18/80] omap_i2c: support different FIFO sizes
+Subject: [PATCH 18/77] omap_i2c: support different FIFO sizes
 
 Support FIFO size settable via a device property, rather
 than a fixed 4 byte FIFO. This is needed for OMAP3.
@@ -10,7 +10,7 @@ than a fixed 4 byte FIFO. This is needed for OMAP3.
  1 file changed, 137 insertions(+), 104 deletions(-)
 
 diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
-index 7fa4975..9dbf04f 100644
+index 9582f45..4a2ca40 100644
 --- a/hw/omap_i2c.c
 +++ b/hw/omap_i2c.c
 @@ -21,6 +21,8 @@
@@ -369,5 +369,5 @@ index 7fa4975..9dbf04f 100644
      DEFINE_PROP_PTR("fclk", OMAPI2CState, fclk),
      DEFINE_PROP_END_OF_LIST(),
 -- 
-1.8.0
+1.8.1.2
 

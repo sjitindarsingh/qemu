@@ -1,7 +1,7 @@
-From 32a748dadd37b69d0feb76b418c06b22a9a54013 Mon Sep 17 00:00:00 2001
+From a5208e422e33e9e86df6d7a2c11f917d6549371a Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:11 +0000
-Subject: [PATCH 42/80] add hw/omap3_boot.c file
+Subject: [PATCH 42/77] add hw/omap3_boot.c file
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -52,7 +52,7 @@ index bcf9de5..b94b6ae 100644
  obj-y += nseries.o blizzard.o onenand.o cbus.o tusb6010.o usb/hcd-musb.o
  obj-y += mst_fpga.o mainstone.o
 diff --git a/hw/omap.h b/hw/omap.h
-index 77272b4..922aac8 100644
+index adc67a7..de42447 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -1127,6 +1127,8 @@ struct omap_mpu_state_s {
@@ -77,7 +77,7 @@ index 77272b4..922aac8 100644
  uint32_t omap_badwidth_read8(void *opaque, hwaddr addr);
 diff --git a/hw/omap3_boot.c b/hw/omap3_boot.c
 new file mode 100644
-index 0000000..ee05afd
+index 0000000..f9ce253
 --- /dev/null
 +++ b/hw/omap3_boot.c
 @@ -0,0 +1,960 @@
@@ -109,11 +109,11 @@ index 0000000..ee05afd
 +#include "hw.h"
 +#include "arm-misc.h"
 +#include "omap.h"
-+#include "sysemu.h"
-+#include "qemu-char.h"
++#include "sysemu/sysemu.h"
++#include "char/char.h"
 +#include "flash.h"
-+#include "blockdev.h"
-+#include "exec-memory.h"
++#include "sysemu/blockdev.h"
++#include "exec/address-spaces.h"
 +
 +//#define OMAP3_BOOT_DEBUG
 +
@@ -1042,5 +1042,5 @@ index 0000000..ee05afd
 +    }
 +}
 -- 
-1.8.0
+1.8.1.2
 

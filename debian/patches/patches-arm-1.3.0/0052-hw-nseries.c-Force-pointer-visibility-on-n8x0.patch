@@ -1,14 +1,14 @@
-From 4de1d8d13b7d32a94a844e0cdb1c75b18e7eba27 Mon Sep 17 00:00:00 2001
+From 227132431529bc9770bae6c60f0bfa72fc2aaa0f Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:14 +0000
-Subject: [PATCH 52/80] hw/nseries.c: Force pointer visibility on n8x0
+Subject: [PATCH 52/77] hw/nseries.c: Force pointer visibility on n8x0
 
 ---
  hw/nseries.c | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/hw/nseries.c b/hw/nseries.c
-index c752a67..7e13b11 100644
+index bf5ce80..2549b82 100644
 --- a/hw/nseries.c
 +++ b/hw/nseries.c
 @@ -1476,6 +1476,7 @@ static void n8x0_init(QEMUMachineInitArgs *args,
@@ -20,5 +20,5 @@ index c752a67..7e13b11 100644
      n8x0_dss_setup(s);
      n8x0_cbus_setup(s);
 -- 
-1.8.0
+1.8.1.2
 

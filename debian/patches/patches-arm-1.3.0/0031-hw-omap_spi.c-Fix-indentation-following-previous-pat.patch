@@ -1,8 +1,7 @@
-From f64d5c7fac7dc0033f9a0dba3f44f3a8ad7e003d Mon Sep 17 00:00:00 2001
+From 0845de7de24b1b7f21966d6d43a0e2147aad3ab8 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:08 +0000
-Subject: [PATCH 31/80] hw/omap_spi.c: Fix indentation following previous
- patch
+Subject: [PATCH 31/77] hw/omap_spi.c: Fix indentation following previous patch
 
 Fix indentation (whitespace-only change split out from previous
 patch to make it easier to review).
@@ -13,7 +12,7 @@ Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
  1 file changed, 35 insertions(+), 35 deletions(-)
 
 diff --git a/hw/omap_spi.c b/hw/omap_spi.c
-index e1f87db..7bcf692 100644
+index 5a11dbc..060e82c 100644
 --- a/hw/omap_spi.c
 +++ b/hw/omap_spi.c
 @@ -180,50 +180,50 @@ static void omap_mcspi_transfer_run(OMAPSPIBusState *s, int chnum)
@@ -103,5 +102,5 @@ index e1f87db..7bcf692 100644
  
      ch->tx = 0;
 -- 
-1.8.0
+1.8.1.2
 

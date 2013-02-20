@@ -1,17 +1,17 @@
-From 4009681a581ed962db47f3a99f2a3366c1b87ae2 Mon Sep 17 00:00:00 2001
+From 5bf21d4984440ce1073c49422fe8fcc7a8a0aaa7 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:15 +0000
-Subject: [PATCH 59/80] Add Cortex A8 r2 support
+Subject: [PATCH 59/77] Add Cortex A8 r2 support
 
 ---
  target-arm/cpu.c | 41 +++++++++++++++++++++++++++++++++++++++++
  1 file changed, 41 insertions(+)
 
 diff --git a/target-arm/cpu.c b/target-arm/cpu.c
-index 8c5e95d6..252c903 100644
+index f489c49..af0e134 100644
 --- a/target-arm/cpu.c
 +++ b/target-arm/cpu.c
-@@ -427,6 +427,46 @@ static void cortex_a8_initfn(Object *obj)
+@@ -446,6 +446,46 @@ static void cortex_a8_initfn(Object *obj)
      define_arm_cp_regs(cpu, cortexa8_cp_reginfo);
  }
  
@@ -58,7 +58,7 @@ index 8c5e95d6..252c903 100644
  static const ARMCPRegInfo cortexa9_cp_reginfo[] = {
      /* power_control should be set to maximum latency. Again,
       * default to 0 and set by private hook
-@@ -742,6 +782,7 @@ static const ARMCPUInfo arm_cpus[] = {
+@@ -761,6 +801,7 @@ static const ARMCPUInfo arm_cpus[] = {
      { .name = "arm11mpcore", .initfn = arm11mpcore_initfn },
      { .name = "cortex-m3",   .initfn = cortex_m3_initfn },
      { .name = "cortex-a8",   .initfn = cortex_a8_initfn },
@@ -67,5 +67,5 @@ index 8c5e95d6..252c903 100644
      { .name = "cortex-a15",  .initfn = cortex_a15_initfn },
      { .name = "ti925t",      .initfn = ti925t_initfn },
 -- 
-1.8.0
+1.8.1.2
 

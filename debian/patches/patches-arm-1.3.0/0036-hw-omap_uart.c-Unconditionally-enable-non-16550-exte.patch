@@ -1,7 +1,7 @@
-From 36c8c0d5dce85cd6712aea3789588eb2f8eb7b31 Mon Sep 17 00:00:00 2001
+From 6f50b35ee1db914b6a3cf8b7892646997843b2c0 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:09 +0000
-Subject: [PATCH 36/80] hw/omap_uart.c: Unconditionally enable non-16550
+Subject: [PATCH 36/77] hw/omap_uart.c: Unconditionally enable non-16550
  extensions
 
 Uncondionally enable the OMAP UART modelling of the extensions
@@ -15,11 +15,11 @@ Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
  1 file changed, 19 insertions(+), 30 deletions(-)
 
 diff --git a/hw/omap_uart.c b/hw/omap_uart.c
-index ce1ce48..b20476d 100644
+index 1c1edb5..9283c2e 100644
 --- a/hw/omap_uart.c
 +++ b/hw/omap_uart.c
 @@ -24,13 +24,18 @@
- #include "exec-memory.h"
+ #include "exec/address-spaces.h"
  #include "sysbus.h"
  
 -/* The OMAP UART functionality is similar to the TI16C752 rather than
@@ -161,5 +161,5 @@ index ce1ce48..b20476d 100644
      case 0x20:	/* MDR1 */
          s->mdr[0] = value & 0x7f;
 -- 
-1.8.0
+1.8.1.2
 

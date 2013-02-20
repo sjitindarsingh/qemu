@@ -1,14 +1,14 @@
-From 25eaf329b13155dec0b65eb92cfb975781790206 Mon Sep 17 00:00:00 2001
+From 7e2b7fb30fe44a646a1808fbfd6137f5ce8b0496 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:06 +0000
-Subject: [PATCH 21/80] i2c-fixes: pull out omap-3-rev fixes
+Subject: [PATCH 21/77] i2c-fixes: pull out omap-3-rev fixes
 
 ---
  hw/omap_i2c.c | 52 ++++++++++++++++++++++++++++++++++++++++------------
  1 file changed, 40 insertions(+), 12 deletions(-)
 
 diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
-index c432e54..6c991ed 100644
+index 9f5fc03..79e16e9 100644
 --- a/hw/omap_i2c.c
 +++ b/hw/omap_i2c.c
 @@ -337,10 +337,15 @@ static void omap_i2c_write(void *opaque, hwaddr addr,
@@ -101,5 +101,5 @@ index c432e54..6c991ed 100644
  
      case 0x44: /* I2C_OA1 */
 -- 
-1.8.0
+1.8.1.2
 

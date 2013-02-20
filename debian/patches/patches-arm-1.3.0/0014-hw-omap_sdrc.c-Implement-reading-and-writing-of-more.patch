@@ -1,7 +1,7 @@
-From 18f07c53892d64798d552dbdff80914ff7803afd Mon Sep 17 00:00:00 2001
+From 1f4408d3c36c7f6b0ebca338f0e69f201418e9df Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:04 +0000
-Subject: [PATCH 14/80] hw/omap_sdrc.c: Implement reading and writing of more
+Subject: [PATCH 14/77] hw/omap_sdrc.c: Implement reading and writing of more
  registers
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -360,5 +360,5 @@ index b0f3b8e..637a03c 100644
  }
  
 -- 
-1.8.0
+1.8.1.2
 

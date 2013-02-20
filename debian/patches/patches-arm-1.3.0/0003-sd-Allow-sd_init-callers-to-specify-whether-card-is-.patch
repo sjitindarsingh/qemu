@@ -1,7 +1,7 @@
-From 9f820b650bb54129f71a493713389696e6a10c56 Mon Sep 17 00:00:00 2001
+From a3846747b4508e5e0e380cb32441ea6bcff02c4d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:01 +0000
-Subject: [PATCH 03/80] sd: Allow sd_init callers to specify whether card is
+Subject: [PATCH 03/77] sd: Allow sd_init callers to specify whether card is
  MMC or SD
 
 Add a parameter to sd_init() which allows the caller to specify
@@ -23,7 +23,7 @@ Vincent Palatin proposed.
  7 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/hw/milkymist-memcard.c b/hw/milkymist-memcard.c
-index ca5df56..318fc6d 100644
+index 9d15309..d428b16 100644
 --- a/hw/milkymist-memcard.c
 +++ b/hw/milkymist-memcard.c
 @@ -250,7 +250,7 @@ static int milkymist_memcard_init(SysBusDevice *dev)
@@ -58,7 +58,7 @@ index 7ecd9bd..8908d35 100644
      s->cdet = qemu_allocate_irqs(omap_mmc_cover_cb, s, 1)[0];
      sd_set_cb(s->card, NULL, s->cdet);
 diff --git a/hw/pl181.c b/hw/pl181.c
-index 8a2895c..ac18477 100644
+index 98529f7..4996cba 100644
 --- a/hw/pl181.c
 +++ b/hw/pl181.c
 @@ -485,7 +485,7 @@ static int pl181_init(SysBusDevice *dev)
@@ -84,7 +84,7 @@ index 3589968..270dcfb 100644
      register_savevm(NULL, "pxa2xx_mmci", 0, 0,
                      pxa2xx_mmci_save, pxa2xx_mmci_load, s);
 diff --git a/hw/sd.c b/hw/sd.c
-index 7636f19..d9fe700 100644
+index ed73285..c53815b 100644
 --- a/hw/sd.c
 +++ b/hw/sd.c
 @@ -486,7 +486,7 @@ static const VMStateDescription sd_vmstate = {
@@ -110,7 +110,7 @@ index 4ef822f..562eaa2 100644
  int sd_do_command(SDState *sd, SDRequest *req,
                    uint8_t *response);
 diff --git a/hw/ssi-sd.c b/hw/ssi-sd.c
-index c5505ee..fc9cd2d 100644
+index dca8906..271e82d 100644
 --- a/hw/ssi-sd.c
 +++ b/hw/ssi-sd.c
 @@ -245,7 +245,7 @@ static int ssi_sd_init(SSISlave *dev)
@@ -123,5 +123,5 @@ index c5505ee..fc9cd2d 100644
      return 0;
  }
 -- 
-1.8.0
+1.8.1.2
 

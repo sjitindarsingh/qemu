@@ -1,7 +1,7 @@
-From 0d3cf45ed84c81295ebc8e1288175f70a60c45d2 Mon Sep 17 00:00:00 2001
+From 01890abbccfcb1ad0489712c6dc5b63c53a07afc Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:07 +0000
-Subject: [PATCH 26/80] hw/tsc2005: Add parameters to tsc2005_set_transform()
+Subject: [PATCH 26/77] hw/tsc2005: Add parameters to tsc2005_set_transform()
 
 Not sure exactly what these are for...
 ---
@@ -25,7 +25,7 @@ index c60bcab..545b53a 100644
  /* stellaris_input.c */
  void stellaris_gamepad_init(int n, qemu_irq *irq, const int *keycode);
 diff --git a/hw/nseries.c b/hw/nseries.c
-index 2de8d21..4cf21df 100644
+index 99d353a..9e7a822 100644
 --- a/hw/nseries.c
 +++ b/hw/nseries.c
 @@ -300,7 +300,7 @@ static void n810_tsc_setup(struct n800_s *s)
@@ -38,7 +38,7 @@ index 2de8d21..4cf21df 100644
  
  /* N810 Keyboard controller */
 diff --git a/hw/tsc2005.c b/hw/tsc2005.c
-index 9a500eb..aec8527 100644
+index 740ff86..acedd1a 100644
 --- a/hw/tsc2005.c
 +++ b/hw/tsc2005.c
 @@ -54,6 +54,7 @@ typedef struct {
@@ -96,5 +96,5 @@ index 9a500eb..aec8527 100644
 +    s->z2_cons = z2_cons;
  }
 -- 
-1.8.0
+1.8.1.2
 

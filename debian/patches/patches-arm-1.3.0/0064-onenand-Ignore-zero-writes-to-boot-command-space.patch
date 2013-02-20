@@ -1,7 +1,7 @@
-From 804466bbe9e3c411308636f9052400756a9fda9c Mon Sep 17 00:00:00 2001
+From 3247b648cf44ae9a42885db4d01ff7855621ed3c Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:16 +0000
-Subject: [PATCH 64/80] onenand: Ignore zero writes to boot command space
+Subject: [PATCH 64/77] onenand: Ignore zero writes to boot command space
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -19,7 +19,7 @@ Signed-off-by:  Peter Maydell <peter.maydell@linaro.org>
  1 file changed, 7 insertions(+)
 
 diff --git a/hw/onenand.c b/hw/onenand.c
-index 1803e4c..f1befca 100644
+index 00a8738..b63e64f 100644
 --- a/hw/onenand.c
 +++ b/hw/onenand.c
 @@ -692,6 +692,13 @@ static void onenand_write(void *opaque, hwaddr addr,
@@ -37,5 +37,5 @@ index 1803e4c..f1befca 100644
              fprintf(stderr, "%s: unknown OneNAND boot command %"PRIx64"\n",
                              __FUNCTION__, value);
 -- 
-1.8.0
+1.8.1.2
 

@@ -1,3 +1,100 @@
+qemu (1.4.0+dfsg-1expubuntu1) raring; urgency=low
+
+  * Merge 1.4.0+dfsg-1exp from debian.  Remaining changes:
+    - debian/control:
+      * update maintainer
+      * remove libiscsi, usb-redir, vde, and vnc-jpeg from build-deps
+      * enable rbd
+      * add qemu-system and qemu-common B/R to qemu-keymaps
+      * add D:udev and R:qemu to qemu-system-common
+      * qemu-system-arm, qemu-system-ppc, qemu-system-sparc:
+        - add qemu-kvm and kvm to Provides
+        - add qemu-common and qemu-kvm to Breaks/Replaces qemu-system-ppc,
+          qemu-system-sparc:
+        - remove openbios-$arch from Depends
+      * qemu-system-x86:
+        - add qemu-common to Breaks/Replaces.
+        - add cpu-checker to Recommends.
+      * qemu-user:
+        - add B/R qemu-kvm
+      * qemu-utils:
+        - add B/R qemu-user and qemu-kvm
+      * qemu-kvm: add armhf armel powerpc sparc to Architecture
+      * add qemu-common package
+    - add qemu-system-common.links for tap ifup/down scripts and OVMF link.
+    - qemu-system-x86.links:
+      * remove pxe rom links which are in kvm-ipxe
+      * add symlink for kvm.1 manpage
+    - Add qemu-utils.links for kvm-* symlinks.
+    - Add qemu-kvm.conf upstart job to qemu-system
+    - Clear /dev/kvm acls on install
+    - Add linaro arm patches.
+    - Add gridcentric patches.
+    - Re-add expose_vms_qemu64cpu.patch (from Daviey)
+  * Add 0001-fix-wrong-output-with-info-chardev-for-tcp-socket.patch
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 20 Feb 2013 11:58:27 -0600
+
+qemu (1.4.0+dfsg-1exp) experimental; urgency=low
+
+  [ Michael Tokarev ]
+  * 1.4.0 final release
+  * remove fix-virtio-net-for-win-guests.patch (upstream now has better fix)
+  * fix debian/control arch fields. Build-Depends: foo [bar]
+    means foo will be selected for build on LINUX-bar, not any-bar.
+    So stop using [bar], always use [linux-bar] or [any-bar],
+    as appropriate.  This fix spice and xen (non)selection on
+    kfreebsd-{i386,amd64}.
+  * fix manpage "links" generation (man qemu-system-* was broken)
+  * change Vcs fields to point to anonscm.debian.org (lintian)
+  * add a check for (lxc) container to qemu-system-x86 initscript
+
+  [ Michael Tokarev - committed after 1.4.0+dfsg-1exp]
+  * fix distribution field in last qemu-system.NEWS entry
+  * bump Standards-Version to 3.9.4 (no changes needed)
+  * pre-Depend on adduser for qemu-system-common (Closes: #700840)
+
+  [ Steve Langasek ]
+  * Pass --enable-uname-release=2.6.32 for the user emulation builds, so that
+    we have a sensible baseline kernel value regardless of what the
+    underlying host kernel is.  This makes eglibc happier when running under
+    emulation on a very old kernel for instance (whose host syscall ABI has
+    nothing to do with what emulated syscalls are supported), and probably
+    also lets us steer clear for the moment of code that has problem with
+    the new kernel upstream versioning convention.  LP: #921078.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 16 Feb 2013 12:34:54 +0400
+
+qemu (1.4.0~rc0+dfsg-1exp) experimental; urgency=low
+
+  * new upstream 1.4.0-rc0 (first release candidate).
+    (Closes: #549195)
+  * remove patches included upstream:
+    e1000-discard-oversized-packets-based-on-SBP_LPE.patch
+    link-seccomp-only-with-softmmu-targets.patch
+    revert-serial-fix-retry-logic.patch
+    savevm.c-cleanup-system-includes.patch
+  * refresh qemu-ifunc-sparc.patch
+  * add fix-virtio-net-for-win-guests.patch bandaid to make virtio-net
+    in windows guest to work again
+  * don't install virtfs-proxy-helper in its own subdir in /usr/bin
+  * add qemu-io manpage.  Thank you Asias He for the work!
+    (Closes: #652518)
+  * move config options from debian/configure-opts into debian/control,
+    to keep list of build-deps & corresponding config flags in one place
+  * use initscript from old qemu-kvm package to load kvm modules for
+    qemu-system-x86, and clean it up (Closes: #699404)
+  * load vhost_net module in the initscript too
+  * mention default NIC change in qemu-kvm.NEWS and old conffiles
+  * remove mentions of (ubuntu-specific) qemu-common from debian/control
+    for now, as it does not help anyway (other changes are needed anyway
+    and it is better to keep them in one place)
+  * add a (preliminary) qemu-guest-agent startup script
+  * qemu-system-x86 break libvirt0 << 1.0, because older versions
+    didn't work with qemu 1.3+ correctly
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 02 Feb 2013 21:05:28 +0400
+
 qemu (1.3.0+dfsg-5expubuntu5) raring; urgency=low
 
   * qemu-system-common.postinst: only run setfacl when /dev/kvm exists.

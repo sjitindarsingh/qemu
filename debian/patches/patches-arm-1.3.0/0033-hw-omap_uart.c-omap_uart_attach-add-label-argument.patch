@@ -1,7 +1,7 @@
-From 42bd0d6293b2133cea21f493f69288db8478489c Mon Sep 17 00:00:00 2001
+From 9613335c257ac7d87d720d96cc45937628719be0 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:09 +0000
-Subject: [PATCH 33/80] hw/omap_uart.c omap_uart_attach: add label argument
+Subject: [PATCH 33/77] hw/omap_uart.c omap_uart_attach: add label argument
 
 Add label argument to omap_uart_attach
 ---
@@ -11,7 +11,7 @@ Add label argument to omap_uart_attach
  3 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/hw/nseries.c b/hw/nseries.c
-index 6a80f6e..12f597d 100644
+index b27357f..6891345 100644
 --- a/hw/nseries.c
 +++ b/hw/nseries.c
 @@ -791,7 +791,7 @@ static void n8x0_uart_setup(struct n800_s *s)
@@ -24,7 +24,7 @@ index 6a80f6e..12f597d 100644
  
  static void n8x0_usb_setup(struct n800_s *s)
 diff --git a/hw/omap.h b/hw/omap.h
-index 228c662..6b4c99a 100644
+index ccd956c..988c821 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -882,7 +882,8 @@ struct omap_uart_s *omap2_uart_init(MemoryRegion *sysmem,
@@ -38,7 +38,7 @@ index 228c662..6b4c99a 100644
  struct omap_mpuio_s;
  qemu_irq *omap_mpuio_in_get(struct omap_mpuio_s *s);
 diff --git a/hw/omap_uart.c b/hw/omap_uart.c
-index 92f2702..73dc103 100644
+index 0ebfbf8..33f7e33 100644
 --- a/hw/omap_uart.c
 +++ b/hw/omap_uart.c
 @@ -177,11 +177,12 @@ struct omap_uart_s *omap2_uart_init(MemoryRegion *sysmem,
@@ -57,5 +57,5 @@ index 92f2702..73dc103 100644
                                 DEVICE_NATIVE_ENDIAN);
  }
 -- 
-1.8.0
+1.8.1.2
 

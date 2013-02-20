@@ -1,9 +1,5 @@
 02_kfreebsd.patch
 qemu-ifunc-sparc.patch
-revert-serial-fix-retry-logic.patch
-savevm.c-cleanup-system-includes.patch
-link-seccomp-only-with-softmmu-targets.patch
-e1000-discard-oversized-packets-based-on-SBP_LPE.patch
 patches-arm-1.3.0/0001-blizzard-fix-for-non-32bpp-host-displays.patch
 patches-arm-1.3.0/0002-hw-sd-Expose-sd_reset-as-public-function.patch
 patches-arm-1.3.0/0003-sd-Allow-sd_init-callers-to-specify-whether-card-is-.patch
@@ -69,12 +65,7 @@ patches-arm-1.3.0/0062-hw-omap_intc.c-Don-t-complain-about-nonexistent-regi.patc
 patches-arm-1.3.0/0063-hw-omap_gpio.c-Don-t-complain-about-some-writes-to-r.patch
 patches-arm-1.3.0/0064-onenand-Ignore-zero-writes-to-boot-command-space.patch
 patches-arm-1.3.0/0065-musb-add-dummy-support-for-ulpi-pass-through-registe.patch
-gridcentric/ram-from-file
-gridcentric/migrate-macs
-gridcentric/immediate-migration
-gridcentric/cpu-bug-workaround
-gridcentric/nbd-buffer-size
-gridcentric/cpuinfo-cr3
-gridcentric/save_pcram.patch
-gridcentric/silent_stop.patch
 expose-vmx_qemu64cpu.patch
+gridcentric/ramblock-filename
+gridcentric/silent_stop.patch
+0001-fix-wrong-output-with-info-chardev-for-tcp-socket.patch

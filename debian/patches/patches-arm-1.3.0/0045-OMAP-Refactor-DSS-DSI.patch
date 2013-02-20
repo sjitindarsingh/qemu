@@ -1,7 +1,7 @@
-From 07713c9a51cef5f1fa5ae1e292af0eabd56e7439 Mon Sep 17 00:00:00 2001
+From 8dde622d579e171599a66b53e819277f6a4e3279 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:11 +0000
-Subject: [PATCH 45/80] OMAP: Refactor DSS/DSI
+Subject: [PATCH 45/77] OMAP: Refactor DSS/DSI
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -15,8 +15,8 @@ Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
  hw/dsi.h             |  145 ++++
  hw/omap.h            |   17 +-
  hw/omap2.c           |   22 +-
- hw/omap_dss.c        | 2231 +++++++++++++++++++++++++++++++++++++++++---------
- 6 files changed, 2441 insertions(+), 393 deletions(-)
+ hw/omap_dss.c        | 2233 +++++++++++++++++++++++++++++++++++++++++---------
+ 6 files changed, 2442 insertions(+), 394 deletions(-)
  create mode 100644 hw/dsi.c
  create mode 100644 hw/dsi.h
 
@@ -608,14 +608,14 @@ index 0000000..21ee6cc
 +
 +#endif
 diff --git a/hw/omap.h b/hw/omap.h
-index 93be592..a223656 100644
+index 2bf35a3..1c9ba9b 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -21,6 +21,8 @@
  # define hw_omap_h		"omap.h"
  #include "hw/irq.h"
  
-+#include "sysemu.h"
++#include "sysemu/sysemu.h"
 +#include "dsi.h"
  #include "spi.h"
  
@@ -650,7 +650,7 @@ index 93be592..a223656 100644
      struct omap_eac_s *eac;
      MemoryRegion bootrom;
 diff --git a/hw/omap2.c b/hw/omap2.c
-index 1d7f639..471a75e 100644
+index a7bab2c..c222b64 100644
 --- a/hw/omap2.c
 +++ b/hw/omap2.c
 @@ -2215,7 +2215,6 @@ static void omap2_mpu_reset(void *opaque)
@@ -676,7 +676,7 @@ index 1d7f639..471a75e 100644
 +    s->dss = qdev_create(NULL, "omap_dss");
 +    qdev_prop_set_int32(s->dss, "mpu_model", s->mpu_model);
 +    qdev_init_nofail(s->dss);
-+    busdev = sysbus_from_qdev(s->dss);
++    busdev = SYS_BUS_DEVICE(s->dss);
 +    sysbus_connect_irq(busdev, 0,
 +                       qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_DSS_IRQ));
 +    sysbus_connect_irq(busdev, 1, s->drq[OMAP24XX_DMA_DSS]);
@@ -690,7 +690,7 @@ index 1d7f639..471a75e 100644
      omap_sti_init(omap_l4ta(s->l4, 18), sysmem, 0x54000000,
                    qdev_get_gpio_in(s->ih[0], OMAP_INT_24XX_STI),
 diff --git a/hw/omap_dss.c b/hw/omap_dss.c
-index 1e83726..eca11b2 100644
+index ae51bdf..08d5e92 100644
 --- a/hw/omap_dss.c
 +++ b/hw/omap_dss.c
 @@ -1,13 +1,14 @@
@@ -717,9 +717,10 @@ index 1e83726..eca11b2 100644
   * with this program; if not, see <http://www.gnu.org/licenses/>.
   */
 -#include "hw.h"
- #include "console.h"
+-#include "ui/console.h"
  #include "omap.h"
 +#include "sysbus.h"
++#include "ui/console.h"
 +#include "dsi.h"
 +
 +//#define OMAP_DSS_DEBUG
@@ -963,7 +964,7 @@ index 1e83726..eca11b2 100644
 +    } dsi;
 +};
 +
-+#include "pixel_ops.h"
++#include "ui/pixel_ops.h"
 +#include "framebuffer.h"
 +#define DEPTH 8
 +#include "omap_dss_drawfn.h"
@@ -1054,7 +1055,7 @@ index 1e83726..eca11b2 100644
 +static void omap_dsi_te_trigger(DeviceState *dev, int vc)
 +{
 +    struct omap_dss_s *s = FROM_SYSBUS(struct omap_dss_s,
-+                                       sysbus_from_qdev(dev));
++                                       SYS_BUS_DEVICE(dev));
 +    if ((s->dsi.ctrl & 1) &&        /* IF_EN */
 +        (s->dsi.vc[vc].ctrl & 1)) { /* VC_EN */
 +        s->dsi.irqst |= 1 << 16;    /* TE_TRIGGER_IRQ */
@@ -1404,17 +1405,17 @@ index 1e83726..eca11b2 100644
 -    s->autoidle = 0;
 -    s->control = 0;
 -    s->enable = 0;
-+    int i, j;
- 
+-
 -    s->dig.enable = 0;
 -    s->dig.nx = 1;
 -    s->dig.ny = 1;
--
++    int i, j;
+ 
 -    s->lcd.enable = 0;
 -    s->lcd.nx = 1;
 -    s->lcd.ny = 1;
 +    struct omap_dss_s *s = FROM_SYSBUS(struct omap_dss_s,
-+                                       sysbus_from_qdev(dev));
++                                       SYS_BUS_DEVICE(dev));
 +    s->autoidle = 0x10; /* was 0 for OMAP2 but bit4 must be set for OMAP3 */
 +    s->control = 0;
 +    if (s->mpu_model == omap3430) {
@@ -3378,7 +3379,7 @@ index 1e83726..eca11b2 100644
  {
 -    if (cs < 0 || cs > 1)
 +    struct omap_dss_s *s = FROM_SYSBUS(struct omap_dss_s,
-+                                       sysbus_from_qdev(dev));
++                                       SYS_BUS_DEVICE(dev));
 +    if (cs < 0 || cs > 1) {
          hw_error("%s: wrong CS %i\n", __FUNCTION__, cs);
 +    }
@@ -3392,13 +3393,13 @@ index 1e83726..eca11b2 100644
 +DSIHost *omap_dsi_host(DeviceState *dev)
 +{
 +    return FROM_SYSBUS(struct omap_dss_s,
-+                       sysbus_from_qdev(dev))->dsi.host;
++                       SYS_BUS_DEVICE(dev))->dsi.host;
 +}
 +
 +void omap_lcd_panel_attach(DeviceState *dev)
 +{
 +    struct omap_dss_s *s = FROM_SYSBUS(struct omap_dss_s,
-+                                       sysbus_from_qdev(dev));
++                                       SYS_BUS_DEVICE(dev));
 +    if (!s->lcd.attached) {
 +        s->lcd.attached = 1;
 +        s->lcd.invalidate = 1;
@@ -3411,7 +3412,7 @@ index 1e83726..eca11b2 100644
 +void omap_digital_panel_attach(DeviceState *dev)
 +{
 +    struct omap_dss_s *s = FROM_SYSBUS(struct omap_dss_s,
-+                                       sysbus_from_qdev(dev));
++                                       SYS_BUS_DEVICE(dev));
 +    if (!s->dig.attached) {
 +        s->dig.attached = 1;
 +        s->dig.invalidate = 1;
@@ -3423,5 +3424,5 @@ index 1e83726..eca11b2 100644
 +
 +type_init(omap_dss_register_types)
 -- 
-1.8.0
+1.8.1.2
 

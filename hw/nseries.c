@@ -19,11 +19,11 @@
  */
 
 #include "qemu-common.h"
-#include "sysemu.h"
+#include "sysemu/sysemu.h"
 #include "omap.h"
 #include "arm-misc.h"
 #include "irq.h"
-#include "console.h"
+#include "ui/console.h"
 #include "boards.h"
 #include "i2c.h"
 #include "spi.h"
@@ -31,11 +31,11 @@
 #include "flash.h"
 #include "hw.h"
 #include "bt.h"
-#include "net.h"
+#include "net/net.h"
 #include "loader.h"
-#include "blockdev.h"
+#include "sysemu/blockdev.h"
 #include "sysbus.h"
-#include "exec-memory.h"
+#include "exec/address-spaces.h"
 
 //#define MIPID_DEBUG
 
@@ -186,10 +186,10 @@ static void n8x0_nand_setup(struct n800_s *s)
         qdev_prop_set_drive_nofail(s->nand, "drive", dinfo->bdrv);
     }
     qdev_init_nofail(s->nand);
-    sysbus_connect_irq(sysbus_from_qdev(s->nand), 0,
+    sysbus_connect_irq(SYS_BUS_DEVICE(s->nand), 0,
                        qdev_get_gpio_in(s->mpu->gpio, N8X0_ONENAND_GPIO));
     omap_gpmc_attach(s->mpu->gpmc, N8X0_ONENAND_CS,
-                     sysbus_mmio_get_region(sysbus_from_qdev(s->nand), 0));
+                     sysbus_mmio_get_region(SYS_BUS_DEVICE(s->nand), 0));
     otp_region = onenand_raw_otp(s->nand);
 
     memcpy(otp_region + 0x000, n8x0_cal_wlan_mac, sizeof(n8x0_cal_wlan_mac));
@@ -932,7 +932,7 @@ static void n8x0_usb_setup(struct n800_s *s)
 {
     SysBusDevice *dev;
     s->usb = qdev_create(NULL, "tusb6010");
-    dev = sysbus_from_qdev(s->usb);
+    dev = SYS_BUS_DEVICE(s->usb);
     qdev_init_nofail(s->usb);
     sysbus_connect_irq(dev, 0,
                        qdev_get_gpio_in(s->mpu->gpio, N8X0_TUSB_INT_GPIO));
@@ -1560,12 +1560,14 @@ static QEMUMachine n800_machine = {
     .name = "n800",
     .desc = "Nokia N800 tablet aka. RX-34 (OMAP2420)",
     .init = n800_init,
+    DEFAULT_MACHINE_OPTIONS,
 };
 
 static QEMUMachine n810_machine = {
     .name = "n810",
     .desc = "Nokia N810 tablet aka. RX-44 (OMAP2420)",
     .init = n810_init,
+    DEFAULT_MACHINE_OPTIONS,
 };
 
 #define N900_SDRAM_SIZE (256 * 1024 * 1024)
@@ -1779,7 +1781,7 @@ static void lis302dl_step(void *opaque, int axis, int high, int activate)
 
 static void lis302dl_reset(DeviceState *ds)
 {
-    LIS302DLState *s = FROM_I2C_SLAVE(LIS302DLState, I2C_SLAVE_FROM_QDEV(ds));
+    LIS302DLState *s = FROM_I2C_SLAVE(LIS302DLState, I2C_SLAVE(ds));
     
     s->firstbyte = 0;
     s->reg = 0;
@@ -2104,7 +2106,7 @@ typedef struct BQ2415XState_s {
 
 static void bq2415x_reset(DeviceState *ds)
 {
-    BQ2415XState *s = FROM_I2C_SLAVE(BQ2415XState, I2C_SLAVE_FROM_QDEV(ds));
+    BQ2415XState *s = FROM_I2C_SLAVE(BQ2415XState, I2C_SLAVE(ds));
     
     s->firstbyte = 0;
     s->reg = 0;
@@ -2229,7 +2231,7 @@ typedef struct tpa6130_s {
 
 static void tpa6130_reset(DeviceState *ds)
 {
-    TPA6130State *s = FROM_I2C_SLAVE(TPA6130State, I2C_SLAVE_FROM_QDEV(ds));
+    TPA6130State *s = FROM_I2C_SLAVE(TPA6130State, I2C_SLAVE(ds));
     s->firstbyte = 0;
     s->reg = 0;
     memset(s->data, 0, sizeof(s->data));
@@ -2547,10 +2549,10 @@ static void n900_init(QEMUMachineInitArgs *args)
         qdev_prop_set_drive_nofail(s->nand, "drive", dmtd->bdrv);
     }
     qdev_init_nofail(s->nand);
-    sysbus_connect_irq(sysbus_from_qdev(s->nand), 0,
+    sysbus_connect_irq(SYS_BUS_DEVICE(s->nand), 0,
                        qdev_get_gpio_in(s->cpu->gpio, N900_ONENAND_GPIO));
     omap_gpmc_attach(s->cpu->gpmc, 0,
-                     sysbus_mmio_get_region(sysbus_from_qdev(s->nand), 0));
+                     sysbus_mmio_get_region(SYS_BUS_DEVICE(s->nand), 0));
 
     if (dsd) {
         omap3_mmc_attach(s->cpu->omap3_mmc[1], dsd->bdrv, 0, 1);
@@ -2592,10 +2594,10 @@ static void n900_init(QEMUMachineInitArgs *args)
         s->smc = qdev_create(NULL, "smc91c111");
         qdev_set_nic_properties(s->smc, &nd_table[i]);
         qdev_init_nofail(s->smc);
-        sysbus_connect_irq(sysbus_from_qdev(s->smc), 0,
+        sysbus_connect_irq(SYS_BUS_DEVICE(s->smc), 0,
                            qdev_get_gpio_in(s->cpu->gpio, 54));
         omap_gpmc_attach(s->cpu->gpmc, 1,
-                         sysbus_mmio_get_region(sysbus_from_qdev(s->smc), 0));
+                         sysbus_mmio_get_region(SYS_BUS_DEVICE(s->smc), 0));
     } else {
         hw_error("%s: no NIC for smc91c111\n", __FUNCTION__);
     }

@@ -17,11 +17,11 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-#include "qemu-char.h"
+#include "char/char.h"
 #include "hw.h"
 #include "omap.h"
 #include "serial.h"
-#include "exec-memory.h"
+#include "exec/address-spaces.h"
 #include "sysbus.h"
 
 /* The OMAP UART functionality is similar to the TI16C752; it is
@@ -84,7 +84,7 @@ static int tcr_tlr_mode(struct omap_uart_s *s)
 static void omap_uart_reset(DeviceState *qdev)
 {
     struct omap_uart_s *s = FROM_SYSBUS(struct omap_uart_s,
-                                        sysbus_from_qdev(qdev));
+                                        SYS_BUS_DEVICE(qdev));
     s->eblr = 0x00;
     s->syscontrol = 0;
     s->wkup = 0x3f;
@@ -368,7 +368,7 @@ void omap_uart_attach(DeviceState *qdev, CharDriverState *chr,
                       const char *label)
 {
     struct omap_uart_s *s = FROM_SYSBUS(struct omap_uart_s,
-                                        sysbus_from_qdev(qdev));
+                                        SYS_BUS_DEVICE(qdev));
     s->chr = chr ?: qemu_chr_new(label, "null", NULL);
     serial_change_char_driver(s->serial, s->chr);
 }

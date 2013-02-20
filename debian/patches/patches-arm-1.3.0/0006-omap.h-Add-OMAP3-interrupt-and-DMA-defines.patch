@@ -1,7 +1,7 @@
-From adaae789874839b6391073a97e50223efb43e097 Mon Sep 17 00:00:00 2001
+From 49a1d3d16d759d5b2e20acf5542f0ee172e546a5 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:02 +0000
-Subject: [PATCH 06/80] omap.h: Add OMAP3 interrupt and DMA defines
+Subject: [PATCH 06/77] omap.h: Add OMAP3 interrupt and DMA defines
 
 Add defines for OMAP3 interrupt and DMA to omap.h
 ---
@@ -9,7 +9,7 @@ Add defines for OMAP3 interrupt and DMA to omap.h
  1 file changed, 188 insertions(+)
 
 diff --git a/hw/omap.h b/hw/omap.h
-index 2b383ff..622f498 100644
+index 188cda8..a24ac55 100644
 --- a/hw/omap.h
 +++ b/hw/omap.h
 @@ -36,6 +36,12 @@
@@ -229,5 +229,5 @@ index 2b383ff..622f498 100644
  /* OMAP2 gp timer */
  struct omap_gp_timer_s;
 -- 
-1.8.0
+1.8.1.2
 

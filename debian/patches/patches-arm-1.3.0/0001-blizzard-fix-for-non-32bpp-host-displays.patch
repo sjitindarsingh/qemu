@@ -1,7 +1,7 @@
-From 5779bc483116263d728f15225a71eeed16e77bb1 Mon Sep 17 00:00:00 2001
+From 42c47e18ba04398219dea99b702cf948ff734991 Mon Sep 17 00:00:00 2001
 From: Riku Voipio <riku.voipio@nokia.com>
 Date: Tue, 4 Dec 2012 14:10:01 +0000
-Subject: [PATCH 01/80] blizzard: fix for non-32bpp host displays
+Subject: [PATCH 01/77] blizzard: fix for non-32bpp host displays
 
 TODO: I'm not sure how to trigger this bug, or if the fix is correct
 (the comments say it's a hack)
@@ -10,7 +10,7 @@ TODO: I'm not sure how to trigger this bug, or if the fix is correct
  1 file changed, 52 insertions(+), 47 deletions(-)
 
 diff --git a/hw/blizzard.c b/hw/blizzard.c
-index 1b57eb5..1c8dadf 100644
+index 24bde32..955e771 100644
 --- a/hw/blizzard.c
 +++ b/hw/blizzard.c
 @@ -70,7 +70,6 @@ typedef struct {
@@ -165,5 +165,5 @@ index 1b57eb5..1c8dadf 100644
      return s;
  }
 -- 
-1.8.0
+1.8.1.2
 

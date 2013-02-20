@@ -1,14 +1,14 @@
-From 42d7dff68f9dd0e764a210cc2f7befcb38d2754b Mon Sep 17 00:00:00 2001
+From 7a6c4ea4730897c144b1c258442088f800bc39c3 Mon Sep 17 00:00:00 2001
 From: Peter Maydell <peter.maydell@linaro.org>
 Date: Tue, 4 Dec 2012 14:10:05 +0000
-Subject: [PATCH 17/80] omap_i2c: clean up revision numbers
+Subject: [PATCH 17/77] omap_i2c: clean up revision numbers
 
 ---
  hw/omap_i2c.c | 9 ++++++---
  1 file changed, 6 insertions(+), 3 deletions(-)
 
 diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
-index ba08e64..7fa4975 100644
+index 143b198..9582f45 100644
 --- a/hw/omap_i2c.c
 +++ b/hw/omap_i2c.c
 @@ -48,8 +48,11 @@ typedef struct OMAPI2CState {
@@ -35,5 +35,5 @@ index ba08e64..7fa4975 100644
  
      case 0x08:	/* I2C_STAT */
 -- 
-1.8.0
+1.8.1.2
 

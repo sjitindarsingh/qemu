@@ -25,21 +25,21 @@
 /* Needed early for CONFIG_BSD etc. */
 #include "config-host.h"
 
-#include "monitor.h"
-#include "sysemu.h"
-#include "gdbstub.h"
-#include "dma.h"
-#include "kvm.h"
+#include "monitor/monitor.h"
+#include "sysemu/sysemu.h"
+#include "exec/gdbstub.h"
+#include "sysemu/dma.h"
+#include "sysemu/kvm.h"
 #include "qmp-commands.h"
 
-#include "qemu-thread.h"
-#include "cpus.h"
-#include "qtest.h"
-#include "main-loop.h"
-#include "bitmap.h"
+#include "qemu/thread.h"
+#include "sysemu/cpus.h"
+#include "sysemu/qtest.h"
+#include "qemu/main-loop.h"
+#include "qemu/bitmap.h"
 
 #ifndef _WIN32
-#include "compatfd.h"
+#include "qemu/compatfd.h"
 #endif
 
 #ifdef CONFIG_LINUX
@@ -390,13 +390,15 @@ void hw_error(const char *fmt, ...)
 {
     va_list ap;
     CPUArchState *env;
+    CPUState *cpu;
 
     va_start(ap, fmt);
     fprintf(stderr, "qemu: hardware error: ");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
-    for(env = first_cpu; env != NULL; env = env->next_cpu) {
-        fprintf(stderr, "CPU #%d:\n", env->cpu_index);
+    for (env = first_cpu; env != NULL; env = env->next_cpu) {
+        cpu = ENV_GET_CPU(env);
+        fprintf(stderr, "CPU #%d:\n", cpu->cpu_index);
         cpu_dump_state(env, stderr, fprintf, CPU_DUMP_FPU);
     }
     va_end(ap);
@@ -516,7 +518,7 @@ static void qemu_init_sigbus(void)
     prctl(PR_MCE_KILL, PR_MCE_KILL_SET, PR_MCE_KILL_EARLY, 0, 0);
 }
 
-static void qemu_kvm_eat_signals(CPUArchState *env)
+static void qemu_kvm_eat_signals(CPUState *cpu)
 {
     struct timespec ts = { 0, 0 };
     siginfo_t siginfo;
@@ -537,7 +539,7 @@ static void qemu_kvm_eat_signals(CPUArchState *env)
 
         switch (r) {
         case SIGBUS:
-            if (kvm_on_sigbus_vcpu(env, siginfo.si_code, siginfo.si_addr)) {
+            if (kvm_on_sigbus_vcpu(cpu, siginfo.si_code, siginfo.si_addr)) {
                 sigbus_reraise();
             }
             break;
@@ -559,7 +561,7 @@ static void qemu_init_sigbus(void)
 {
 }
 
-static void qemu_kvm_eat_signals(CPUArchState *env)
+static void qemu_kvm_eat_signals(CPUState *cpu)
 {
 }
 #endif /* !CONFIG_LINUX */
@@ -726,7 +728,7 @@ static void qemu_kvm_wait_io_event(CPUArchState *env)
         qemu_cond_wait(cpu->halt_cond, &qemu_global_mutex);
     }
 
-    qemu_kvm_eat_signals(env);
+    qemu_kvm_eat_signals(cpu);
     qemu_wait_io_event_common(cpu);
 }
 
@@ -741,7 +743,7 @@ static void *qemu_kvm_cpu_thread_fn(void *arg)
     cpu->thread_id = qemu_get_thread_id();
     cpu_single_env = env;
 
-    r = kvm_init_vcpu(env);
+    r = kvm_init_vcpu(cpu);
     if (r < 0) {
         fprintf(stderr, "kvm_init_vcpu failed: %s\n", strerror(-r));
         exit(1);
@@ -1042,8 +1044,8 @@ void qemu_init_vcpu(void *_env)
     CPUArchState *env = _env;
     CPUState *cpu = ENV_GET_CPU(env);
 
-    env->nr_cores = smp_cores;
-    env->nr_threads = smp_threads;
+    cpu->nr_cores = smp_cores;
+    cpu->nr_threads = smp_threads;
     cpu->stopped = true;
     if (kvm_enabled()) {
         qemu_kvm_start_vcpu(env);
@@ -1161,12 +1163,14 @@ static void tcg_exec_all(void)
 void set_numa_modes(void)
 {
     CPUArchState *env;
+    CPUState *cpu;
     int i;
 
     for (env = first_cpu; env != NULL; env = env->next_cpu) {
+        cpu = ENV_GET_CPU(env);
         for (i = 0; i < nb_numa_nodes; i++) {
-            if (test_bit(env->cpu_index, node_cpumask[i])) {
-                env->numa_node = i;
+            if (test_bit(cpu->cpu_index, node_cpumask[i])) {
+                cpu->numa_node = i;
             }
         }
     }
@@ -1205,7 +1209,6 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 {
     CpuInfoList *head = NULL, *cur_item = NULL;
     CPUArchState *env;
-    int r;
 
     for (env = first_cpu; env != NULL; env = env->next_cpu) {
         CPUState *cpu = ENV_GET_CPU(env);
@@ -1215,21 +1218,13 @@ CpuInfoList *qmp_query_cpus(Error **errp)
 
         info = g_malloc0(sizeof(*info));
         info->value = g_malloc0(sizeof(*info->value));
-        info->value->CPU = env->cpu_index;
+        info->value->CPU = cpu->cpu_index;
         info->value->current = (env == first_cpu);
         info->value->halted = env->halted;
         info->value->thread_id = cpu->thread_id;
 #if defined(TARGET_I386)
         info->value->has_pc = true;
         info->value->pc = env->eip + env->segs[R_CS].base;
-        r = asprintf(&info->value->cr0, TARGET_FMT_lx, env->cr[0]);
-        info->value->has_cr0 = r != -1;
-        r = asprintf(&info->value->cr3, TARGET_FMT_lx, env->cr[3]);
-        info->value->has_cr3 = r != -1;
-        r = asprintf(&info->value->cr4, TARGET_FMT_lx, env->cr[4]);
-        info->value->has_cr4 = r != -1;
-        r = asprintf(&info->value->efer, "%" PRIu64, env->efer);
-        info->value->has_efer = r != -1;
 #elif defined(TARGET_PPC)
         info->value->has_nip = true;
         info->value->nip = env->nip;
@@ -1261,6 +1256,7 @@ void qmp_memsave(int64_t addr, int64_t size, const char *filename,
     FILE *f;
     uint32_t l;
     CPUArchState *env;
+    CPUState *cpu;
     uint8_t buf[1024];
 
     if (!has_cpu) {
@@ -1268,7 +1264,8 @@ void qmp_memsave(int64_t addr, int64_t size, const char *filename,
     }
 
     for (env = first_cpu; env; env = env->next_cpu) {
-        if (cpu_index == env->cpu_index) {
+        cpu = ENV_GET_CPU(env);
+        if (cpu_index == cpu->cpu_index) {
             break;
         }
     }

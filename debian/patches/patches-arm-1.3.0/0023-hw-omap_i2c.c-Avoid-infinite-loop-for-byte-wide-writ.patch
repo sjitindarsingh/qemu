@@ -1,8 +1,8 @@
-From 574ae8ad27e838901020810f28a46b5519c2ca3c Mon Sep 17 00:00:00 2001
+From e1a1a7093c13c792d7e2200b7995fd5644c1903b Mon Sep 17 00:00:00 2001
 From: Matt Waddel <matt.waddel@ubuntu.com>
 Date: Tue, 4 Dec 2012 14:10:06 +0000
-Subject: [PATCH 23/80] hw/omap_i2c.c: Avoid infinite loop for byte wide
- writes to registers
+Subject: [PATCH 23/77] hw/omap_i2c.c: Avoid infinite loop for byte wide writes
+ to registers
 
 During byte wide writes the i2c write routine gets into an infinite loop.
 The STP bit in the status register is not set so the i2c_end_transfer()
@@ -13,7 +13,7 @@ the i2c_end_transfer() call outside the STP check seems to fix this problem.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
-index cabc019..68d6780 100644
+index 6932484..c712c1e 100644
 --- a/hw/omap_i2c.c
 +++ b/hw/omap_i2c.c
 @@ -141,8 +141,8 @@ static void omap_i2c_fifo_run(OMAPI2CState *s)
@@ -27,5 +27,5 @@ index cabc019..68d6780 100644
                  s->count_cur = s->count;
              }
 -- 
-1.8.0
+1.8.1.2
 
