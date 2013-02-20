@@ -336,7 +336,8 @@ static ram_addr_t last_offset;
 static unsigned long *migration_bitmap;
 static uint64_t migration_dirty_pages;
 
-static inline bool migration_bitmap_test_and_reset_dirty(MemoryRegion *mr,
+static inline bool migration_bitmap_test_and_reset_dirty(RAMBlock *block,
+                                                         MemoryRegion *mr,
                                                          ram_addr_t offset)
 {
     bool ret;
@@ -344,13 +345,14 @@ static inline bool migration_bitmap_test_and_reset_dirty(MemoryRegion *mr,
 
     ret = test_and_clear_bit(nr, migration_bitmap);
 
-    if (ret) {
+    if (ret && !block->do_not_save) {
         migration_dirty_pages--;
     }
     return ret;
 }
 
-static inline bool migration_bitmap_set_dirty(MemoryRegion *mr,
+static inline bool migration_bitmap_set_dirty(RAMBlock *block,
+                                              MemoryRegion *mr,
                                               ram_addr_t offset)
 {
     bool ret;
@@ -358,7 +360,7 @@ static inline bool migration_bitmap_set_dirty(MemoryRegion *mr,
 
     ret = test_and_set_bit(nr, migration_bitmap);
 
-    if (!ret) {
+    if (!ret && !block->do_not_save) {
         migration_dirty_pages++;
     }
     return ret;
@@ -385,7 +387,7 @@ static void migration_bitmap_sync(void)
         for (addr = 0; addr < block->length; addr += TARGET_PAGE_SIZE) {
             if (memory_region_get_dirty(block->mr, addr, TARGET_PAGE_SIZE,
                                         DIRTY_MEMORY_MIGRATION)) {
-                migration_bitmap_set_dirty(block->mr, addr);
+                migration_bitmap_set_dirty(block, block->mr, addr);
             }
         }
         memory_region_reset_dirty(block->mr, 0, block->length,
@@ -424,10 +426,17 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
 
     if (!block)
         block = QLIST_FIRST(&ram_list.blocks);
+    
+    while (block->do_not_save) {
+        block = QLIST_NEXT(block, next);
+        if (!block) {
+            return 0;
+        }
+    }
 
     do {
         mr = block->mr;
-        if (migration_bitmap_test_and_reset_dirty(mr, offset)) {
+        if (migration_bitmap_test_and_reset_dirty(block, mr, offset)) {
             uint8_t *p;
             int cont = (block == last_block) ? RAM_SAVE_FLAG_CONTINUE : 0;
 
@@ -467,6 +476,16 @@ static int ram_save_block(QEMUFile *f, bool last_stage)
             block = QLIST_NEXT(block, next);
             if (!block)
                 block = QLIST_FIRST(&ram_list.blocks);
+            /* We need to skip pcram if do_not_save, otherwise we'll loop all
+             * over again. */
+            while (block->do_not_save) {
+                block = QLIST_NEXT(block, next);
+                /* This will not iterate forever because we only set pcram to
+                 * do_not_save, and there are at least one other
+                 * ramblock(e.g. pc.rom or pc.bios). */
+                if (!block)
+                    block = QLIST_FIRST(&ram_list.blocks);
+            }
         }
     } while (block != last_block || offset != last_offset);
 
@@ -570,6 +589,14 @@ static int ram_save_setup(QEMUFile *f, void *opaque)
     migration_bitmap = bitmap_new(ram_pages);
     bitmap_set(migration_bitmap, 1, ram_pages);
     migration_dirty_pages = ram_pages;
+    {
+        RAMBlock *block = QLIST_FIRST(&ram_list.blocks);
+        while (block) {
+            if (block->do_not_save)
+                migration_dirty_pages -= block->length >> TARGET_PAGE_BITS;
+            block = QLIST_NEXT(block, next);
+        }
+    }
 
     bytes_transferred = 0;
     reset_ram_globals();
