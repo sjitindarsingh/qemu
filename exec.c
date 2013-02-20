@@ -2389,6 +2389,7 @@ static void *mem_file_ram_alloc(RAMBlock *block,
             abort();
         }
         block->do_not_save = 1;
+        block->will_not_save = 1;
         return host;
     }
     return NULL;
