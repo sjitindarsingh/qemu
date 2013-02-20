@@ -1,3 +1,10 @@
+qemu (1.3.0+dfsg-5expubuntu5) raring; urgency=low
+
+  * qemu-system-common.postinst: only run setfacl when /dev/kvm exists.
+    (LP: #1130591)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 20 Feb 2013 08:58:53 -0600
+
 qemu (1.3.0+dfsg-5expubuntu4) raring; urgency=low
 
   * Update workarounds for udev/inotify:  (LP: #1092715)
