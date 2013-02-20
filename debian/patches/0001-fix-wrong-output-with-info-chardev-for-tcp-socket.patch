@@ -1,0 +1,30 @@
+From 9b7a3fb07ede78d168f09d00ebcad9c98ed75faa Mon Sep 17 00:00:00 2001
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Date: Thu, 21 Feb 2013 13:13:35 -0600
+Subject: [PATCH 1/1] fix wrong output with 'info chardev' for tcp socket.
+
+The snprintf format isn't taking into account the new 'left' and
+'right' variables (for ipv6 []) when placing the ':', which should
+go immediately before the port.
+
+Signed-off-by: Serge Hallyn <serge.hallyn@ubuntu.com>
+---
+ qemu-char.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/qemu-char.c b/qemu-char.c
+index e4b0f53..3e152e1 100644
+--- a/qemu-char.c
++++ b/qemu-char.c
+@@ -2482,7 +2482,7 @@ static CharDriverState *qemu_chr_open_socket_fd(int fd, bool do_nodelay,
+         s->do_nodelay = do_nodelay;
+         getnameinfo((struct sockaddr *) &ss, ss_len, host, sizeof(host),
+                     serv, sizeof(serv), NI_NUMERICHOST | NI_NUMERICSERV);
+-        snprintf(chr->filename, 256, "%s:%s:%s%s%s%s",
++        snprintf(chr->filename, 256, "%s:%s%s%s:%s%s",
+                  is_telnet ? "telnet" : "tcp",
+                  left, host, right, serv,
+                  is_listen ? ",server" : "");
+-- 
+1.8.1.2
+

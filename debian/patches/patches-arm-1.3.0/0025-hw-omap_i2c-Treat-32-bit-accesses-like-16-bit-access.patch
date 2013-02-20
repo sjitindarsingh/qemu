@@ -1,0 +1,41 @@
+From 09703494b9c969bbc0baf40a0cfd31e3c0ede25a Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 4 Dec 2012 14:10:07 +0000
+Subject: [PATCH 25/77] hw/omap_i2c: Treat 32 bit accesses like 16 bit accesses
+
+Treat 32 bit OMAP i2c register accesses like 16 bit accesses, working
+around the kernel bug LP:727781 where it makes 32 bit accesses in violation
+of the TRM. (Hardware behaviour is apparently that OMAP2 will abort on
+these 32 bit accesses, but OMAP3 and 4 will allow them.)
+
+We might need to revert or rethink this patch as part of handling silencing
+of bad-kernel-behaviour warnings more consistently so that they can be
+upstreamed.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ hw/omap_i2c.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/hw/omap_i2c.c b/hw/omap_i2c.c
+index 71e6ca3..2103ee8 100644
+--- a/hw/omap_i2c.c
++++ b/hw/omap_i2c.c
+@@ -643,12 +643,12 @@ static const MemoryRegionOps omap_i2c_ops = {
+         .read = {
+             omap_i2c_readb,
+             omap_i2c_read,
+-            omap_badwidth_read16,
++            omap_i2c_read,
+         },
+         .write = {
+             omap_i2c_writeb, /* Only the last fifo write can be 8 bit.  */
+             omap_i2c_write,
+-            omap_badwidth_write16,
++            omap_i2c_write,
+         },
+     },
+     .endianness = DEVICE_NATIVE_ENDIAN,
+-- 
+1.8.1.2
+
