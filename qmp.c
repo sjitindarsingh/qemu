@@ -84,12 +84,13 @@ void qmp_quit(Error **err)
     qemu_system_shutdown_request();
 }
 
-void qmp_stop(Error **errp)
+void qmp_stop(bool has_silent, bool silent, Error **errp)
 {
     if (runstate_check(RUN_STATE_INMIGRATE)) {
         autostart = 0;
     } else {
-        vm_stop(RUN_STATE_PAUSED);
+        bool __silent = (has_silent) ? silent : 0;
+        __vm_stop(RUN_STATE_PAUSED, __silent);
     }
 }
 
