@@ -1,0 +1,57 @@
+Index: qemu/linux-user/strace.c
+===================================================================
+--- qemu.orig/linux-user/strace.c	2013-02-25 21:24:28.697252731 -0600
++++ qemu/linux-user/strace.c	2013-02-25 21:24:28.689252730 -0600
+@@ -1437,6 +1437,12 @@ if( cmd == val ) { \
+         cmd &= ~FUTEX_PRIVATE_FLAG;
+     }
+ #endif
++#ifdef FUTEX_CLOCK_REALTIME
++    if (cmd & FUTEX_CLOCK_REALTIME) {
++        gemu_log("FUTEX_CLOCK_REALTIME|");
++        cmd &= ~FUTEX_CLOCK_REALTIME;
++    }
++#endif
+     print_op(FUTEX_WAIT)
+     print_op(FUTEX_WAKE)
+     print_op(FUTEX_FD)
+@@ -1467,7 +1473,8 @@ print_futex(const struct syscallname *na
+     print_raw_param(",%d", arg2, 0);
+     print_pointer(arg3, 0); /* struct timespec */
+     print_pointer(arg4, 0);
+-    print_raw_param("%d", arg4, 1);
++    print_raw_param("%d", arg4, 0);
++    print_raw_param("arg5=0x" TARGET_ABI_FMT_lx, arg5, 1);
+     print_syscall_epilogue(name);
+ }
+ #endif
+Index: qemu/linux-user/syscall.c
+===================================================================
+--- qemu.orig/linux-user/syscall.c	2013-02-25 21:24:28.697252731 -0600
++++ qemu/linux-user/syscall.c	2013-02-25 21:24:28.693252731 -0600
+@@ -4910,6 +4910,7 @@ static int do_futex(target_ulong uaddr,
+ {
+     struct timespec ts, *pts;
+     int base_op;
++    unsigned long bitset = 0;
+ 
+     /* ??? We assume FUTEX_* constants are the same on both host
+        and target.  */
+@@ -4919,6 +4920,8 @@ static int do_futex(target_ulong uaddr,
+     base_op = op;
+ #endif
+     switch (base_op) {
++    case FUTEX_WAIT_BITSET:
++        bitset = val3;
+     case FUTEX_WAIT:
+         if (timeout) {
+             pts = &ts;
+@@ -4927,7 +4930,7 @@ static int do_futex(target_ulong uaddr,
+             pts = NULL;
+         }
+         return get_errno(sys_futex(g2h(uaddr), op, tswap32(val),
+-                         pts, NULL, 0));
++                         pts, NULL, bitset));
+     case FUTEX_WAKE:
+         return get_errno(sys_futex(g2h(uaddr), op, val, NULL, NULL, 0));
+     case FUTEX_FD:

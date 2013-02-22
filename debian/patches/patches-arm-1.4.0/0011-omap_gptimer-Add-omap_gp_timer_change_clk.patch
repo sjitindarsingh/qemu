@@ -1,0 +1,46 @@
+From 035fa7975e7b02bfae963e90a5c149f1f3cd2e0d Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 18 Feb 2013 16:58:24 +0000
+Subject: [PATCH 11/77] omap_gptimer: Add omap_gp_timer_change_clk()
+
+Add omap_gp_timer_change_clk() functions to inform the gptimer code when
+the clock source for a timer has been changed.
+
+TODO: is this the best way to do this??
+---
+ hw/omap.h         | 1 +
+ hw/omap_gptimer.c | 6 ++++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/hw/omap.h b/hw/omap.h
+index 086692f..5e9d41d 100644
+--- a/hw/omap.h
++++ b/hw/omap.h
+@@ -844,6 +844,7 @@ struct omap_gp_timer_s;
+ struct omap_gp_timer_s *omap_gp_timer_init(struct omap_target_agent_s *ta,
+                 qemu_irq irq, omap_clk fclk, omap_clk iclk);
+ void omap_gp_timer_reset(struct omap_gp_timer_s *s);
++void omap_gp_timer_change_clk(struct omap_gp_timer_s *timer);
+ 
+ /* OMAP2 sysctimer */
+ struct omap_synctimer_s;
+diff --git a/hw/omap_gptimer.c b/hw/omap_gptimer.c
+index e500884..b019295 100644
+--- a/hw/omap_gptimer.c
++++ b/hw/omap_gptimer.c
+@@ -75,6 +75,12 @@ struct omap_gp_timer_s {
+ #define GPT_OVF_IT	(1 << 1)
+ #define GPT_MAT_IT	(1 << 0)
+ 
++/*if the clock source of gptimer changes, rate must be regenerated*/
++void omap_gp_timer_change_clk(struct omap_gp_timer_s *timer)
++{
++    timer->rate = omap_clk_getrate(timer->clk);
++}
++
+ static inline void omap_gp_timer_intr(struct omap_gp_timer_s *timer, int it)
+ {
+     if (timer->it_ena & it) {
+-- 
+1.8.1.2
+
