@@ -863,7 +863,8 @@ static void *file_ram_alloc(RAMBlock *block,
         return NULL;
     }
 
-    filename = g_strdup_printf("%s/qemu_back_mem.XXXXXX", path);
+    filename = g_strdup_printf("%s/qemu_back_mem.%s.XXXXXX", path,
+                               block->mr->name);
 
     fd = mkstemp(filename);
     if (fd < 0) {
