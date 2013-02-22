@@ -1,0 +1,37 @@
+From 1be6ad32f0155b6d79a18ae107ad2c879e4d004b Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 18 Feb 2013 16:58:34 +0000
+Subject: [PATCH 62/77] hw/omap_intc.c: Don't complain about nonexistent
+ register read by Linux
+
+The Linux omap kernel now deliberately reads from the nonexistent register
+at 0xf8, which only exists on ti816x, because it knows that on omap2 and
+omap3 this will read as zero. Handle it that way (ie suppress qemu's
+complaint about read of a bad register), since otherwise the omap3
+model has so many warnings it is unusable.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ hw/omap_intc.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/hw/omap_intc.c b/hw/omap_intc.c
+index 4b0acd0..6191e19 100644
+--- a/hw/omap_intc.c
++++ b/hw/omap_intc.c
+@@ -410,7 +410,11 @@ static uint64_t omap2_inth_read(void *opaque, hwaddr addr,
+             offset &= ~0x60;
+             bank = &s->bank[bank_no];
+         } else {
+-            OMAP_BAD_REG(addr);
++            /* Linux reads the nonexistent interrupt status register at 0xf8
++             * every time through its interrupt handler, so don't actually
++             * warn about it because it swamps the console with output.
++             */
++            /* OMAP_BAD_REG(addr); */
+             return 0;
+         }
+     }
+-- 
+1.8.1.2
+
