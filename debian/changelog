@@ -1,3 +1,10 @@
+qemu (1.4.0+dfsg-1expubuntu3) raring; urgency=low
+
+  * debian/rules: add a symlink from kvm-spice to kvm in qemu-kvm, on
+    i386/amd64 targets.  (LP: #1126258)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 28 Feb 2013 15:17:16 -0600
+
 qemu (1.4.0+dfsg-1expubuntu2) raring; urgency=low
 
   * substitute (apparently identical) patches from 1.4.0 qemu-linaro rebasing
