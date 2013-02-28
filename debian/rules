@@ -190,6 +190,9 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 # How about a manpage for it?
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	dh_install -pqemu-system-x86 debian/kvm /usr/bin/
+	mkdir -p debian/qemu-kvm/usr/bin
+	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
+	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice
 endif
 
 # virtfs-proxy-helper is linux-specific
