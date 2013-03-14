@@ -1,3 +1,17 @@
+qemu (1.4.0+dfsg-1expubuntu4) raring; urgency=low
+
+  * re-add qemu-system-x86.modprobe to set nesting=1 (LP: #1155177)
+  * qemu-system-x86.qemu-kvm.upstart:
+    - remove NESTED workarounds from upstart file.
+    - remove loading of modules which is now always done
+    - remove TAPR define which is no longer used
+  * move customizable defines back to qemu-kvm.default
+  * copy creation of group kvm to preinst - the group must exist when the
+    kvm udev rule is installed (LP: #1103022) (LP: #1092715)
+  * add adduser to qemu-system-common Pre-Depends for use by preinst.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 14 Mar 2013 14:21:53 -0500
+
 qemu (1.4.0+dfsg-1expubuntu3) raring; urgency=low
 
   * debian/rules: add a symlink from kvm-spice to kvm in qemu-kvm, on

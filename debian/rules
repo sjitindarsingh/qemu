@@ -193,6 +193,7 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	mkdir -p debian/qemu-kvm/usr/bin
 	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
 	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice
+	dh_installmodules -pqemu-system-x86
 endif
 
 # virtfs-proxy-helper is linux-specific

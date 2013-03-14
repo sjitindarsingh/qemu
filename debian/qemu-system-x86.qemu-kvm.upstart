@@ -5,38 +5,12 @@ author "Dustin Kirkland <kirkland@canonical.com>"
 
 start on runlevel [2345]
 
-# To disable qemu-kvm's page merging feature, set KSM_ENABLED=0 and
-# sudo restart qemu-kvm
-env KSM_ENABLED=1
-env SLEEP_MILLISECS=200
-# To load the vhost_net module, which in some cases can speed up
-# network performance, set VHOST_NET_ENABLED to 1.
-env VHOST_NET_ENABLED=0
-# By default, enable nested kvm for intel cpus.  (AMD cpus always have
-# it enabled).  If you want to disable nested kvm, comment the first
-# line and uncomment the second.
-env KVM_NESTED=" nested=1"
-#env KVM_NESTED=""
-
-# Uncomment this if you want to specify a bridge for qemu-ifup to use
-# for tap devices
-#env TAPBR=virbr0
-
-# Set this to 1 if you want hugepages to be available to kvm under
-# /run/hugepages/kvm
-env KVM_HUGEPAGES=0
-
 pre-start script
 	# Silently exit if the package isn't installed anymore
 	if [ ! -e /usr/bin/kvm ]; then
 		exit 0
 	fi
-	# Load the appropriate module, respecting blacklists
-	if grep -qs "^flags.* vmx" /proc/cpuinfo; then
-		modprobe -b kvm_intel "$KVM_NESTED" || true
-	elif grep -qs "^flags.* svm" /proc/cpuinfo; then
-		modprobe -b kvm_amd || true
-	fi
+	[ -r /etc/default/qemu-kvm ] && . /etc/default/qemu-kvm
 	# Enable KSM, respecting the default configuration file
 	if [ "$KSM_ENABLED" = "1" ]; then
 		[ -w /sys/kernel/mm/ksm/run ] && echo 1 > /sys/kernel/mm/ksm/run || true
