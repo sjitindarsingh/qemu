@@ -1298,7 +1298,7 @@
 #         remains paused once migration finishes, as if the -S option was
 #         passed on the command line.
 ##
-{ 'command': 'stop' }
+{ 'command': 'stop', 'data': {'*silent': 'bool'} }
 
 ##
 # @system_reset:
