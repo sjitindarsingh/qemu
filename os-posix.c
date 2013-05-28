@@ -79,6 +79,7 @@ void os_setup_signal_handling(void)
     sigaction(SIGTERM, &act, NULL);
 }
 
+#if 0 /* we use a fixed configured data path */
 /* Find a likely location for support files using the location of the binary.
    For installed binaries this will be "$bindir/../share/qemu".  When
    running from the build tree this will be "$bindir/../pc-bios".  */
@@ -141,6 +142,7 @@ char *os_find_datadir(const char *argv0)
 }
 #undef SHARE_SUFFIX
 #undef BUILD_SUFFIX
+#endif
 
 void os_set_proc_name(const char *s)
 {
@@ -362,4 +364,16 @@ int qemu_create_pidfile(const char *filename)
 bool is_daemonized(void)
 {
     return daemonize;
+}
+
+int os_mlock(void)
+{
+    int ret = 0;
+
+    ret = mlockall(MCL_CURRENT | MCL_FUTURE);
+    if (ret < 0) {
+        perror("mlockall");
+    }
+
+    return ret;
 }

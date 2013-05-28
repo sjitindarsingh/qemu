@@ -13,7 +13,6 @@ Build-Depends: debhelper (>= 9),
 # on build-dependencies.
 # pc-bios/*.dts => *.dtb (PPC firmware)
  device-tree-compiler,
- texi2html,
  texinfo,
  python,
 # --enable-linux-aio	linux-*
@@ -40,6 +39,11 @@ Build-Depends: debhelper (>= 9),
 # --enable-vnc-tls
 # --enable-vnc-ws
  libgnutls-dev,
+# --enable-gtk
+# --with-gtkabi=2.0
+ libgtk2.0-dev,
+##--enable-libiscsi
+# libiscsi-dev,
 # --enable-curses
  libncurses5-dev,
 # --with-system-pixman
@@ -54,6 +58,17 @@ Build-Depends: debhelper (>= 9),
  libseccomp-dev (>> 1.0.0) [linux-amd64 linux-i386],
 # --enable-spice	linux-amd64|linux-i386
  libspice-server-dev (>= 0.12.2~) [linux-amd64 linux-i386],
+ libspice-protocol-dev (>= 0.12.3~) [linux-amd64 linux-i386],
+# --enable-libusb	linux-*
+ libusb-1.0-0-dev (>= 2:1.0.13~) [linux-any],
+##--enable-usb-redir	linux-*
+#libusbredirparser-dev (>= 0.6~) [linux-any],
+##--enable-libssh2
+#libssh2-1-dev,
+##--enable-vde
+#libvdeplug-dev,
+# for gtk2, revisit for gtk3
+ libvte-dev (>> 0.18.0~),
 # needed for sdl
  libx11-dev,
 # --enable-xen	linux-amd64|linux-i386
@@ -68,11 +83,12 @@ Build-Depends: debhelper (>= 9),
  zlib1g-dev,
 # other optional features we enable
 # --enable-vnc
+##--enable-vnc-jpeg
 # --enable-vnc-png
 # --enable-kvm		linux-*
 # --enable-vhost-net	linux-*	# is it really linux-specific?
 ##--enable-glusterfs todo
-# --enable-rbd
+# --enable-rbd todo
  librados-dev, librbd-dev,
 Build-Conflicts: oss4-dev
 Standards-Version: 3.9.4
@@ -144,8 +160,8 @@ Description: QEMU full system emulation binaries
 Package: qemu-system-common
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
-Depends: ${misc:Depends}, ${shlibs:Depends}, udev, acl
 Pre-Depends: adduser
+Depends: ${misc:Depends}, ${shlibs:Depends}, udev, acl
 Breaks:
 # qemu-common is ubuntu package
   qemu-common (<< 1.2.0.dfsg-1),
@@ -257,9 +273,18 @@ Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
+ openbios-ppc (>= 1.1), openhackware
 Provides: ${sysprovides:ppc}, qemu-kvm
-Breaks: qemu-system (<< 1.3.0+dfsg-5), qemu-kvm (<< 1.2.0.dfsg-1), qemu-common (<< 1.2.0.dfsg-1), kvm (<< 1.3.0+dfsg-5)
-Replaces: qemu-system (<< 1.3.0+dfsg-5), qemu-kvm (<< 1.2.0.dfsg-1), qemu-common (<< 1.2.0.dfsg-1), kvm (<< 1.3.0+dfsg-5)
+Breaks:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
+Replaces:
+  qemu-common (<< 1.3.0+dfsg-5),
+  qemu-system (<< 1.3.0+dfsg-5),
+  qemu-kvm (<< 1.2.0.dfsg-1),
+  kvm (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils
 Suggests: samba, vde2
 Description: QEMU full system emulation binaries (ppc)
@@ -279,7 +304,7 @@ Package: qemu-system-sparc
 Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
- qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
+ qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version})
 Provides: ${sysprovides:sparc}, qemu-kvm
 Breaks:
   qemu-common (<< 1.3.0+dfsg-5),
@@ -311,7 +336,7 @@ Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Version}),
- vgabios (>= 0.6c-3~), seabios (>= 1.7.2~), ipxe-qemu
+ vgabios (>= 0.6c-3~), seabios (>= 1.7.2-2~), ipxe-qemu
 Provides: ${sysprovides:x86}, qemu-kvm, kvm
 Conflicts: kvm (<< 1.3.0+dfsg-5)
 Breaks:
@@ -382,8 +407,6 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sharutils
 Suggests: debootstrap
-Breaks: qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
-Replaces: qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
 Description: QEMU utilities
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -420,6 +443,7 @@ Replaces: qemu-kvm-spice
 Provides: qemu-kvm-spice
 Depends: ${misc:Depends}, qemu-system-x86 (>= ${source:Version})
 Section: oldlibs
+Priority: extra
 Description: QEMU Full virtualization on x86 hardware (transitional package)
  QEMU is a fast processor emulator.  This package is a transitional
  package from old qemu-kvm to qemu-system-x86.  It is safe to remove it.

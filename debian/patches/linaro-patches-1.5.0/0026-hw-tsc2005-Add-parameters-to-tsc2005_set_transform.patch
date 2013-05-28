@@ -1,0 +1,100 @@
+From 6a916414b6f19d81efb369a3a25a9b6ed7449513 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 18 Feb 2013 16:58:27 +0000
+Subject: [PATCH 26/69] hw/tsc2005: Add parameters to tsc2005_set_transform()
+
+Not sure exactly what these are for...
+---
+ hw/arm/nseries.c     |  2 +-
+ hw/input/tsc2005.c   | 19 ++++++++++++++++---
+ include/hw/devices.h |  3 ++-
+ 3 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/hw/arm/nseries.c b/hw/arm/nseries.c
+index f6c9dc0..6478501 100644
+--- a/hw/arm/nseries.c
++++ b/hw/arm/nseries.c
+@@ -298,7 +298,7 @@ static void n810_tsc_setup(struct n800_s *s)
+     s->ts.opaque = tsc2005_init(pintdav);
+     s->ts.txrx = tsc2005_txrx;
+ 
+-    tsc2005_set_transform(s->ts.opaque, &n810_pointercal);
++    tsc2005_set_transform(s->ts.opaque, &n810_pointercal, 400, 4000);
+ }
+ 
+ /* N810 Keyboard controller */
+diff --git a/hw/input/tsc2005.c b/hw/input/tsc2005.c
+index a771cd5..fda3d7b 100644
+--- a/hw/input/tsc2005.c
++++ b/hw/input/tsc2005.c
+@@ -54,6 +54,7 @@ typedef struct {
+     uint16_t aux_thr[2];
+ 
+     int tr[8];
++    int z1_cons, z2_cons;
+ } TSC2005State;
+ 
+ enum {
+@@ -98,10 +99,15 @@ static const uint16_t mode_regs[16] = {
+     ((s->y * s->tr[0] - s->x * s->tr[1]) / s->tr[2] + s->tr[3])
+ #define Y_TRANSFORM(s)			\
+     ((s->y * s->tr[4] - s->x * s->tr[5]) / s->tr[6] + s->tr[7])
++/*
+ #define Z1_TRANSFORM(s)			\
+-    ((400 - ((s)->x >> 7) + ((s)->pressure << 10)) << 4)
++    (((s)->z1_cons - ((s)->x >> 7) + ((s)->pressure << 10)) << 4)
+ #define Z2_TRANSFORM(s)			\
+-    ((4000 + ((s)->y >> 7) - ((s)->pressure << 10)) << 4)
++    (((s)->z2_cons + ((s)->y >> 7) - ((s)->pressure << 10)) << 4)
++ */
++/* these simpler forms work much better */
++#define Z1_TRANSFORM(s) (((s)->z1_cons) << 4)
++#define Z2_TRANSFORM(s) (((s)->z2_cons) << 4)
+ 
+ #define AUX_VAL				(700 << 4)	/* +/- 3 at 12-bit */
+ #define TEMP1_VAL			(1264 << 4)	/* +/- 5 at 12-bit */
+@@ -542,6 +548,9 @@ void *tsc2005_init(qemu_irq pintdav)
+     s->tr[6] = 1;
+     s->tr[7] = 0;
+ 
++    s->z1_cons = 400;
++    s->z2_cons = 4000;
++
+     tsc2005_reset(s);
+ 
+     qemu_add_mouse_event_handler(tsc2005_touchscreen_event, s, 1,
+@@ -558,7 +567,8 @@ void *tsc2005_init(qemu_irq pintdav)
+  * from the touchscreen.  Assuming 12-bit precision was used during
+  * tslib calibration.
+  */
+-void tsc2005_set_transform(void *opaque, MouseTransformInfo *info)
++void tsc2005_set_transform(void *opaque, MouseTransformInfo *info,
++                           int z1_cons, int z2_cons)
+ {
+     TSC2005State *s = (TSC2005State *) opaque;
+ 
+@@ -590,4 +600,7 @@ void tsc2005_set_transform(void *opaque, MouseTransformInfo *info)
+     s->tr[4] >>= 11;
+     s->tr[5] >>= 11;
+     s->tr[7] <<= 4;
++
++    s->z1_cons = z1_cons;
++    s->z2_cons = z2_cons;
+ }
+diff --git a/include/hw/devices.h b/include/hw/devices.h
+index c60bcab..545b53a 100644
+--- a/include/hw/devices.h
++++ b/include/hw/devices.h
+@@ -26,7 +26,8 @@ void tsc210x_key_event(uWireSlave *chip, int key, int down);
+ /* tsc2005.c */
+ void *tsc2005_init(qemu_irq pintdav);
+ uint32_t tsc2005_txrx(void *opaque, uint32_t value, int len);
+-void tsc2005_set_transform(void *opaque, MouseTransformInfo *info);
++void tsc2005_set_transform(void *opaque, MouseTransformInfo *info,
++                           int z1_cons, int z2_cons);
+ 
+ /* stellaris_input.c */
+ void stellaris_gamepad_init(int n, qemu_irq *irq, const int *keycode);
+-- 
+1.8.1.2
+

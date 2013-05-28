@@ -16,7 +16,7 @@
 #include "qemu-common.h"
 #include "sysemu/sysemu.h"
 #include "qmp-commands.h"
-#include "char/char.h"
+#include "sysemu/char.h"
 #include "ui/qemu-spice.h"
 #include "ui/vnc.h"
 #include "sysemu/kvm.h"
@@ -24,6 +24,7 @@
 #include "hw/qdev.h"
 #include "sysemu/blockdev.h"
 #include "qom/qom-qobject.h"
+#include "hw/boards.h"
 
 NameInfo *qmp_query_name(Error **errp)
 {
@@ -84,13 +85,12 @@ void qmp_quit(Error **err)
     qemu_system_shutdown_request();
 }
 
-void qmp_stop(bool has_silent, bool silent, Error **errp)
+void qmp_stop(Error **errp)
 {
     if (runstate_check(RUN_STATE_INMIGRATE)) {
         autostart = 0;
     } else {
-        bool __silent = (has_silent) ? silent : 0;
-        __vm_stop(RUN_STATE_PAUSED, __silent);
+        vm_stop(RUN_STATE_PAUSED);
     }
 }
 
@@ -107,6 +107,15 @@ void qmp_system_powerdown(Error **erp)
 void qmp_cpu(int64_t index, Error **errp)
 {
     /* Just do nothing */
+}
+
+void qmp_cpu_add(int64_t id, Error **errp)
+{
+    if (current_machine->hot_add_cpu) {
+        current_machine->hot_add_cpu(id, errp);
+    } else {
+        error_setg(errp, "Not supported");
+    }
 }
 
 #ifndef CONFIG_VNC
@@ -150,8 +159,7 @@ void qmp_cont(Error **errp)
 {
     Error *local_err = NULL;
 
-    if (runstate_check(RUN_STATE_INTERNAL_ERROR) ||
-               runstate_check(RUN_STATE_SHUTDOWN)) {
+    if (runstate_needs_reset()) {
         error_set(errp, QERR_RESET_REQUIRED);
         return;
     } else if (runstate_check(RUN_STATE_SUSPENDED)) {

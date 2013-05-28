@@ -1,0 +1,33 @@
+From 05373219777fde3fb0e2578d3aa6ae7029b5156a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
+Date: Mon, 18 Feb 2013 16:58:28 +0000
+Subject: [PATCH 32/69] fix omap_spi rxs flag status update
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
+---
+ hw/ssi/omap_spi.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/hw/ssi/omap_spi.c b/hw/ssi/omap_spi.c
+index 903562d..ed6d312 100644
+--- a/hw/ssi/omap_spi.c
++++ b/hw/ssi/omap_spi.c
+@@ -229,8 +229,11 @@ static void omap_mcspi_transfer_run(OMAPSPIBusState *s, int chnum)
+     ch->tx = 0;
+     ch->status |= 1 << 2;               /* EOT */
+     ch->status |= 1 << 1;               /* TXS */
+-    if (trm != 2)
++    if (trm != 2) {
+         ch->status |= 1;                /* RXS */
++    } else {
++        ch->status &= ~1;               /* RXS */
++    }
+ 
+ intr_update:
+     if ((ch->status & 1) &&	trm != 2 &&                     /* RXS */
+-- 
+1.8.1.2
+

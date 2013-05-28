@@ -1,7 +1,7 @@
 #include "qemu-common.h"
 #include "sysemu/sysemu.h"
 
-void __vm_stop(RunState state, bool silent)
+void vm_stop(RunState state)
 {
     abort();
 }

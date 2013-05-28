@@ -1,0 +1,197 @@
+From b052e8b14d24b21c9930eac0459d6ad7671042fc Mon Sep 17 00:00:00 2001
+From: Riku Voipio <riku.voipio@nokia.com>
+Date: Mon, 18 Feb 2013 16:58:25 +0000
+Subject: [PATCH 13/69] hw/omap_l4.c: Add OMAP3 support
+
+TODO: definitely need to look more closely at what's going on here.
+
+Drop omap3_l4ta save/load support?
+---
+ hw/arm/omap2.c        |  8 ++++----
+ hw/misc/omap_l4.c     | 54 +++++++++++++++++++++++++++++++++++++++++++++++----
+ include/hw/arm/omap.h | 39 ++++++++++++++++++++++++++-----------
+ 3 files changed, 82 insertions(+), 19 deletions(-)
+
+diff --git a/hw/arm/omap2.c b/hw/arm/omap2.c
+index 2ff4371..4c80e60 100644
+--- a/hw/arm/omap2.c
++++ b/hw/arm/omap2.c
+@@ -934,7 +934,7 @@ static const struct omap_l4_region_s omap_l4_region[125] = {
+     [124] = { 0xb3000, 0x1000, 32 | 16 | 8 }, /* L4TA39 */
+ };
+ 
+-static const struct omap_l4_agent_info_s omap_l4_agent_info[54] = {
++static const struct omap2_l4_agent_info_s omap2_l4_agent_info[54] = {
+     { 0,           0, 3, 2 }, /* L4IA initiatior agent */
+     { L4TAO(1),    3, 2, 1 }, /* Control and pinout module */
+     { L4TAO(2),    5, 2, 1 }, /* 32K timer */
+@@ -992,9 +992,9 @@ static const struct omap_l4_agent_info_s omap_l4_agent_info[54] = {
+ };
+ 
+ #define omap_l4ta(bus, cs)	\
+-    omap_l4ta_get(bus, omap_l4_region, omap_l4_agent_info, L4TA(cs))
++    omap2_l4ta_init(bus, omap_l4_region, omap2_l4_agent_info, L4TA(cs))
+ #define omap_l4tao(bus, cs)	\
+-    omap_l4ta_get(bus, omap_l4_region, omap_l4_agent_info, L4TAO(cs))
++    omap2_l4ta_init(bus, omap_l4_region, omap2_l4_agent_info, L4TAO(cs))
+ 
+ /* Power, Reset, and Clock Management */
+ struct omap_prcm_s {
+@@ -2274,7 +2274,7 @@ struct omap_mpu_state_s *omap2420_mpu_init(MemoryRegion *sysmem,
+     vmstate_register_ram_global(&s->sram);
+     memory_region_add_subregion(sysmem, OMAP2_SRAM_BASE, &s->sram);
+ 
+-    s->l4 = omap_l4_init(sysmem, OMAP2_L4_BASE, 54);
++    s->l4 = omap_l4_init(sysmem, OMAP2_L4_BASE, 54, 125);
+ 
+     /* Actually mapped at any 2K boundary in the ARM11 private-peripheral if */
+     cpu_irq = arm_pic_init_cpu(s->cpu);
+diff --git a/hw/misc/omap_l4.c b/hw/misc/omap_l4.c
+index ac8251f..857714d 100644
+--- a/hw/misc/omap_l4.c
++++ b/hw/misc/omap_l4.c
+@@ -28,7 +28,8 @@ struct omap_l4_s {
+ };
+ 
+ struct omap_l4_s *omap_l4_init(MemoryRegion *address_space,
+-                               hwaddr base, int ta_num)
++                               hwaddr base, int ta_num,
++                               int region_count)
+ {
+     struct omap_l4_s *bus = g_malloc0(
+                     sizeof(*bus) + ta_num * sizeof(*bus->ta));
+@@ -108,14 +109,14 @@ static const MemoryRegionOps omap_l4ta_ops = {
+     .endianness = DEVICE_NATIVE_ENDIAN,
+ };
+ 
+-struct omap_target_agent_s *omap_l4ta_get(struct omap_l4_s *bus,
++struct omap_target_agent_s *omap2_l4ta_init(struct omap_l4_s *bus,
+         const struct omap_l4_region_s *regions,
+-	const struct omap_l4_agent_info_s *agents,
++        const struct omap2_l4_agent_info_s *agents,
+ 	int cs)
+ {
+     int i;
+     struct omap_target_agent_s *ta = NULL;
+-    const struct omap_l4_agent_info_s *info = NULL;
++    const struct omap2_l4_agent_info_s *info = NULL;
+ 
+     for (i = 0; i < bus->ta_num; i ++)
+         if (agents[i].ta == cs) {
+@@ -160,3 +161,48 @@ hwaddr omap_l4_attach(struct omap_target_agent_s *ta,
+ 
+     return base;
+ }
++
++struct omap_target_agent_s *omap3_l4ta_init(
++    struct omap_l4_s *bus,
++    const struct omap_l4_region_s *regions,
++    const struct omap3_l4_agent_info_s *agents,
++    int cs)
++{
++    int i;
++    struct omap_target_agent_s *ta = NULL;
++    const struct omap3_l4_agent_info_s *info = NULL;
++
++    for (i = 0; i < bus->ta_num; i++)
++        if (agents[i].agent_id == cs) {
++            ta = &bus->ta[i];
++            info = &agents[i];
++            break;
++        }
++    if (!ta) {
++        hw_error("%s: invalid agent id (%i)", __func__, cs);
++    }
++    if (ta->bus) {
++        hw_error("%s: target agent (%d) already initialized", __func__, cs);
++    }
++
++    ta->bus = bus;
++    ta->start = &regions[info->first_region_id];
++    ta->regions = info->region_count;
++
++    ta->component = ('Q' << 24) | ('E' << 16) | ('M' << 8) | ('U' << 0);
++    ta->status = 0x00000000;
++    ta->control = 0x00000200;
++
++    for (i = 0; i < info->region_count; i++) {
++        if (regions[info->first_region_id + i].access == L4TYPE_TA) {
++            break;
++        }
++    }
++    if (i >= info->region_count) {
++        hw_error("%s: specified agent (%d) has no TA region", __func__, cs);
++    }
++
++    ta->base = ta->bus->base + ta->start[i].offset;
++
++    return ta;
++}
+diff --git a/include/hw/arm/omap.h b/include/hw/arm/omap.h
+index 5e9d41d..161a217 100644
+--- a/include/hw/arm/omap.h
++++ b/include/hw/arm/omap.h
+@@ -73,17 +73,25 @@ void omap_clk_reparent(omap_clk clk, omap_clk parent);
+ 
+ /* OMAP2 l4 Interconnect */
+ struct omap_l4_s;
+-struct omap_l4_region_s {
+-    hwaddr offset;
+-    size_t size;
+-    int access;
+-};
+-struct omap_l4_agent_info_s {
++struct omap_l4_region_s;
++typedef enum {
++    L4TYPE_GENERIC = 0, /* not mapped by default, must be mapped separately */
++    L4TYPE_IA,          /* initiator agent */
++    L4TYPE_TA,          /* target agent */
++    L4TYPE_LA,          /* link register agent */
++    L4TYPE_AP           /* address protection */
++} omap3_l4_region_type_t;
++struct omap2_l4_agent_info_s {
+     int ta;
+     int region;
+     int regions;
+     int ta_region;
+ };
++struct omap3_l4_agent_info_s {
++    int agent_id;
++    int first_region_id;
++    int region_count;
++};
+ struct omap_target_agent_s {
+     MemoryRegion iomem;
+     struct omap_l4_s *bus;
+@@ -94,14 +102,23 @@ struct omap_target_agent_s {
+     uint32_t control;
+     uint32_t status;
+ };
++struct omap_l4_region_s {
++    hwaddr offset;
++    size_t size;
++    int access; /* omap3_l4_region_type_t for OMAP3 */
++};
+ struct omap_l4_s *omap_l4_init(MemoryRegion *address_space,
+-                               hwaddr base, int ta_num);
+-
+-struct omap_target_agent_s;
+-struct omap_target_agent_s *omap_l4ta_get(
++                               hwaddr base, int ta_num,
++                               int region_count);
++struct omap_target_agent_s *omap2_l4ta_init(
++    struct omap_l4_s *bus,
++    const struct omap_l4_region_s *regions,
++    const struct omap2_l4_agent_info_s *agents,
++    int cs);
++struct omap_target_agent_s *omap3_l4ta_init(
+     struct omap_l4_s *bus,
+     const struct omap_l4_region_s *regions,
+-    const struct omap_l4_agent_info_s *agents,
++    const struct omap3_l4_agent_info_s *agents,
+     int cs);
+ hwaddr omap_l4_attach(struct omap_target_agent_s *ta,
+                                          int region, MemoryRegion *mr);
+-- 
+1.8.1.2
+

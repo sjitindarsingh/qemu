@@ -27,18 +27,18 @@ common_configure_opts = \
 	--prefix=/usr \
 	--sysconfdir=/etc \
 	--libexecdir=/usr/lib \
+	--localstatedir=/var \
 	--disable-blobs \
 	--disable-strip \
 	--with-system-pixman \
 	--interp-prefix=/etc/qemu-binfmt/%M \
 	--localstatedir=/var \
-	--audio-card-list=ac97,es1370,sb16,cs4231a,adlib,gus,hda \
 	--enable-uname-release=2.6.32 \
 
 # list of system (softmmu) targets, from ./configure
 system_targets = \
  i386 x86_64 alpha arm cris lm32 m68k microblaze microblazeel \
- mips mipsel mips64 mips64el or32 ppc ppcemb ppc64 sh4 sh4eb \
+ mips mipsel mips64 mips64el moxie or32 ppc ppcemb ppc64 sh4 sh4eb \
  sparc sparc64 s390x xtensa xtensaeb unicore32
 
 # qemu-system subpackages
@@ -56,7 +56,8 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 # list of linux-user targets, from ./configure
 user_targets = \
  i386 x86_64 alpha arm armeb cris m68k microblaze microblazeel \
- mips mipsel or32 ppc ppc64 ppc64abi32 sh4 sh4eb sparc sparc64 sparc32plus \
+ mips mipsel mips64 mips64el mipsn32 mipsn32el or32 \
+ ppc ppc64 ppc64abi32 sh4 sh4eb sparc sparc64 sparc32plus \
  unicore32 s390x
 
 # binfmt linux-user support
@@ -126,22 +127,6 @@ build-stamp: configure-stamp
 	# system build
 	$(MAKE) -C $(CURDIR)/qemu-build
 	dtc -o qemu-build/pc-bios/bamboo.dtb pc-bios/bamboo.dts
-
-# special case for spapr-rtas.bin file.
-# this is an entry point for PPC architecture, which consists of just 5
-# processor instructions.  We use a pre-compiled pseudo-assembler version
-# in debian/spapr-rtas.hex which can be "compiled" using sed magic.
-# After "compiling" it this way, we compare with the upstream version,
-# it should be the same.
-# Use /usr/bin/printf since dash's printf does not understand \xNN.
-	/usr/bin/printf "$$(sed -n 's|^ .*:	\(.*\)	.*|\1|p' debian/spapr-rtas.hex | \
-		tr -d ' \n' | sed 's|\([0-9a-f]\{2\}\)|\\x\1|g')" > \
-		qemu-build/pc-bios/spapr-rtas.bin
-ifeq ($(DEB_HOST_ARCH),powerpc)
-	$(MAKE) -C qemu-build/pc-bios/spapr-rtas spapr-rtas.bin
-	cmp qemu-build/pc-bios/spapr-rtas.bin \
-	    qemu-build/pc-bios/spapr-rtas/spapr-rtas.bin
-endif
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
 	# user-static build
@@ -238,6 +223,7 @@ endif
 
 	dh_install --list-missing
 	dh_installdocs
+	dh_installman
 	dh_installchangelogs Changelog
 	dh_installudev
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)

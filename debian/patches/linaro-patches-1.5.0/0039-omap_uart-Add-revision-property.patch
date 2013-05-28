@@ -1,0 +1,44 @@
+From 5eafc313be23ddff66826a1063161227d0aac7b3 Mon Sep 17 00:00:00 2001
+From: Jan Vesely <jano.vesely@gmail.com>
+Date: Mon, 18 Feb 2013 16:58:30 +0000
+Subject: [PATCH 39/69] omap_uart: Add revision property.
+
+Set revision to values reported by beagleboard(-xm) hw.
+
+Signed-off-by: Jan Vesely <jano.vesely@gmail.com>
+---
+ hw/char/omap_uart.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/hw/char/omap_uart.c b/hw/char/omap_uart.c
+index d5f7bb8..d75b031 100644
+--- a/hw/char/omap_uart.c
++++ b/hw/char/omap_uart.c
+@@ -45,6 +45,7 @@ struct omap_uart_s {
+     const MemoryRegionOps *serial_ops;
+     uint32_t mmio_size;
+     uint32_t baudrate;
++    uint32_t revision;
+     qemu_irq tx_drq;
+     qemu_irq rx_drq;
+ 
+@@ -164,7 +165,7 @@ static uint64_t omap_uart_read(void *opaque, hwaddr addr,
+     case 0x4C:	/* OSC_12M_SEL (OMAP1) */
+         return s->clksel;
+     case 0x50:	/* MVR */
+-        return 0x30;
++        return s->revision;
+     case 0x54:	/* SYSC (OMAP2) */
+         return s->syscontrol;
+     case 0x58:	/* SYSS (OMAP2) */
+@@ -325,6 +326,7 @@ static int omap_uart_init(SysBusDevice *busdev)
+ }
+ 
+ static Property omap_uart_properties[] = {
++    DEFINE_PROP_UINT32("revision", struct omap_uart_s, revision, 0x30),
+     DEFINE_PROP_UINT32("mmio_size", struct omap_uart_s, mmio_size, 0x400),
+     DEFINE_PROP_UINT32("baudrate", struct omap_uart_s, baudrate, 0),
+     DEFINE_PROP_CHR("chardev", struct omap_uart_s, chr),
+-- 
+1.8.1.2
+
