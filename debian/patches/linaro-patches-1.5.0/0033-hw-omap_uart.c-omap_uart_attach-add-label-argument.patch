@@ -1,0 +1,61 @@
+From f5896733d0f8c6bcd6dc17c0e7f7f63f74afce28 Mon Sep 17 00:00:00 2001
+From: Riku Voipio <riku.voipio@nokia.com>
+Date: Mon, 18 Feb 2013 16:58:29 +0000
+Subject: [PATCH 33/69] hw/omap_uart.c omap_uart_attach: add label argument
+
+Add label argument to omap_uart_attach
+---
+ hw/arm/nseries.c      | 2 +-
+ hw/char/omap_uart.c   | 5 +++--
+ include/hw/arm/omap.h | 3 ++-
+ 3 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/hw/arm/nseries.c b/hw/arm/nseries.c
+index f4218f0..2a079a2 100644
+--- a/hw/arm/nseries.c
++++ b/hw/arm/nseries.c
+@@ -786,7 +786,7 @@ static void n8x0_uart_setup(struct n800_s *s)
+     qdev_connect_gpio_out(s->mpu->gpio, N8X0_BT_WKUP_GPIO,
+                     csrhci_pins_get(radio)[csrhci_pin_wakeup]);
+ 
+-    omap_uart_attach(s->mpu->uart[BT_UART], radio);
++    omap_uart_attach(s->mpu->uart[BT_UART], radio, "bt-uart");
+ }
+ 
+ static void n8x0_usb_setup(struct n800_s *s)
+diff --git a/hw/char/omap_uart.c b/hw/char/omap_uart.c
+index 5bb36ed..3081110 100644
+--- a/hw/char/omap_uart.c
++++ b/hw/char/omap_uart.c
+@@ -177,11 +177,12 @@ struct omap_uart_s *omap2_uart_init(MemoryRegion *sysmem,
+     return s;
+ }
+ 
+-void omap_uart_attach(struct omap_uart_s *s, CharDriverState *chr)
++void omap_uart_attach(struct omap_uart_s *s, CharDriverState *chr,
++                      const char *label)
+ {
+     /* TODO: Should reuse or destroy current s->serial */
+     s->serial = serial_mm_init(get_system_memory(), s->base, 2, s->irq,
+                                omap_clk_getrate(s->fclk) / 16,
+-                               chr ?: qemu_chr_new("null", "null", NULL),
++                               chr ?: qemu_chr_new(label, "null", NULL),
+                                DEVICE_NATIVE_ENDIAN);
+ }
+diff --git a/include/hw/arm/omap.h b/include/hw/arm/omap.h
+index 21d83a6..e408771 100644
+--- a/include/hw/arm/omap.h
++++ b/include/hw/arm/omap.h
+@@ -882,7 +882,8 @@ struct omap_uart_s *omap2_uart_init(MemoryRegion *sysmem,
+                 qemu_irq txdma, qemu_irq rxdma,
+                 const char *label, CharDriverState *chr);
+ void omap_uart_reset(struct omap_uart_s *s);
+-void omap_uart_attach(struct omap_uart_s *s, CharDriverState *chr);
++void omap_uart_attach(struct omap_uart_s *s, CharDriverState *chr,
++                      const char *label);
+ 
+ struct omap_mpuio_s;
+ qemu_irq *omap_mpuio_in_get(struct omap_mpuio_s *s);
+-- 
+1.8.1.2
+

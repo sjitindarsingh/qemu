@@ -18,10 +18,17 @@ fi
 # Fix it here, but only if the perms are like default.
 # (See #607391)
 
-if [ -c /dev/kvm -a ! -L /dev/kvm ] && [ .$(stat -c %u%g /dev/kvm) = .00 ]
+# Remove group::--- acl mistakenly placed on /dev/kvm by udev-acl
+# This can be removed when udev-acl+consolekit are removed in favor
+# of logind.
+if [ -c /dev/kvm -a ! -L /dev/kvm ]
 then
-  chgrp kvm /dev/kvm
-  chmod 0660 /dev/kvm
+  /usr/bin/setfacl -m g::rw /dev/kvm
 fi
+
+# udev rules for /dev/kvm have changed, so have udev
+# recalculate:
+
+udevadm trigger --subsystem-match=misc --action=change
 
 exit 0

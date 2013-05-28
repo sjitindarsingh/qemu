@@ -1,0 +1,141 @@
+From 4b792f40859dfdf14b65d30461c7f5438b13afb9 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
+Date: Mon, 18 Feb 2013 16:58:23 +0000
+Subject: [PATCH 03/69] sd: Allow sd_init callers to specify whether card is
+ MMC or SD
+
+Add a parameter to sd_init() which allows the caller to specify
+whether the card is MMC or SD.
+
+TODO: maybe we should have an sd_init() and an mmc_init()
+instead?
+
+TODO: these mmc patches need to be integrated with the ones
+Vincent Palatin proposed.
+---
+ hw/sd/milkymist-memcard.c | 2 +-
+ hw/sd/omap_mmc.c          | 4 ++--
+ hw/sd/pl181.c             | 2 +-
+ hw/sd/pxa2xx_mmci.c       | 2 +-
+ hw/sd/sd.c                | 2 +-
+ hw/sd/sdhci.c             | 2 +-
+ hw/sd/ssi-sd.c            | 2 +-
+ include/hw/sd.h           | 2 +-
+ 8 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/hw/sd/milkymist-memcard.c b/hw/sd/milkymist-memcard.c
+index d5944bc..e399e42 100644
+--- a/hw/sd/milkymist-memcard.c
++++ b/hw/sd/milkymist-memcard.c
+@@ -250,7 +250,7 @@ static int milkymist_memcard_init(SysBusDevice *dev)
+     DriveInfo *dinfo;
+ 
+     dinfo = drive_get_next(IF_SD);
+-    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, 0);
++    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, 0, 0);
+     s->enabled = dinfo ? bdrv_is_inserted(dinfo->bdrv) : 0;
+ 
+     memory_region_init_io(&s->regs_region, &memcard_mmio_ops, s,
+diff --git a/hw/sd/omap_mmc.c b/hw/sd/omap_mmc.c
+index d4079cd..800716e 100644
+--- a/hw/sd/omap_mmc.c
++++ b/hw/sd/omap_mmc.c
+@@ -592,7 +592,7 @@ struct omap_mmc_s *omap_mmc_init(hwaddr base,
+     memory_region_add_subregion(sysmem, base, &s->iomem);
+ 
+     /* Instantiate the storage */
+-    s->card = sd_init(bd, 0);
++    s->card = sd_init(bd, 0, 0);
+ 
+     return s;
+ }
+@@ -617,7 +617,7 @@ struct omap_mmc_s *omap2_mmc_init(struct omap_target_agent_s *ta,
+     omap_l4_attach(ta, 0, &s->iomem);
+ 
+     /* Instantiate the storage */
+-    s->card = sd_init(bd, 0);
++    s->card = sd_init(bd, 0, 0);
+ 
+     s->cdet = qemu_allocate_irqs(omap_mmc_cover_cb, s, 1)[0];
+     sd_set_cb(s->card, NULL, s->cdet);
+diff --git a/hw/sd/pl181.c b/hw/sd/pl181.c
+index 2527296..f30ae89 100644
+--- a/hw/sd/pl181.c
++++ b/hw/sd/pl181.c
+@@ -485,7 +485,7 @@ static int pl181_init(SysBusDevice *dev)
+     sysbus_init_irq(dev, &s->irq[1]);
+     qdev_init_gpio_out(&s->busdev.qdev, s->cardstatus, 2);
+     dinfo = drive_get_next(IF_SD);
+-    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, 0);
++    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, 0, 0);
+     return 0;
+ }
+ 
+diff --git a/hw/sd/pxa2xx_mmci.c b/hw/sd/pxa2xx_mmci.c
+index 2db1cab..bbd27c0 100644
+--- a/hw/sd/pxa2xx_mmci.c
++++ b/hw/sd/pxa2xx_mmci.c
+@@ -538,7 +538,7 @@ PXA2xxMMCIState *pxa2xx_mmci_init(MemoryRegion *sysmem,
+     memory_region_add_subregion(sysmem, base, &s->iomem);
+ 
+     /* Instantiate the actual storage */
+-    s->card = sd_init(bd, 0);
++    s->card = sd_init(bd, 0, 0);
+ 
+     register_savevm(NULL, "pxa2xx_mmci", 0, 0,
+                     pxa2xx_mmci_save, pxa2xx_mmci_load, s);
+diff --git a/hw/sd/sd.c b/hw/sd/sd.c
+index cd12c82..449fc23 100644
+--- a/hw/sd/sd.c
++++ b/hw/sd/sd.c
+@@ -486,7 +486,7 @@ static const VMStateDescription sd_vmstate = {
+    whether card should be in SSI or MMC/SD mode.  It is also up to the
+    board to ensure that ssi transfers only occur when the chip select
+    is asserted.  */
+-SDState *sd_init(BlockDriverState *bs, bool is_spi)
++SDState *sd_init(BlockDriverState *bs, bool is_spi, bool is_mmc)
+ {
+     SDState *sd;
+ 
+diff --git a/hw/sd/sdhci.c b/hw/sd/sdhci.c
+index 91dc9b0..85b1fa3 100644
+--- a/hw/sd/sdhci.c
++++ b/hw/sd/sdhci.c
+@@ -1165,7 +1165,7 @@ static void sdhci_initfn(Object *obj)
+     DriveInfo *di;
+ 
+     di = drive_get_next(IF_SD);
+-    s->card = sd_init(di ? di->bdrv : NULL, 0);
++    s->card = sd_init(di ? di->bdrv : NULL, 0, 0);
+     s->eject_cb = qemu_allocate_irqs(sdhci_insert_eject_cb, s, 1)[0];
+     s->ro_cb = qemu_allocate_irqs(sdhci_card_readonly_cb, s, 1)[0];
+     sd_set_cb(s->card, s->ro_cb, s->eject_cb);
+diff --git a/hw/sd/ssi-sd.c b/hw/sd/ssi-sd.c
+index 4d3c4f6..d7bd54b 100644
+--- a/hw/sd/ssi-sd.c
++++ b/hw/sd/ssi-sd.c
+@@ -245,7 +245,7 @@ static int ssi_sd_init(SSISlave *dev)
+ 
+     s->mode = SSI_SD_CMD;
+     dinfo = drive_get_next(IF_SD);
+-    s->sd = sd_init(dinfo ? dinfo->bdrv : NULL, 1);
++    s->sd = sd_init(dinfo ? dinfo->bdrv : NULL, 1, 0);
+     register_savevm(&dev->qdev, "ssi_sd", -1, 1, ssi_sd_save, ssi_sd_load, s);
+     return 0;
+ }
+diff --git a/include/hw/sd.h b/include/hw/sd.h
+index 4ef822f..562eaa2 100644
+--- a/include/hw/sd.h
++++ b/include/hw/sd.h
+@@ -68,7 +68,7 @@ typedef struct {
+ 
+ typedef struct SDState SDState;
+ 
+-SDState *sd_init(BlockDriverState *bs, bool is_spi);
++SDState *sd_init(BlockDriverState *bs, bool is_spi, bool is_mmc);
+ void sd_reset(SDState *sd);
+ int sd_do_command(SDState *sd, SDRequest *req,
+                   uint8_t *response);
+-- 
+1.8.1.2
+

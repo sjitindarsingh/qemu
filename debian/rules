@@ -175,6 +175,10 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 # How about a manpage for it?
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	dh_install -pqemu-system-x86 debian/kvm /usr/bin/
+	mkdir -p debian/qemu-kvm/usr/bin
+	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
+	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice
+	dh_installmodules -pqemu-system-x86
 endif
 
 # virtfs-proxy-helper is linux-specific
@@ -223,7 +227,7 @@ endif
 	dh_installchangelogs Changelog
 	dh_installudev
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
-	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade -- start 20 S .
+	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 endif
 	dh_installinit -pqemu-guest-agent
 	dh_link

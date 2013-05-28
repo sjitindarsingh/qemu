@@ -19,11 +19,11 @@ at runtime, but this probably needs to be discussed with upstream.
 While at it, also increase max number of data path elements
 from 16 to 32.
 
-diff --git a/os-posix.c b/os-posix.c
-index d39261d..ab6b9fd 100644
---- a/os-posix.c
-+++ b/os-posix.c
-@@ -79,6 +79,7 @@ void os_setup_signal_handling(void)
+Index: qemu/os-posix.c
+===================================================================
+--- qemu.orig/os-posix.c	2013-05-22 19:56:19.673313513 +0200
++++ qemu/os-posix.c	2013-05-22 19:56:43.849191726 +0200
+@@ -79,6 +79,7 @@
      sigaction(SIGTERM, &act, NULL);
  }
  
@@ -31,7 +31,7 @@ index d39261d..ab6b9fd 100644
  /* Find a likely location for support files using the location of the binary.
     For installed binaries this will be "$bindir/../share/qemu".  When
     running from the build tree this will be "$bindir/../pc-bios".  */
-@@ -141,6 +142,7 @@ char *os_find_datadir(const char *argv0)
+@@ -141,6 +142,7 @@
  }
  #undef SHARE_SUFFIX
  #undef BUILD_SUFFIX
@@ -39,11 +39,11 @@ index d39261d..ab6b9fd 100644
  
  void os_set_proc_name(const char *s)
  {
-diff --git a/vl.c b/vl.c
-index 6e6225f..4c00fbd 100644
---- a/vl.c
-+++ b/vl.c
-@@ -179,7 +179,10 @@ int main(int argc, char **argv)
+Index: qemu/vl.c
+===================================================================
+--- qemu.orig/vl.c	2013-05-22 19:56:43.625192855 +0200
++++ qemu/vl.c	2013-05-22 19:56:43.849191726 +0200
+@@ -179,7 +179,10 @@
  #define MAX_VIRTIO_CONSOLES 1
  #define MAX_SCLP_CONSOLES 1
  
@@ -55,7 +55,7 @@ index 6e6225f..4c00fbd 100644
  static int data_dir_idx;
  const char *bios_name = NULL;
  enum vga_retrace_method vga_retrace_method = VGA_RETRACE_DUMB;
-@@ -3948,18 +3962,19 @@ int main(int argc, char **argv, char **envp)
+@@ -3960,18 +3963,19 @@
          exit(1);
      }
  

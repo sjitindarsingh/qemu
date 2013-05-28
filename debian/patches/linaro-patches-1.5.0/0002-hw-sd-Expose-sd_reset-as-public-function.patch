@@ -1,0 +1,91 @@
+From 1043104feb4725225b2a1944465b75af20924018 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 18 Feb 2013 16:58:22 +0000
+Subject: [PATCH 02/69] hw/sd: Expose sd_reset() as public function
+
+Expose sd_reset() as a public function so MMC controllers
+can reset the SD card.
+
+XXX: is this really right? Need to check specs.
+---
+ hw/sd/sd.c      | 17 ++++++++---------
+ include/hw/sd.h |  1 +
+ 2 files changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/hw/sd/sd.c b/hw/sd/sd.c
+index 2e0ef3e..cd12c82 100644
+--- a/hw/sd/sd.c
++++ b/hw/sd/sd.c
+@@ -398,13 +398,13 @@ static inline uint64_t sd_addr_to_wpnum(uint64_t addr)
+     return addr >> (HWBLOCK_SHIFT + SECTOR_SHIFT + WPGROUP_SHIFT);
+ }
+ 
+-static void sd_reset(SDState *sd, BlockDriverState *bdrv)
++void sd_reset(SDState *sd)
+ {
+     uint64_t size;
+     uint64_t sect;
+ 
+-    if (bdrv) {
+-        bdrv_get_geometry(bdrv, &sect);
++    if (sd->bdrv) {
++        bdrv_get_geometry(sd->bdrv, &sect);
+     } else {
+         sect = 0;
+     }
+@@ -421,11 +421,9 @@ static void sd_reset(SDState *sd, BlockDriverState *bdrv)
+     sd_set_cardstatus(sd);
+     sd_set_sdstatus(sd);
+ 
+-    sd->bdrv = bdrv;
+-
+     if (sd->wp_groups)
+         g_free(sd->wp_groups);
+-    sd->wp_switch = bdrv ? bdrv_is_read_only(bdrv) : false;
++    sd->wp_switch = sd->bdrv ? bdrv_is_read_only(sd->bdrv) : false;
+     sd->wpgrps_size = sect;
+     sd->wp_groups = bitmap_new(sd->wpgrps_size);
+     memset(sd->function_group, 0, sizeof(sd->function_group));
+@@ -443,7 +441,7 @@ static void sd_cardchange(void *opaque, bool load)
+ 
+     qemu_set_irq(sd->inserted_cb, bdrv_is_inserted(sd->bdrv));
+     if (bdrv_is_inserted(sd->bdrv)) {
+-        sd_reset(sd, sd->bdrv);
++        sd_reset(sd);
+         qemu_set_irq(sd->readonly_cb, sd->wp_switch);
+     }
+ }
+@@ -496,7 +494,8 @@ SDState *sd_init(BlockDriverState *bs, bool is_spi)
+     sd->buf = qemu_blockalign(bs, 512);
+     sd->spi = is_spi;
+     sd->enable = true;
+-    sd_reset(sd, bs);
++    sd->bdrv = bs;
++    sd_reset(sd);
+     if (sd->bdrv) {
+         bdrv_attach_dev_nofail(sd->bdrv, sd);
+         bdrv_set_dev_ops(sd->bdrv, &sd_block_ops, sd);
+@@ -684,7 +683,7 @@ static sd_rsp_type_t sd_normal_command(SDState *sd,
+ 
+         default:
+             sd->state = sd_idle_state;
+-            sd_reset(sd, sd->bdrv);
++            sd_reset(sd);
+             return sd->spi ? sd_r1 : sd_r0;
+         }
+         break;
+diff --git a/include/hw/sd.h b/include/hw/sd.h
+index d9b97e4..4ef822f 100644
+--- a/include/hw/sd.h
++++ b/include/hw/sd.h
+@@ -69,6 +69,7 @@ typedef struct {
+ typedef struct SDState SDState;
+ 
+ SDState *sd_init(BlockDriverState *bs, bool is_spi);
++void sd_reset(SDState *sd);
+ int sd_do_command(SDState *sd, SDRequest *req,
+                   uint8_t *response);
+ void sd_write_data(SDState *sd, uint8_t value);
+-- 
+1.8.1.2
+

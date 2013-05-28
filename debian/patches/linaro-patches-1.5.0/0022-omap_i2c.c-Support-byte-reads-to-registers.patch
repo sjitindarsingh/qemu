@@ -1,0 +1,89 @@
+From 48ac582a97d2d19034b809e1f23b94a0e2a9a9e3 Mon Sep 17 00:00:00 2001
+From: Matt Waddel <matt.waddel@ubuntu.com>
+Date: Mon, 18 Feb 2013 16:58:26 +0000
+Subject: [PATCH 22/69] omap_i2c.c: Support byte reads to registers
+
+Added support for the byte read of the omap i2c system.
+Handling is similar to the way i2c_write and i2c_writeb work.
+---
+ hw/i2c/omap_i2c.c | 57 ++++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 56 insertions(+), 1 deletion(-)
+
+diff --git a/hw/i2c/omap_i2c.c b/hw/i2c/omap_i2c.c
+index eaec2a0..4530b77 100644
+--- a/hw/i2c/omap_i2c.c
++++ b/hw/i2c/omap_i2c.c
+@@ -322,6 +322,61 @@ static uint32_t omap_i2c_read(void *opaque, hwaddr addr)
+     return 0;
+ }
+ 
++static uint32_t omap_i2c_readb(void *opaque, hwaddr addr)
++{
++    OMAPI2CState *s = opaque;
++    int offset = addr & OMAP_MPUI_REG_MASK;
++    uint8_t ret;
++
++    switch (offset) {
++    case 0x1c: /* I2C_DATA */
++        ret = 0;
++        if (s->fifolen) {
++            if (s->revision < OMAP3_INTR_REV) {
++                if (s->control & (1 << 14)) /* BE */
++                    ret = (((uint8_t)s->fifo[s->fifostart]) << 8)
++                        | s->fifo[(s->fifostart + 1) & I2C_FIFO_SIZE_MASK];
++                else
++                    ret = (((uint8_t)s->fifo[(s->fifostart + 1) & I2C_FIFO_SIZE_MASK]) << 8)
++                        | s->fifo[s->fifostart];
++                s->fifostart = (s->fifostart + 2) & I2C_FIFO_SIZE_MASK;
++                if (s->fifolen == 1) {
++                    s->stat |= 1 << 15; /* SBD */
++                    s->fifolen = 0;
++                } else
++                    s->fifolen -= 2;
++                if (!s->fifolen) {
++                    s->stat &= ~(1 << 3); /* RRDY */
++                    s->stat |= 1 << 2;    /* ARDY */
++                }
++            } else {
++                s->stat &= ~(1 << 7); /* AERR */
++                ret = (uint8_t)s->fifo[s->fifostart++];
++                s->fifostart &= I2C_FIFO_SIZE_MASK;
++                if (--s->fifolen) {
++                    if (s->fifolen <= ((s->dma >> 8) & 0x3f)) {
++                        s->stat &= ~(1 << 3); /* RRDY */
++                        s->stat |= 1 << 13;   /* RDR */
++                    }
++                } else {
++                    s->stat &= ~((1 << 3) | (1 << 13)); /* RRDY | RDR */
++                    s->stat |= 1 << 2;                  /* ARDY */
++                }
++            }
++            s->stat &= ~(1 << 11); /* ROVR */
++        } else if (s->revision >= OMAP3_INTR_REV)
++            s->stat |= (1 << 7); /* AERR */
++        omap_i2c_fifo_run(s);
++        omap_i2c_interrupts_update(s);
++        return ret;
++    default:
++        break;
++    }
++
++    OMAP_BAD_REG(addr);
++    return 0;
++}
++
+ static void omap_i2c_write(void *opaque, hwaddr addr,
+                 uint32_t value)
+ {
+@@ -583,7 +638,7 @@ static void omap_i2c_writeb(void *opaque, hwaddr addr,
+ static const MemoryRegionOps omap_i2c_ops = {
+     .old_mmio = {
+         .read = {
+-            omap_badwidth_read16,
++            omap_i2c_readb,
+             omap_i2c_read,
+             omap_badwidth_read16,
+         },
+-- 
+1.8.1.2
+
