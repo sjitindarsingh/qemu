@@ -1,5 +1,5 @@
 Source: qemu
-Section: misc
+Section: otherosfs
 Priority: optional
 Maintainer: Ubuntu Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 XSBC-Original-Maintainer: Debian QEMU Team <pkg-qemu-devel@lists.alioth.debian.org>
@@ -352,7 +352,7 @@ Replaces:
   qemu-kvm (<< 1.2.0.dfsg-1),
   kvm (<< 1.3.0+dfsg-5)
 Recommends: qemu-utils, cpu-checker
-Suggests: samba, vde2
+Suggests: samba, vde2, kmod, sgabios
 Description: QEMU full system emulation binaries (x86)
  QEMU is a fast processor emulator: currently the package supports
  i386 and x86-64 emulation. By using dynamic translation it achieves
