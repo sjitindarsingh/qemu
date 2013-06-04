@@ -1,0 +1,50 @@
+From 433f879015ea04ca3053b15bf5b834b28badd977 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 18 Feb 2013 16:58:29 +0000
+Subject: [PATCH 35/69] serial: reset lsr dr/thre upon fcr rfr/xfr
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Includes:
+
+further fix serial.c fifo clear
+
+when receive fifo is requested to be cleared and there is a received byte
+pending to be read, accept the byte while discarding it so it will not stay
+pending.
+
+yet another serial tweak
+
+...so needs review!
+
+Signed-off-by: Juha Riihimäki <juha.riihimaki@nokia.com>
+---
+ hw/char/serial.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/hw/char/serial.c b/hw/char/serial.c
+index 0383972..e5e511b 100644
+--- a/hw/char/serial.c
++++ b/hw/char/serial.c
+@@ -368,10 +368,17 @@ static void serial_ioport_write(void *opaque, hwaddr addr, uint64_t val,
+             qemu_del_timer(s->fifo_timeout_timer);
+             s->timeout_ipending=0;
+             fifo_clear(s,RECV_FIFO);
++            if ((s->lsr & UART_LSR_DR)) {
++                s->lsr &= ~(UART_LSR_DR | UART_LSR_BI | UART_LSR_OE);
++                if (!(s->mcr & UART_MCR_LOOP)) {
++                    qemu_chr_accept_input(s->chr);
++                }
++            }
+         }
+ 
+         if (val & UART_FCR_XFR) {
+             fifo_clear(s,XMIT_FIFO);
++            s->lsr |= UART_LSR_THRE;
+         }
+ 
+         if (val & UART_FCR_FE) {
+-- 
+1.8.1.2
+

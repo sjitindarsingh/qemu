@@ -25,11 +25,11 @@ Signed-off-by: Aurelien Jarno <aurelien@aurel32.net>
 ldscripts/sparc.ld |   16 ++++++++++++++--
  1 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/sparc.ld b/sparc.ld
-index 56efe34..cec17c9 100644
---- a/ldscripts/sparc.ld
-+++ b/ldscripts/sparc.ld
-@@ -37,8 +37,20 @@ SECTIONS
+Index: qemu/ldscripts/sparc.ld
+===================================================================
+--- qemu.orig/ldscripts/sparc.ld	2013-05-22 19:56:19.641313674 +0200
++++ qemu/ldscripts/sparc.ld	2013-05-22 19:56:44.049190718 +0200
+@@ -37,8 +37,20 @@
    .rela.fini     : { *(.rela.fini)      }
    .rel.bss       : { *(.rel.bss)                }
    .rela.bss      : { *(.rela.bss)               }

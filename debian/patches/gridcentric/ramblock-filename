@@ -1,0 +1,23 @@
+exec: add ramblock name to -mem-path files
+
+From: Peter Feiner <peter@gridcentric.ca>
+
+Adds ramblocks' names to their backing files when using -mem-path.  Eases
+introspection and debugging.
+
+Signed-off-by: Peter Feiner <peter@gridcentric.ca>
+
+Index: qemu/exec.c
+===================================================================
+--- qemu.orig/exec.c	2013-02-21 08:10:38.823885695 -0600
++++ qemu/exec.c	2013-02-21 08:10:38.819885695 -0600
+@@ -863,7 +863,8 @@
+         return NULL;
+     }
+ 
+-    filename = g_strdup_printf("%s/qemu_back_mem.XXXXXX", path);
++    filename = g_strdup_printf("%s/qemu_back_mem.%s.XXXXXX", path,
++                               block->mr->name);
+ 
+     fd = mkstemp(filename);
+     if (fd < 0) {

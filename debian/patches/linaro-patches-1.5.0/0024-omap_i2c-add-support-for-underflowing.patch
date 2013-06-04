@@ -1,0 +1,29 @@
+From 4ad19a8dd156220c6002d4bca48f8eae1efd0164 Mon Sep 17 00:00:00 2001
+From: Riku Voipio <riku.voipio@nokia.com>
+Date: Mon, 18 Feb 2013 16:58:27 +0000
+Subject: [PATCH 24/69] omap_i2c: add support for underflowing
+
+kernel workaround for OMAP3430 Errata 1.153 requires this..
+---
+ hw/i2c/omap_i2c.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/hw/i2c/omap_i2c.c b/hw/i2c/omap_i2c.c
+index cc643fd..7580438 100644
+--- a/hw/i2c/omap_i2c.c
++++ b/hw/i2c/omap_i2c.c
+@@ -196,7 +196,10 @@ static uint32_t omap_i2c_read(void *opaque, hwaddr addr)
+         return s->mask;
+ 
+     case 0x08:	/* I2C_STAT */
+-        return s->stat | (i2c_bus_busy(s->bus) << 12);
++        ret = s->stat | (i2c_bus_busy(s->bus) << 12 );
++        if (s->revision >= OMAP3_INTR_REV && (s->stat & 0x4010)) /* XRDY or XDR  */
++            s->stat |= 1 << 10; /* XUDF as required by errata 1.153 */
++        return ret;
+ 
+     case 0x0c: /* I2C_IV / I2C_WE */
+         if (s->revision >= OMAP3_INTR_REV)
+-- 
+1.8.1.2
+

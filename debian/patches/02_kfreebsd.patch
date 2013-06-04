@@ -1,6 +1,8 @@
---- a/configure
-+++ b/configure
-@@ -2406,6 +2406,14 @@
+Index: qemu/configure
+===================================================================
+--- qemu.orig/configure	2013-05-22 19:56:19.781312969 +0200
++++ qemu/configure	2013-05-22 19:56:43.441193884 +0200
+@@ -2662,6 +2662,14 @@
  #include <fcntl.h>
  #include <sys/stat.h>
  

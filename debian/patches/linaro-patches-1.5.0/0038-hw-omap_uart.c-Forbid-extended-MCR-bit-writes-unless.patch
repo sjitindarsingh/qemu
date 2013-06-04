@@ -1,0 +1,49 @@
+From 5fadc5e5df2666f56982295bb875783bc9fe6e14 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 18 Feb 2013 16:58:29 +0000
+Subject: [PATCH 38/69] hw/omap_uart.c: Forbid extended MCR bit writes unless
+ in enhanced mode
+
+The OMAP UART defines new functions for MCR bits 5 and 6;
+these can only be written if the appropriate bit is set in the
+EFR register.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ hw/char/omap_uart.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/hw/char/omap_uart.c b/hw/char/omap_uart.c
+index eb1d6fc..d5f7bb8 100644
+--- a/hw/char/omap_uart.c
++++ b/hw/char/omap_uart.c
+@@ -121,8 +121,10 @@ static uint64_t omap_uart_read(void *opaque, hwaddr addr,
+         if (s->access_mode == regs_config_b) {
+             return s->xon[(addr & 7) >> 2];
+         } else if (addr == 0x10) {
+-            return s->serial_ops->read(s->serial, addr, size)
+-                   | (s->mcr_cache & 0xe0);
++            /* MCR. Bits 5 and 6 are handled by us, the rest by
++             * the underlying serial implementation.
++             */
++            return s->serial_ops->read(s->serial, addr, size) | s->mcr_cache;
+         }
+         return s->serial_ops->read(s->serial, addr, size);
+     case 0x18:
+@@ -210,7 +212,12 @@ static void omap_uart_write(void *opaque, hwaddr addr,
+             s->xon[(addr & 7) >> 2] = value;
+         } else {
+             if (addr == 0x10) {
+-                s->mcr_cache = value & 0x7f;
++                /* Bits 5 and 6 are handled at this level; they can
++                 * only be written if EFR_REG:ENHANCED_EN is set.
++                 */
++                if (s->efr & 0x10) {
++                    s->mcr_cache = value & 0x60;
++                }
+             }
+             s->serial_ops->write(s->serial, addr, value, size);
+         }
+-- 
+1.8.1.2
+
