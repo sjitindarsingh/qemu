@@ -1,3 +1,9 @@
+qemu (1.5.0+dfsg-3ubuntu2) saucy; urgency=low
+
+  * Drop openbios-ppc and openhackware Depends to Suggests for now.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Wed, 05 Jun 2013 03:23:56 -0600
+
 qemu (1.5.0+dfsg-3ubuntu1) saucy; urgency=low
 
   * Merge 1.5.0+dfs-3 from debian unstable.  Remaining changes:
