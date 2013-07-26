@@ -1,0 +1,33 @@
+From 49fa9881b2358e390e9e9466ddde74e995927efa Mon Sep 17 00:00:00 2001
+From: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+Date: Mon, 3 Jun 2013 15:38:48 +0000
+Subject: [PATCH] xen: simplify xen_enabled
+
+No need for preprocessor conditionals in xen_enabled: xen_allowed is
+always defined.
+
+Signed-off-by: Stefano Stabellini <stefano.stabellini@eu.citrix.com>
+CC: qemu-stable@nongnu.org
+---
+ include/hw/xen/xen.h |    4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/include/hw/xen/xen.h b/include/hw/xen/xen.h
+index 7451c5a..b42b0fd 100644
+--- a/include/hw/xen/xen.h
++++ b/include/hw/xen/xen.h
+@@ -25,11 +25,7 @@ extern bool xen_allowed;
+ 
+ static inline bool xen_enabled(void)
+ {
+-#if defined(CONFIG_XEN_BACKEND) && defined(CONFIG_XEN)
+     return xen_allowed;
+-#else
+-    return 0;
+-#endif
+ }
+ 
+ int xen_pci_slot_get_pirq(PCIDevice *pci_dev, int irq_num);
+-- 
+1.7.9.5
+

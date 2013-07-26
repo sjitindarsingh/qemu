@@ -1,3 +1,12 @@
+qemu (1.5.0+dfsg-3ubuntu3) saucy; urgency=low
+
+  * Cherry-picking three Xen related patches targetted for qemu-stable:
+    * xen-simplify-xen_enabled.patch
+    * main_loop-do-not-set-nonblocking-if-xen_enabled.patch
+    * xen_machine_pv-do-not-create-a-dummy-CPU-in-machine-.patch
+
+ -- Stefan Bader <stefan.bader@canonical.com>  Fri, 26 Jul 2013 15:01:44 +0200
+
 qemu (1.5.0+dfsg-3ubuntu2) saucy; urgency=low
 
   * Drop openbios-ppc and openhackware Depends to Suggests for now.
