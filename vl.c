@@ -179,7 +179,10 @@ int main(int argc, char **argv)
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
-static const char *data_dir[16];
+#ifdef CONFIG_QEMU_DATAPATH
+static char data_path[] = CONFIG_QEMU_DATAPATH;
+#endif
+static const char *data_dir[32];
 static int data_dir_idx;
 const char *bios_name = NULL;
 enum vga_retrace_method vga_retrace_method = VGA_RETRACE_DUMB;
@@ -3960,18 +3963,19 @@ int main(int argc, char **argv, char **envp)
         exit(1);
     }
 
-    /* If no data_dir is specified then try to find it relative to the
-       executable path.  */
-    if (data_dir_idx < ARRAY_SIZE(data_dir)) {
-        data_dir[data_dir_idx] = os_find_datadir(argv[0]);
-        if (data_dir[data_dir_idx] != NULL) {
-            data_dir_idx++;
-        }
+    /* Fill in the rest of config-specific dirs for bios paths */
+#ifdef CONFIG_QEMU_DATAPATH
+    for (optarg = strtok(data_path, ":");
+         optarg && data_dir_idx < ARRAY_SIZE(data_dir);
+         optarg = strtok(NULL, ":"))
+    {
+        data_dir[data_dir_idx++] = optarg;
     }
-    /* If all else fails use the install path specified when building. */
+#else
     if (data_dir_idx < ARRAY_SIZE(data_dir)) {
         data_dir[data_dir_idx++] = CONFIG_QEMU_DATADIR;
     }
+#endif
 
     /*
      * Default to max_cpus = smp_cpus, in case the user doesn't
