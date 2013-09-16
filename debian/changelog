@@ -1,3 +1,10 @@
+qemu (1.5.0+dfsg-3ubuntu4) saucy; urgency=low
+
+  * Re-introduce snippet in upstart job to load kvm modules if needed.
+    (LP: #1218459)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 16 Sep 2013 22:43:52 +0000
+
 qemu (1.5.0+dfsg-3ubuntu3) saucy; urgency=low
 
   * Cherry-picking three Xen related patches targetted for qemu-stable:
