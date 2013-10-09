@@ -1,3 +1,10 @@
+qemu (1.5.0+dfsg-3ubuntu5) saucy; urgency=low
+
+  * Cherrypick upstream patch to fix crash with rng device (LP: #1235017)
+    - virtio-rng-fix-crash
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 09 Oct 2013 17:46:49 -0500
+
 qemu (1.5.0+dfsg-3ubuntu4) saucy; urgency=low
 
   * Re-introduce snippet in upstart job to load kvm modules if needed.

@@ -73,3 +73,4 @@ linaro-patches-1.5.0/0065-musb-add-dummy-support-for-ulpi-pass-through-registe.p
 xen-simplify-xen_enabled.patch
 main_loop-do-not-set-nonblocking-if-xen_enabled.patch
 xen_machine_pv-do-not-create-a-dummy-CPU-in-machine-.patch
+virtio-rng-fix-crash
