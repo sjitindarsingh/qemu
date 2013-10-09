@@ -2299,6 +2299,7 @@ char *qemu_find_file(int type, const char *name)
         abort();
     }
 
+retry:
     for (i = 0; i < data_dir_idx; i++) {
         buf = g_strdup_printf("%s/%s%s", data_dir[i], subdir, name);
         if (access(buf, R_OK) == 0) {
@@ -2307,6 +2308,16 @@ char *qemu_find_file(int type, const char *name)
         }
         g_free(buf);
     }
+
+    if (memcmp(name, "efi-", 4) == 0 && type == QEMU_FILE_TYPE_BIOS) {
+        /* if not found but requested efi-*, retry with pxe-* */
+        buf = alloca(strlen(name) + 1);
+        strcpy(buf, "pxe");
+        strcpy(buf + 3, name + 3);
+        name = buf;
+        goto retry;
+    }
+
     return NULL;
 }
 
