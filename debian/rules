@@ -97,6 +97,11 @@ binfmt_targets = $(filter-out $(filter_binfmts), $(all_binfmt_targets))
 
 endif	# enable_linux_user
 
+# Cross compiling support
+ifneq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+common_configure_opts  += --cross-prefix=$(DEB_HOST_GNU_TYPE)-
+endif
+
 configure-stamp: configure
 	dh_testdir
 
@@ -197,6 +202,7 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 # How about a manpage for it?
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	dh_install -pqemu-system-x86 debian/kvm /usr/bin/
+	dh_install -pqemu-system-x86 debian/kvm.1 /usr/share/man/man1/
 	mkdir -p debian/qemu-kvm/usr/bin
 	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
 	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice
@@ -258,7 +264,9 @@ ifeq (${enable_system},enable)
 	install -D debian/qemu-ifup.$(DEB_HOST_ARCH_OS) \
 		debian/qemu-system-common/etc/qemu-ifup
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
-	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
+# we load kvm module only on x86 (modern kernels don't need even that),
+# and we don't want to fail installation if module can't be loaded
+	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=: -- start 20 S .
 endif
 endif
 	dh_installinit -pqemu-guest-agent

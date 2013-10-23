@@ -1,0 +1,48 @@
+commit 66026effdc9655b4faeeb16cbf9ee2b4d4a022b8
+Author: Peter Maydell <peter.maydell@linaro.org>
+Date:   Fri Aug 9 17:07:20 2013 +0100
+
+    hw/cpu/a15mpcore: Wire generic timer outputs to GIC inputs
+    
+    Now our A15 CPU implements the generic timers, we can wire them
+    up to the appropriate inputs on the GIC.
+    
+    Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+    Tested-by: Laurent Desnogues <laurent.desnogues@gmail.com>
+
+Index: qemu/hw/cpu/a15mpcore.c
+===================================================================
+--- qemu.orig/hw/cpu/a15mpcore.c	2013-10-09 15:37:55.006456389 -0500
++++ qemu/hw/cpu/a15mpcore.c	2013-10-09 15:37:54.994456389 -0500
+@@ -49,6 +49,8 @@
+     A15MPPrivState *s = A15MPCORE_PRIV(dev);
+     SysBusDevice *busdev;
+     const char *gictype = "arm_gic";
++    int i;
++    CPUState *cpu;
+ 
+     if (kvm_irqchip_in_kernel()) {
+         gictype = "kvm-arm-gic";
+@@ -67,6 +69,22 @@
+     /* Pass through inbound GPIO lines to the GIC */
+     qdev_init_gpio_in(DEVICE(dev), a15mp_priv_set_irq, s->num_irq - 32);
+ 
++    /* Wire the outputs from each CPU's generic timer to the
++     * appropriate GIC PPI inputs
++     */
++    for (i = 0, cpu = first_cpu; i < s->num_cpu; i++, cpu = cpu->next_cpu) {
++        DeviceState *cpudev = DEVICE(cpu);
++        int ppibase = s->num_irq - 32 + i * 32;
++        /* physical timer; we wire it up to the non-secure timer's ID,
++         * since a real A15 always has TrustZone but QEMU doesn't.
++         */
++        qdev_connect_gpio_out(cpudev, 0,
++                              qdev_get_gpio_in(s->gic, ppibase + 30));
++        /* virtual timer */
++        qdev_connect_gpio_out(cpudev, 1,
++                              qdev_get_gpio_in(s->gic, ppibase + 27));
++    }
++
+     /* Memory map (addresses are offsets from PERIPHBASE):
+      *  0x0000-0x0fff -- reserved
+      *  0x1000-0x1fff -- GIC Distributor
