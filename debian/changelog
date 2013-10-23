@@ -1,3 +1,10 @@
+qemu (1.6.0+dfsg-2ubuntu2) trusty; urgency=low
+
+  * debian/control: qemu-utils must Replace: qemu-kvm as it did in raring,
+    to prevent lts-to-lts updates from breaking.  (LP: #1243403)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 23 Oct 2013 14:31:05 -0500
+
 qemu (1.6.0+dfsg-2ubuntu1) trusty; urgency=low
 
   * Merge 1.6.0~rc0+dfsg-2exp from debian experimental.  Remaining changes:
