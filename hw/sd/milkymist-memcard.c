@@ -254,7 +254,7 @@ static int milkymist_memcard_init(SysBusDevice *dev)
     DriveInfo *dinfo;
 
     dinfo = drive_get_next(IF_SD);
-    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, false);
+    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, false, false);
     s->enabled = dinfo ? bdrv_is_inserted(dinfo->bdrv) : 0;
 
     memory_region_init_io(&s->regs_region, OBJECT(s), &memcard_mmio_ops, s,
