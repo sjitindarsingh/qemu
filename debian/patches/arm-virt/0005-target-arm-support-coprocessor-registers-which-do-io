@@ -1,0 +1,84 @@
+commit 749825a8769523adf6cb140ed3eeef360862f932
+Author: Peter Maydell <peter.maydell@linaro.org>
+Date:   Fri Aug 9 17:07:19 2013 +0100
+
+    target-arm: Support coprocessor registers which do I/O
+    
+    Add an ARM_CP_IO flag which an ARMCPRegInfo definition can use to
+    indicate that the register's implementation does I/O and thus
+    its accesses need to be surrounded by gen_io_start()/gen_io_end()
+    in order for icount to work. Most notably, cp registers which
+    implement clocks or timers need this.
+    
+    Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+    Tested-by: Laurent Desnogues <laurent.desnogues@gmail.com>
+
+Index: qemu/target-arm/cpu.h
+===================================================================
+--- qemu.orig/target-arm/cpu.h	2013-10-09 15:38:09.146456444 -0500
++++ qemu/target-arm/cpu.h	2013-10-09 15:38:09.130456444 -0500
+@@ -494,6 +494,9 @@
+  * old must have the OVERRIDE bit set.
+  * NO_MIGRATE indicates that this register should be ignored for migration;
+  * (eg because any state is accessed via some other coprocessor register).
++ * IO indicates that this register does I/O and therefore its accesses
++ * need to be surrounded by gen_io_start()/gen_io_end(). In particular,
++ * registers which implement clocks or timers require this.
+  */
+ #define ARM_CP_SPECIAL 1
+ #define ARM_CP_CONST 2
+@@ -501,13 +504,14 @@
+ #define ARM_CP_SUPPRESS_TB_END 8
+ #define ARM_CP_OVERRIDE 16
+ #define ARM_CP_NO_MIGRATE 32
++#define ARM_CP_IO 64
+ #define ARM_CP_NOP (ARM_CP_SPECIAL | (1 << 8))
+ #define ARM_CP_WFI (ARM_CP_SPECIAL | (2 << 8))
+ #define ARM_LAST_SPECIAL ARM_CP_WFI
+ /* Used only as a terminator for ARMCPRegInfo lists */
+ #define ARM_CP_SENTINEL 0xffff
+ /* Mask of only the flag bits in a type field */
+-#define ARM_CP_FLAG_MASK 0x3f
++#define ARM_CP_FLAG_MASK 0x7f
+ 
+ /* Return true if cptype is a valid type field. This is used to try to
+  * catch errors where the sentinel has been accidentally left off the end
+Index: qemu/target-arm/translate.c
+===================================================================
+--- qemu.orig/target-arm/translate.c	2013-10-09 15:38:09.146456444 -0500
++++ qemu/target-arm/translate.c	2013-10-09 15:38:09.134456444 -0500
+@@ -6287,6 +6287,10 @@
+             break;
+         }
+ 
++        if (use_icount && (ri->type & ARM_CP_IO)) {
++            gen_io_start();
++        }
++
+         if (isread) {
+             /* Read */
+             if (is64) {
+@@ -6376,14 +6380,20 @@
+                     store_cpu_offset(tmp, ri->fieldoffset);
+                 }
+             }
++        }
++
++        if (use_icount && (ri->type & ARM_CP_IO)) {
++            /* I/O operations must end the TB here (whether read or write) */
++            gen_io_end();
++            gen_lookup_tb(s);
++        } else if (!isread && !(ri->type & ARM_CP_SUPPRESS_TB_END)) {
+             /* We default to ending the TB on a coprocessor register write,
+              * but allow this to be suppressed by the register definition
+              * (usually only necessary to work around guest bugs).
+              */
+-            if (!(ri->type & ARM_CP_SUPPRESS_TB_END)) {
+-                gen_lookup_tb(s);
+-            }
++            gen_lookup_tb(s);
+         }
++
+         return 0;
+     }
+ 

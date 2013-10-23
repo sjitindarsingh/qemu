@@ -1,0 +1,29 @@
+Description: re-add pci-add
+ I believe it was inadvertently dropped.  I still haven't figured out
+ why CONFIG_PCI_HOTPLUG_OLD doesn't work for this, but this commit
+ re-introduces it.
+Author: Serge Hallyn <serge.hallyn@ubuntu.com>
+Forwarded: no
+
+Index: qemu/hmp-commands.hx
+===================================================================
+--- qemu.orig/hmp-commands.hx	2013-10-02 14:15:48.053809051 -0500
++++ qemu/hmp-commands.hx	2013-10-04 10:15:32.694264615 -0500
+@@ -1097,7 +1097,7 @@ STEXI
+ Add drive to PCI storage controller.
+ ETEXI
+ 
+-#if defined(CONFIG_PCI_HOTPLUG_OLD)
++#if defined(TARGET_I386)
+     {
+         .name       = "pci_add",
+         .args_type  = "pci_addr:s,type:s,opts:s?",
+@@ -1113,7 +1113,7 @@ STEXI
+ Hot-add PCI device.
+ ETEXI
+ 
+-#if defined(CONFIG_PCI_HOTPLUG_OLD)
++#if defined(TARGET_I386)
+     {
+         .name       = "pci_del",
+         .args_type  = "pci_addr:s",

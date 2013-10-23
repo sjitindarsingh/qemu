@@ -14,9 +14,11 @@ in the source tarball and so always uses the right ROMs.
 
 /mjt
 
---- a/vl.c
-+++ b/vl.c
-@@ -2298,6 +2298,7 @@ char *qemu_find_file(int type, const char *name)
+Index: qemu/vl.c
+===================================================================
+--- qemu.orig/vl.c	2013-05-22 19:56:19.749313130 +0200
++++ qemu/vl.c	2013-05-22 19:56:43.625192855 +0200
+@@ -2299,6 +2299,7 @@
          abort();
      }
  
@@ -24,7 +26,7 @@ in the source tarball and so always uses the right ROMs.
      for (i = 0; i < data_dir_idx; i++) {
          buf = g_strdup_printf("%s/%s%s", data_dir[i], subdir, name);
          if (access(buf, R_OK) == 0) {
-@@ -2306,6 +2307,16 @@ char *qemu_find_file(int type, const char *name)
+@@ -2307,6 +2308,16 @@
          }
          g_free(buf);
      }
