@@ -402,6 +402,8 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sharutils
 Suggests: debootstrap
+Conflicts: qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
+Replaces: qemu-user (<< 0.11.1-2), qemu-kvm (<< 1.2.0.dfsg-1)
 Description: QEMU utilities
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
