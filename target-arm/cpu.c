@@ -145,6 +145,15 @@ static void arm_cpu_initfn(Object *obj)
     cpu->cp_regs = g_hash_table_new_full(g_int_hash, g_int_equal,
                                          g_free, g_free);
 
+#ifndef CONFIG_USER_ONLY
+    cpu->gt_timer[GTIMER_PHYS] = qemu_new_timer(vm_clock, GTIMER_SCALE,
+                                                arm_gt_ptimer_cb, cpu);
+    cpu->gt_timer[GTIMER_VIRT] = qemu_new_timer(vm_clock, GTIMER_SCALE,
+                                                arm_gt_vtimer_cb, cpu);
+    qdev_init_gpio_out(DEVICE(cpu), cpu->gt_timer_outputs,
+                       ARRAY_SIZE(cpu->gt_timer_outputs));
+#endif
+
     if (tcg_enabled() && !inited) {
         inited = true;
         arm_translate_init();
