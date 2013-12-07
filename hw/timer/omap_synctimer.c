@@ -24,12 +24,11 @@ struct omap_synctimer_s {
     MemoryRegion iomem;
     uint32_t val;
     uint16_t readh;
-    uint32_t sysconfig; /*OMAP3*/
 };
 
 /* 32-kHz Sync Timer of the OMAP2 */
 static uint32_t omap_synctimer_read(struct omap_synctimer_s *s) {
-    return muldiv64(qemu_get_clock_ns(vm_clock), 0x8000, get_ticks_per_sec());
+    return muldiv64(qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL), 0x8000, get_ticks_per_sec());
 }
 
 void omap_synctimer_reset(struct omap_synctimer_s *s)
@@ -53,14 +52,6 @@ static uint32_t omap_synctimer_readw(void *opaque, hwaddr addr)
     return 0;
 }
 
-static uint32_t omap3_synctimer_readw(void *opaque, hwaddr addr)
-{
-    struct omap_synctimer_s *s = (struct omap_synctimer_s *)opaque;
-    return (addr == 0x04)
-        ? s->sysconfig
-        : omap_synctimer_readw(opaque, addr);
-}
-
 static uint32_t omap_synctimer_readh(void *opaque, hwaddr addr)
 {
     struct omap_synctimer_s *s = (struct omap_synctimer_s *) opaque;
@@ -75,36 +66,10 @@ static uint32_t omap_synctimer_readh(void *opaque, hwaddr addr)
     }
 }
 
-static uint32_t omap3_synctimer_readh(void *opaque, hwaddr addr)
-{
-    struct omap_synctimer_s *s = (struct omap_synctimer_s *) opaque;
-    uint32_t ret;
-
-    if (addr & 2) {
-        return s->readh;
-    }
-
-    ret = omap3_synctimer_readw(opaque, addr);
-    s->readh = ret >> 16;
-    return ret & 0xffff;
-}
-
 static void omap_synctimer_write(void *opaque, hwaddr addr,
                 uint32_t value)
 {
     OMAP_BAD_REG(addr);
-}
-
-
-static void omap3_synctimer_write(void *opaque, hwaddr addr,
-                                  uint32_t value)
-{
-    struct omap_synctimer_s *s = (struct omap_synctimer_s *)opaque;
-    if (addr == 0x04) {
-        s->sysconfig = value & 0x0c;
-    } else {
-        OMAP_BAD_REG(addr);
-    }
 }
 
 static const MemoryRegionOps omap_synctimer_ops = {
@@ -123,35 +88,14 @@ static const MemoryRegionOps omap_synctimer_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
-static const MemoryRegionOps omap3_synctimer_ops = {
-    .old_mmio = {
-        .read = {
-            omap_badwidth_read32,
-            omap3_synctimer_readh,
-            omap3_synctimer_readw,
-        },
-        .write = {
-            omap_badwidth_write32,
-            omap3_synctimer_write,
-            omap3_synctimer_write,
-        },
-    },
-    .endianness = DEVICE_NATIVE_ENDIAN,
-};
-
 struct omap_synctimer_s *omap_synctimer_init(struct omap_target_agent_s *ta,
                 struct omap_mpu_state_s *mpu, omap_clk fclk, omap_clk iclk)
 {
     struct omap_synctimer_s *s = g_malloc0(sizeof(*s));
 
     omap_synctimer_reset(s);
-    if (cpu_class_omap3(mpu)) {
-        memory_region_init_io(&s->iomem, NULL, &omap3_synctimer_ops, s,
-                              "omap.synctimer", omap_l4_region_size(ta, 0));
-    } else {
-        memory_region_init_io(&s->iomem, NULL, &omap_synctimer_ops, s,
-                              "omap.synctimer", omap_l4_region_size(ta, 0));
-    }
+    memory_region_init_io(&s->iomem, NULL, &omap_synctimer_ops, s, "omap.synctimer",
+                          omap_l4_region_size(ta, 0));
     omap_l4_attach(ta, 0, &s->iomem);
 
     return s;

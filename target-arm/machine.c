@@ -37,11 +37,11 @@ static const VMStateInfo vmstate_fpscr = {
 
 static const VMStateDescription vmstate_vfp = {
     .name = "cpu/vfp",
-    .version_id = 2,
-    .minimum_version_id = 2,
-    .minimum_version_id_old = 2,
+    .version_id = 3,
+    .minimum_version_id = 3,
+    .minimum_version_id_old = 3,
     .fields = (VMStateField[]) {
-        VMSTATE_FLOAT64_ARRAY(env.vfp.regs, ARMCPU, 32),
+        VMSTATE_FLOAT64_ARRAY(env.vfp.regs, ARMCPU, 64),
         /* The xregs array is a little awkward because element 1 (FPSCR)
          * requires a specific accessor, so we have to split it up in
          * the vmstate:
@@ -238,9 +238,9 @@ const VMStateDescription vmstate_arm_cpu = {
             .offset = 0,
         },
         VMSTATE_UINT32(env.spsr, ARMCPU),
-        VMSTATE_UINT32_ARRAY(env.banked_spsr, ARMCPU, 7),
-        VMSTATE_UINT32_ARRAY(env.banked_r13, ARMCPU, 7),
-        VMSTATE_UINT32_ARRAY(env.banked_r14, ARMCPU, 7),
+        VMSTATE_UINT32_ARRAY(env.banked_spsr, ARMCPU, 6),
+        VMSTATE_UINT32_ARRAY(env.banked_r13, ARMCPU, 6),
+        VMSTATE_UINT32_ARRAY(env.banked_r14, ARMCPU, 6),
         VMSTATE_UINT32_ARRAY(env.usr_regs, ARMCPU, 5),
         VMSTATE_UINT32_ARRAY(env.fiq_regs, ARMCPU, 5),
         /* The length-check must come before the arrays to avoid

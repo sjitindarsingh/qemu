@@ -84,10 +84,10 @@ struct dma_s {
 
 static void soc_dma_ch_schedule(struct soc_dma_ch_s *ch, int delay_bytes)
 {
-    int64_t now = qemu_get_clock_ns(vm_clock);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     struct dma_s *dma = (struct dma_s *) ch->dma;
 
-    qemu_mod_timer(ch->timer, now + delay_bytes / dma->channel_freq);
+    timer_mod(ch->timer, now + delay_bytes / dma->channel_freq);
 }
 
 static void soc_dma_ch_run(void *opaque)
@@ -217,7 +217,7 @@ void soc_dma_set_request(struct soc_dma_ch_s *ch, int level)
         ch->enable = level;
 
         if (!ch->enable)
-            qemu_del_timer(ch->timer);
+            timer_del(ch->timer);
         else if (!ch->running)
             soc_dma_ch_run(ch);
         else
@@ -229,7 +229,7 @@ void soc_dma_reset(struct soc_dma_s *soc)
 {
     struct dma_s *s = (struct dma_s *) soc;
 
-    memset(s->soc.drqst, 0, sizeof(s->soc.drqst));
+    s->soc.drqbmp = 0;
     s->ch_enable_mask = 0;
     s->enabled_count = 0;
     soc_dma_ch_freq_update(s);
@@ -246,7 +246,7 @@ struct soc_dma_s *soc_dma_init(int n)
     for (i = 0; i < n; i ++) {
         s->ch[i].dma = &s->soc;
         s->ch[i].num = i;
-        s->ch[i].timer = qemu_new_timer_ns(vm_clock, soc_dma_ch_run, &s->ch[i]);
+        s->ch[i].timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, soc_dma_ch_run, &s->ch[i]);
     }
 
     soc_dma_reset(&s->soc);

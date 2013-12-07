@@ -65,7 +65,6 @@
 #define MUSB_HDRC_ULPI_REGDATA	0x74
 #define MUSB_HDRC_ULPI_REGADDR	0x75
 #define MUSB_HDRC_ULPI_REGCTL	0x76
-#define MUSB_HDRC_ULPI_RAWDATA  0x77
 
 /* Extended config & PHY control */
 #define MUSB_HDRC_ENDCOUNT	0x78	/* 8 bit */
@@ -384,7 +383,7 @@ struct MUSBState *musb_init(DeviceState *parent_device, int gpio_base)
 
     musb_reset(s);
 
-    usb_bus_new(&s->bus, &musb_bus_ops, parent_device);
+    usb_bus_new(&s->bus, sizeof(s->bus), &musb_bus_ops, parent_device);
     usb_register_port(&s->bus, &s->port, s, 0, &musb_port_ops,
                       USB_SPEED_MASK_LOW | USB_SPEED_MASK_FULL);
 
@@ -559,9 +558,9 @@ static void musb_schedule_cb(USBPort *port, USBPacket *packey)
         return musb_cb_tick(ep);
 
     if (!ep->intv_timer[dir])
-        ep->intv_timer[dir] = qemu_new_timer_ns(vm_clock, musb_cb_tick, ep);
+        ep->intv_timer[dir] = timer_new_ns(QEMU_CLOCK_VIRTUAL, musb_cb_tick, ep);
 
-    qemu_mod_timer(ep->intv_timer[dir], qemu_get_clock_ns(vm_clock) +
+    timer_mod(ep->intv_timer[dir], qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
                    muldiv64(timeout, get_ticks_per_sec(), 8000));
 }
 
@@ -963,7 +962,7 @@ static void musb_write_fifo(MUSBEndPoint *ep, uint8_t value)
 static void musb_ep_frame_cancel(MUSBEndPoint *ep, int dir)
 {
     if (ep->intv_timer[dir])
-        qemu_del_timer(ep->intv_timer[dir]);
+        timer_del(ep->intv_timer[dir]);
 }
 
 /* Bus control */
@@ -1294,16 +1293,6 @@ static uint32_t musb_readb(void *opaque, hwaddr addr)
         ep = ((addr - MUSB_HDRC_FIFO) >> 2) & 0xf;
         return musb_read_fifo(s->ep + ep);
 
-    case MUSB_HDRC_ULPI_REGADDR:
-    case MUSB_HDRC_ULPI_REGDATA:
-    case MUSB_HDRC_ULPI_RAWDATA:
-        /* TODO */
-        return 0x00;
-
-    case MUSB_HDRC_ULPI_REGCTL:
-        /* TODO */
-        return 0x02;
-
     default:
         TRACE("unknown register 0x%02x", (int) addr);
         return 0x00;
@@ -1389,13 +1378,6 @@ static void musb_writeb(void *opaque, hwaddr addr, uint32_t value)
     case MUSB_HDRC_FIFO ... (MUSB_HDRC_FIFO + 0x3f):
         ep = ((addr - MUSB_HDRC_FIFO) >> 2) & 0xf;
         musb_write_fifo(s->ep + ep, value & 0xff);
-        break;
-
-    case MUSB_HDRC_ULPI_REGADDR:
-    case MUSB_HDRC_ULPI_REGCTL:
-    case MUSB_HDRC_ULPI_REGDATA:
-    case MUSB_HDRC_ULPI_RAWDATA:
-        /* TODO */
         break;
 
     default:

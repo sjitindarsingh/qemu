@@ -1,7 +1,4 @@
 #!/usr/bin/make -f
-#
-# $Id: rules 391 2009-03-07 05:21:19Z aurel32 $
-#
 
 # support parallel build using DEB_BUILD_OPTIONS=parallel=N
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
@@ -168,8 +165,8 @@ binary-arch: install
 binary: install
 
 define inst-system
-	for x in postinst prerm; do \
-	  sed 's/@ARCH@/${sysarch_$1}/' debian/qemu-system.$$x-in > debian/qemu-system-$1.$$x.debhelper; \
+	for x in postinst prerm postrm; do \
+	  sed 's/@ARCH@/${sysarch_$1}/' debian/qemu-system-alternatives.in > debian/qemu-system-$1.$$x.debhelper; \
 	done
 	mkdir -p debian/qemu-system-$1/usr/share/man/man1 debian/qemu-system-$1/usr/bin
 	for t in ${sysarch_$1}; do \
@@ -201,8 +198,8 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 # /usr/bin/kvm compat script.  This needs some more work for other arches
 # How about a manpage for it?
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
-	dh_install -pqemu-system-x86 debian/kvm /usr/bin/
-	dh_install -pqemu-system-x86 debian/kvm.1 /usr/share/man/man1/
+	dh_install -pqemu-kvm debian/kvm /usr/bin/
+	dh_install -pqemu-kvm debian/kvm.1 /usr/share/man/man1/
 	mkdir -p debian/qemu-kvm/usr/bin
 	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
 	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice

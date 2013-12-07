@@ -25,7 +25,6 @@
 #include "ui/console.h"
 #include "hw/arm/omap.h"	/* For I2SCodec and uWireSlave */
 #include "hw/devices.h"
-#include "hw/spi.h"
 
 #define TSC_DATA_REGISTERS_PAGE		0x0
 #define TSC_CONTROL_REGISTERS_PAGE	0x1
@@ -36,7 +35,9 @@
 #define TSC_CUT_RESOLUTION(value, p)	((value) >> (16 - resolution[p]))
 
 typedef struct {
-    qemu_irq irq[3]; /* pint, kbint, davint */
+    qemu_irq pint;
+    qemu_irq kbint;
+    qemu_irq davint;
     QEMUTimer *timer;
     QEMUSoundCard card;
     uWireSlave chip;
@@ -48,7 +49,7 @@ typedef struct {
     int x, y;
     int pressure;
 
-    int state, page, offset, pint;
+    int state, page, offset, irq;
     uint16_t command, dav;
 
     int busy;
@@ -92,11 +93,6 @@ typedef struct {
         int intr;
     } kb;
 } TSC210xState;
-
-typedef struct {
-    SPIDevice spi;
-    TSC210xState tsc210x;
-} TSC2301State;
 
 static const int resolution[4] = { 12, 8, 10, 12 };
 
@@ -164,7 +160,7 @@ static void tsc210x_reset(TSC210xState *s)
     s->nextfunction = 0;
     s->ref = 0;
     s->timing = 0;
-    s->pint = 0;
+    s->irq = 0;
     s->dav = 0;
 
     s->audio_ctrl1 = 0x0000;
@@ -208,15 +204,9 @@ static void tsc210x_reset(TSC210xState *s)
     s->kb.mode = 3;
     s->kb.intr = 0;
 
-    qemu_set_irq(s->irq[0], !s->pint);
-    qemu_set_irq(s->irq[2], !s->dav);
-    qemu_irq_raise(s->irq[1]);
-}
-
-static void tsc2301_reset(DeviceState *qdev)
-{
-    tsc210x_reset(&FROM_SPI_DEVICE(TSC2301State,
-                                   SPI_DEVICE_FROM_QDEV(qdev))->tsc210x);
+    qemu_set_irq(s->pint, !s->irq);
+    qemu_set_irq(s->davint, !s->dav);
+    qemu_irq_raise(s->kbint);
 }
 
 typedef struct {
@@ -393,7 +383,7 @@ static uint16_t tsc2102_data_register_read(TSC210xState *s, int reg)
         if ((s->model & 0xff00) == 0x2300) {
             if (s->kb.intr && (s->kb.mode & 2)) {
                 s->kb.intr = 0;
-                qemu_irq_raise(s->irq[1]);
+                qemu_irq_raise(s->kbint);
             }
             return s->kb.down;
         }
@@ -513,9 +503,9 @@ static uint16_t tsc2102_audio_register_read(TSC210xState *s, int reg)
         l_ch = 1;
         r_ch = 1;
         if (s->softstep && !(s->dac_power & (1 << 10))) {
-            l_ch = (qemu_get_clock_ns(vm_clock) >
+            l_ch = (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) >
                             s->volume_change + TSC_SOFTSTEP_DELAY);
-            r_ch = (qemu_get_clock_ns(vm_clock) >
+            r_ch = (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) >
                             s->volume_change + TSC_SOFTSTEP_DELAY);
         }
 
@@ -524,7 +514,7 @@ static uint16_t tsc2102_audio_register_read(TSC210xState *s, int reg)
     case 0x05:	/* Stereo DAC Power Control */
         return 0x2aa0 | s->dac_power |
                 (((s->dac_power & (1 << 10)) &&
-                  (qemu_get_clock_ns(vm_clock) >
+                  (qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) >
                    s->powerdown + TSC_POWEROFF_DELAY)) << 6);
 
     case 0x06:	/* Audio Control 3 */
@@ -604,7 +594,7 @@ static void tsc2102_control_register_write(
         s->host_mode = value >> 15;
         s->enabled = !(value & 0x4000);
         if (s->busy && !s->enabled)
-            qemu_del_timer(s->timer);
+            timer_del(s->timer);
         s->busy &= s->enabled;
         s->nextfunction = (value >> 10) & 0xf;
         s->nextprecision = (value >> 8) & 3;
@@ -619,7 +609,7 @@ static void tsc2102_control_register_write(
             s->kb.debounce = (value >> 11) & 7;
             if (s->kb.intr && s->kb.scan) {
                 s->kb.intr = 0;
-                qemu_irq_raise(s->irq[1]);
+                qemu_irq_raise(s->kbint);
             }
         }
         return;
@@ -639,7 +629,7 @@ static void tsc2102_control_register_write(
     case 0x04:	/* Reset */
         if (value == 0xbb00) {
             if (s->busy)
-                qemu_del_timer(s->timer);
+                timer_del(s->timer);
             tsc210x_reset(s);
 #ifdef TSC_VERBOSE
         } else {
@@ -705,7 +695,7 @@ static void tsc2102_audio_register_write(
 
     case 0x02:	/* DAC Volume Control */
         s->volume = value;
-        s->volume_change = qemu_get_clock_ns(vm_clock);
+        s->volume_change = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         return;
 
     case 0x03:
@@ -727,7 +717,7 @@ static void tsc2102_audio_register_write(
 
     case 0x05:	/* Stereo DAC Power Control */
         if ((value & ~s->dac_power) & (1 << 10))
-            s->powerdown = qemu_get_clock_ns(vm_clock);
+            s->powerdown = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
 
         s->dac_power = value & 0x9543;
 #ifdef TSC_VERBOSE
@@ -829,9 +819,9 @@ static void tsc210x_pin_update(TSC210xState *s)
     if (!s->enabled)
         pin_state = 0;
 
-    if (pin_state != s->pint) {
-        s->pint = pin_state;
-        qemu_set_irq(s->irq[0], !s->pint);
+    if (pin_state != s->irq) {
+        s->irq = pin_state;
+        qemu_set_irq(s->pint, !s->irq);
     }
 
     switch (s->nextfunction) {
@@ -874,8 +864,8 @@ static void tsc210x_pin_update(TSC210xState *s)
     s->busy = 1;
     s->precision = s->nextprecision;
     s->function = s->nextfunction;
-    expires = qemu_get_clock_ns(vm_clock) + (get_ticks_per_sec() >> 10);
-    qemu_mod_timer(s->timer, expires);
+    expires = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) + (get_ticks_per_sec() >> 10);
+    timer_mod(s->timer, expires);
 }
 
 static uint16_t tsc210x_read(TSC210xState *s)
@@ -889,7 +879,7 @@ static uint16_t tsc210x_read(TSC210xState *s)
     case TSC_DATA_REGISTERS_PAGE:
         ret = tsc2102_data_register_read(s, s->offset);
         if (!s->dav)
-            qemu_irq_raise(s->irq[2]);
+            qemu_irq_raise(s->davint);
         break;
     case TSC_CONTROL_REGISTERS_PAGE:
         ret = tsc2102_control_register_read(s, s->offset);
@@ -943,9 +933,9 @@ static void tsc210x_write(TSC210xState *s, uint16_t value)
     }
 }
 
-static uint32_t tsc2301_txrx(SPIDevice *spidev, uint32_t value, int len)
+uint32_t tsc210x_txrx(void *opaque, uint32_t value, int len)
 {
-    TSC210xState *s = &FROM_SPI_DEVICE(TSC2301State, spidev)->tsc210x;
+    TSC210xState *s = opaque;
     uint32_t ret = 0;
 
     if (len != 16)
@@ -974,7 +964,7 @@ static void tsc210x_timer_tick(void *opaque)
     s->busy = 0;
     s->dav |= mode_regs[s->function];
     tsc210x_pin_update(s);
-    qemu_irq_lower(s->irq[2]);
+    qemu_irq_lower(s->davint);
 }
 
 static void tsc210x_touchscreen_event(void *opaque,
@@ -1015,7 +1005,7 @@ static void tsc210x_i2s_set_rate(TSC210xState *s, int in, int out)
 static void tsc210x_save(QEMUFile *f, void *opaque)
 {
     TSC210xState *s = (TSC210xState *) opaque;
-    int64_t now = qemu_get_clock_ns(vm_clock);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     int i;
 
     qemu_put_be16(f, s->x);
@@ -1027,10 +1017,10 @@ static void tsc210x_save(QEMUFile *f, void *opaque)
     qemu_put_byte(f, s->offset);
     qemu_put_byte(f, s->command);
 
-    qemu_put_byte(f, s->pint);
+    qemu_put_byte(f, s->irq);
     qemu_put_be16s(f, &s->dav);
 
-    qemu_put_timer(f, s->timer);
+    timer_put(f, s->timer);
     qemu_put_byte(f, s->enabled);
     qemu_put_byte(f, s->host_mode);
     qemu_put_byte(f, s->function);
@@ -1061,7 +1051,7 @@ static void tsc210x_save(QEMUFile *f, void *opaque)
 static int tsc210x_load(QEMUFile *f, void *opaque, int version_id)
 {
     TSC210xState *s = (TSC210xState *) opaque;
-    int64_t now = qemu_get_clock_ns(vm_clock);
+    int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
     int i;
 
     s->x = qemu_get_be16(f);
@@ -1073,10 +1063,10 @@ static int tsc210x_load(QEMUFile *f, void *opaque, int version_id)
     s->offset = qemu_get_byte(f);
     s->command = qemu_get_byte(f);
 
-    s->pint = qemu_get_byte(f);
+    s->irq = qemu_get_byte(f);
     qemu_get_be16s(f, &s->dav);
 
-    qemu_get_timer(f, s->timer);
+    timer_get(f, s->timer);
     s->enabled = qemu_get_byte(f);
     s->host_mode = qemu_get_byte(f);
     s->function = qemu_get_byte(f);
@@ -1103,9 +1093,9 @@ static int tsc210x_load(QEMUFile *f, void *opaque, int version_id)
     for (i = 0; i < 0x14; i ++)
         qemu_get_be16s(f, &s->filter_data[i]);
 
-    s->busy = qemu_timer_pending(s->timer);
-    qemu_set_irq(s->irq[0], !s->pint);
-    qemu_set_irq(s->irq[2], !s->dav);
+    s->busy = timer_pending(s->timer);
+    qemu_set_irq(s->pint, !s->irq);
+    qemu_set_irq(s->davint, !s->dav);
 
     return 0;
 }
@@ -1121,8 +1111,8 @@ uWireSlave *tsc2102_init(qemu_irq pint)
     s->y = 160;
     s->pressure = 0;
     s->precision = s->nextprecision = 0;
-    s->timer = qemu_new_timer_ns(vm_clock, tsc210x_timer_tick, s);
-    s->irq[0] = pint;
+    s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, tsc210x_timer_tick, s);
+    s->pint = pint;
     s->model = 0x2102;
     s->name = "tsc2102";
 
@@ -1159,16 +1149,21 @@ uWireSlave *tsc2102_init(qemu_irq pint)
     return &s->chip;
 }
 
-static int tsc2301_init(SPIDevice *spidev)
+uWireSlave *tsc2301_init(qemu_irq penirq, qemu_irq kbirq, qemu_irq dav)
 {
-    TSC210xState *s = &FROM_SPI_DEVICE(TSC2301State, spidev)->tsc210x;
+    TSC210xState *s;
 
+    s = (TSC210xState *)
+            g_malloc0(sizeof(TSC210xState));
+    memset(s, 0, sizeof(TSC210xState));
     s->x = 400;
     s->y = 240;
     s->pressure = 0;
     s->precision = s->nextprecision = 0;
-    s->timer = qemu_new_timer_ns(vm_clock, tsc210x_timer_tick, s);
-    qdev_init_gpio_out(&spidev->qdev, s->irq, 3);
+    s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, tsc210x_timer_tick, s);
+    s->pint = penirq;
+    s->kbint = kbirq;
+    s->davint = dav;
     s->model = 0x2301;
     s->name = "tsc2301";
 
@@ -1191,36 +1186,17 @@ static int tsc2301_init(SPIDevice *spidev)
     s->codec.in.fifo = s->in_fifo;
     s->codec.out.fifo = s->out_fifo;
 
+    tsc210x_reset(s);
+
     qemu_add_mouse_event_handler(tsc210x_touchscreen_event, s, 1,
                     "QEMU TSC2301-driven Touchscreen");
 
     AUD_register_card(s->name, &s->card);
 
+    qemu_register_reset((void *) tsc210x_reset, s);
     register_savevm(NULL, s->name, -1, 0, tsc210x_save, tsc210x_load, s);
 
-    return 0;
-}
-
-static void tsc2301_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-    SPIDeviceClass *k = SPI_DEVICE_CLASS(klass);
-
-    k->init = tsc2301_init;
-    k->txrx = tsc2301_txrx;
-    dc->reset = tsc2301_reset;
-}
-
-static TypeInfo tsc2301_info = {
-    .name = "tsc2301",
-    .parent = TYPE_SPI_DEVICE,
-    .instance_size = sizeof(TSC2301State),
-    .class_init = tsc2301_class_init,
-};
-
-static void tsc210x_register_types(void)
-{
-    type_register_static(&tsc2301_info);
+    return &s->chip;
 }
 
 I2SCodec *tsc210x_codec(uWireSlave *chip)
@@ -1297,14 +1273,6 @@ void tsc210x_set_transform(uWireSlave *chip,
 #endif
 }
 
-void tsc2301_set_transform(DeviceState *qdev, MouseTransformInfo *info)
-{
-    tsc210x_set_transform(
-        &FROM_SPI_DEVICE(TSC2301State,
-                         SPI_DEVICE_FROM_QDEV(qdev))->tsc210x.chip,
-        info);
-}
-
 void tsc210x_key_event(uWireSlave *chip, int key, int down)
 {
     TSC210xState *s = (TSC210xState *) chip->opaque;
@@ -1316,19 +1284,10 @@ void tsc210x_key_event(uWireSlave *chip, int key, int down)
 
     if (down && (s->kb.down & ~s->kb.mask) && !s->kb.intr) {
         s->kb.intr = 1;
-        qemu_irq_lower(s->irq[1]);
+        qemu_irq_lower(s->kbint);
     } else if (s->kb.intr && !(s->kb.down & ~s->kb.mask) &&
                     !(s->kb.mode & 1)) {
         s->kb.intr = 0;
-        qemu_irq_raise(s->irq[1]);
+        qemu_irq_raise(s->kbint);
     }
 }
-
-void tsc2301_key_event(DeviceState *qdev, int key, int down)
-{
-    TSC2301State *s = FROM_SPI_DEVICE(TSC2301State,
-                                      SPI_DEVICE_FROM_QDEV(qdev));
-    tsc210x_key_event(&s->tsc210x.chip, key, down);
-}
-
-type_init(tsc210x_register_types)

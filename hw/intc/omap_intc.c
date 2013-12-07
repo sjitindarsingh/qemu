@@ -414,11 +414,7 @@ static uint64_t omap2_inth_read(void *opaque, hwaddr addr,
             offset &= ~0x60;
             bank = &s->bank[bank_no];
         } else {
-            /* Linux reads the nonexistent interrupt status register at 0xf8
-             * every time through its interrupt handler, so don't actually
-             * warn about it because it swamps the console with output.
-             */
-            /* OMAP_BAD_REG(addr); */
+            OMAP_BAD_REG(addr);
             return 0;
         }
     }

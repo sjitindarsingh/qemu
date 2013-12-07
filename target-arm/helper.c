@@ -2,6 +2,7 @@
 #include "exec/gdbstub.h"
 #include "helper.h"
 #include "qemu/host-utils.h"
+#include "sysemu/arch_init.h"
 #include "sysemu/sysemu.h"
 #include "qemu/bitops.h"
 
@@ -224,10 +225,16 @@ static void count_cpreg(gpointer key, gpointer opaque)
 
 static gint cpreg_key_compare(gconstpointer a, gconstpointer b)
 {
-    uint32_t aidx = *(uint32_t *)a;
-    uint32_t bidx = *(uint32_t *)b;
+    uint64_t aidx = cpreg_to_kvm_id(*(uint32_t *)a);
+    uint64_t bidx = cpreg_to_kvm_id(*(uint32_t *)b);
 
-    return aidx - bidx;
+    if (aidx > bidx) {
+        return 1;
+    }
+    if (aidx < bidx) {
+        return -1;
+    }
+    return 0;
 }
 
 static void cpreg_make_keylist(gpointer key, gpointer value, gpointer udata)
@@ -536,6 +543,13 @@ static int pmintenclr_write(CPUARMState *env, const ARMCPRegInfo *ri,
     return 0;
 }
 
+static int vbar_write(CPUARMState *env, const ARMCPRegInfo *ri,
+                      uint64_t value)
+{
+    env->cp15.c12_vbar = value & ~0x1Ful;
+    return 0;
+}
+
 static int ccsidr_read(CPUARMState *env, const ARMCPRegInfo *ri,
                        uint64_t *value)
 {
@@ -621,6 +635,13 @@ static const ARMCPRegInfo v7_cp_reginfo[] = {
       .access = PL1_RW, .type = ARM_CP_NO_MIGRATE,
       .fieldoffset = offsetof(CPUARMState, cp15.c9_pminten),
       .resetvalue = 0, .writefn = pmintenclr_write, },
+    { .name = "VBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 0,
+      .access = PL1_RW, .writefn = vbar_write,
+      .fieldoffset = offsetof(CPUARMState, cp15.c12_vbar),
+      .resetvalue = 0 },
+    { .name = "SCR", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 0,
+      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_scr),
+      .resetvalue = 0, },
     { .name = "CCSIDR", .cp = 15, .crn = 0, .crm = 0, .opc1 = 1, .opc2 = 0,
       .access = PL1_R, .readfn = ccsidr_read, .type = ARM_CP_NO_MIGRATE },
     { .name = "CSSELR", .cp = 15, .crn = 0, .crm = 0, .opc1 = 2, .opc2 = 0,
@@ -696,7 +717,7 @@ static const ARMCPRegInfo v6k_cp_reginfo[] = {
 
 static uint64_t gt_get_countervalue(CPUARMState *env)
 {
-    return qemu_get_clock_ns(vm_clock) / GTIMER_SCALE;
+    return qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) / GTIMER_SCALE;
 }
 
 static void gt_recalc_timer(ARMCPU *cpu, int timeridx)
@@ -730,12 +751,12 @@ static void gt_recalc_timer(ARMCPU *cpu, int timeridx)
         if (nexttick > INT64_MAX / GTIMER_SCALE) {
             nexttick = INT64_MAX / GTIMER_SCALE;
         }
-        qemu_mod_timer(cpu->gt_timer[timeridx], nexttick);
+        timer_mod(cpu->gt_timer[timeridx], nexttick);
     } else {
         /* Timer disabled: ISTATUS and timer output always clear */
         gt->ctl &= ~4;
         qemu_set_irq(cpu->gt_timer_outputs[timeridx], 0);
-        qemu_del_timer(cpu->gt_timer[timeridx]);
+        timer_del(cpu->gt_timer[timeridx]);
     }
 }
 
@@ -755,7 +776,7 @@ static void gt_cnt_reset(CPUARMState *env, const ARMCPRegInfo *ri)
     ARMCPU *cpu = arm_env_get_cpu(env);
     int timeridx = ri->opc1 & 1;
 
-    qemu_del_timer(cpu->gt_timer[timeridx]);
+    timer_del(cpu->gt_timer[timeridx]);
 }
 
 static int gt_cnt_read(CPUARMState *env, const ARMCPRegInfo *ri,
@@ -938,7 +959,7 @@ static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
 
 #else
 /* In user-mode none of the generic timer registers are accessible,
- * and their implementation depends on vm_clock and qdev gpio outputs,
+ * and their implementation depends on QEMU_CLOCK_VIRTUAL and qdev gpio outputs,
  * so instead just don't register any of them.
  */
 static const ARMCPRegInfo generic_timer_cp_reginfo[] = {
@@ -969,7 +990,7 @@ static int par_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
 static inline bool extended_addresses_enabled(CPUARMState *env)
 {
     return arm_feature(env, ARM_FEATURE_LPAE)
-        && (env->cp15.c2_control & (1 << 31));
+        && (env->cp15.c2_control & (1U << 31));
 }
 
 static int ats_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
@@ -1382,7 +1403,7 @@ static int mpidr_read(CPUARMState *env, const ARMCPRegInfo *ri,
      * so these bits always RAZ.
      */
     if (arm_feature(env, ARM_FEATURE_V7MP)) {
-        mpidr |= (1 << 31);
+        mpidr |= (1U << 31);
         /* Cores which are uniprocessor (non-coherent)
          * but still implement the MP extensions set
          * bit 30. (For instance, A9UP.) However we do
@@ -1493,35 +1514,6 @@ static const ARMCPRegInfo lpae_cp_reginfo[] = {
     { .name = "TTBR1", .cp = 15, .crm = 2, .opc1 = 1,
       .access = PL1_RW, .type = ARM_CP_64BIT, .readfn = ttbr164_read,
       .writefn = ttbr164_write, .resetfn = ttbr164_reset },
-    REGINFO_SENTINEL
-};
-
-static int vbar_write(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t value)
-{
-    CPREG_FIELD32(env, ri) = value & ~0x1f;
-    return 0;
-}
-
-static const ARMCPRegInfo trustzone_cp_reginfo[] = {
-    /* Dummy implementations of registers; we don't enforce the
-     * 'secure mode only' access checks. TODO: revisit as part of
-     * proper fake-trustzone support.
-     */
-    { .name = "SCR", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 0,
-      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_scr),
-      .resetvalue = 0 },
-    { .name = "SDER", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 1,
-      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_sedbg),
-      .resetvalue = 0 },
-    { .name = "NSACR", .cp = 15, .crn = 1, .crm = 1, .opc1 = 0, .opc2 = 2,
-      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c1_nseac),
-      .resetvalue = 0 },
-    { .name = "VBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 0,
-      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c12_vbar),
-      .writefn = vbar_write, .resetvalue = 0 },
-    { .name = "MVBAR", .cp = 15, .crn = 12, .crm = 0, .opc1 = 0, .opc2 = 1,
-      .access = PL1_RW, .fieldoffset = offsetof(CPUARMState, cp15.c12_mvbar),
-      .writefn = vbar_write, .resetvalue = 0 },
     REGINFO_SENTINEL
 };
 
@@ -1671,9 +1663,6 @@ void register_cp_regs_for_features(ARMCPU *cpu)
     if (arm_feature(env, ARM_FEATURE_LPAE)) {
         define_arm_cp_regs(cpu, lpae_cp_reginfo);
     }
-    if (arm_feature(env, ARM_FEATURE_TRUSTZONE)) {
-        define_arm_cp_regs(cpu, trustzone_cp_reginfo);
-    }
     /* Slightly awkwardly, the OMAP and StrongARM cores need all of
      * cp15 crn=0 to be writes-ignored, whereas for other cores they should
      * be read-only (ie write causes UNDEF exception).
@@ -1777,7 +1766,6 @@ void register_cp_regs_for_features(ARMCPU *cpu)
 ARMCPU *cpu_arm_init(const char *cpu_model)
 {
     ARMCPU *cpu;
-    CPUARMState *env;
     ObjectClass *oc;
 
     oc = cpu_class_by_name(TYPE_ARM_CPU, cpu_model);
@@ -1785,8 +1773,6 @@ ARMCPU *cpu_arm_init(const char *cpu_model)
         return NULL;
     }
     cpu = ARM_CPU(object_new(object_class_get_name(oc)));
-    env = &cpu->env;
-    env->cpu_model_str = cpu_model;
 
     /* TODO this should be set centrally, once possible */
     object_property_set_bool(OBJECT(cpu), true, "realized", NULL);
@@ -1856,6 +1842,37 @@ void arm_cpu_list(FILE *f, fprintf_function cpu_fprintf)
     (*cpu_fprintf)(f, "Available CPUs:\n");
     g_slist_foreach(list, arm_cpu_list_entry, &s);
     g_slist_free(list);
+}
+
+static void arm_cpu_add_definition(gpointer data, gpointer user_data)
+{
+    ObjectClass *oc = data;
+    CpuDefinitionInfoList **cpu_list = user_data;
+    CpuDefinitionInfoList *entry;
+    CpuDefinitionInfo *info;
+    const char *typename;
+
+    typename = object_class_get_name(oc);
+    info = g_malloc0(sizeof(*info));
+    info->name = g_strndup(typename,
+                           strlen(typename) - strlen("-" TYPE_ARM_CPU));
+
+    entry = g_malloc0(sizeof(*entry));
+    entry->value = info;
+    entry->next = *cpu_list;
+    *cpu_list = entry;
+}
+
+CpuDefinitionInfoList *arch_query_cpu_definitions(Error **errp)
+{
+    CpuDefinitionInfoList *cpu_list = NULL;
+    GSList *list;
+
+    list = object_class_get_list(TYPE_ARM_CPU, false);
+    g_slist_foreach(list, arm_cpu_add_definition, &cpu_list);
+    g_slist_free(list);
+
+    return cpu_list;
 }
 
 void define_one_arm_cp_reg_with_opaque(ARMCPU *cpu,
@@ -2168,8 +2185,6 @@ int bank_number(int mode)
         return 4;
     case ARM_CPU_MODE_FIQ:
         return 5;
-    case ARM_CPU_MODE_SMC:
-        return 6;
     }
     hw_error("bank number requested for bad CPSR mode value 0x%x\n", mode);
 }
@@ -2259,6 +2274,37 @@ static void do_v7m_exception_exit(CPUARMState *env)
        pointer.  */
 }
 
+/* Exception names for debug logging; note that not all of these
+ * precisely correspond to architectural exceptions.
+ */
+static const char * const excnames[] = {
+    [EXCP_UDEF] = "Undefined Instruction",
+    [EXCP_SWI] = "SVC",
+    [EXCP_PREFETCH_ABORT] = "Prefetch Abort",
+    [EXCP_DATA_ABORT] = "Data Abort",
+    [EXCP_IRQ] = "IRQ",
+    [EXCP_FIQ] = "FIQ",
+    [EXCP_BKPT] = "Breakpoint",
+    [EXCP_EXCEPTION_EXIT] = "QEMU v7M exception exit",
+    [EXCP_KERNEL_TRAP] = "QEMU intercept of kernel commpage",
+    [EXCP_STREX] = "QEMU intercept of STREX",
+};
+
+static inline void arm_log_exception(int idx)
+{
+    if (qemu_loglevel_mask(CPU_LOG_INT)) {
+        const char *exc = NULL;
+
+        if (idx >= 0 && idx < ARRAY_SIZE(excnames)) {
+            exc = excnames[idx];
+        }
+        if (!exc) {
+            exc = "unknown";
+        }
+        qemu_log_mask(CPU_LOG_INT, "Taking exception %d [%s]\n", idx, exc);
+    }
+}
+
 void arm_v7m_cpu_do_interrupt(CPUState *cs)
 {
     ARMCPU *cpu = ARM_CPU(cs);
@@ -2266,6 +2312,8 @@ void arm_v7m_cpu_do_interrupt(CPUState *cs)
     uint32_t xpsr = xpsr_read(env);
     uint32_t lr;
     uint32_t addr;
+
+    arm_log_exception(env->exception_index);
 
     lr = 0xfffffff1;
     if (env->v7m.current_sp)
@@ -2296,6 +2344,7 @@ void arm_v7m_cpu_do_interrupt(CPUState *cs)
             if (nr == 0xab) {
                 env->regs[15] += 2;
                 env->regs[0] = do_arm_semihosting(env);
+                qemu_log_mask(CPU_LOG_INT, "...handled as semihosting call\n");
                 return;
             }
         }
@@ -2349,6 +2398,8 @@ void arm_cpu_do_interrupt(CPUState *cs)
 
     assert(!IS_M(env));
 
+    arm_log_exception(env->exception_index);
+
     /* TODO: Vectored interrupt controller.  */
     switch (env->exception_index) {
     case EXCP_UDEF:
@@ -2376,6 +2427,7 @@ void arm_cpu_do_interrupt(CPUState *cs)
                     || (mask == 0xab && env->thumb))
                   && (env->uncached_cpsr & CPSR_M) != ARM_CPU_MODE_USR) {
                 env->regs[0] = do_arm_semihosting(env);
+                qemu_log_mask(CPU_LOG_INT, "...handled as semihosting call\n");
                 return;
             }
         }
@@ -2393,18 +2445,23 @@ void arm_cpu_do_interrupt(CPUState *cs)
                   && (env->uncached_cpsr & CPSR_M) != ARM_CPU_MODE_USR) {
                 env->regs[15] += 2;
                 env->regs[0] = do_arm_semihosting(env);
+                qemu_log_mask(CPU_LOG_INT, "...handled as semihosting call\n");
                 return;
             }
         }
         env->cp15.c5_insn = 2;
         /* Fall through to prefetch abort.  */
     case EXCP_PREFETCH_ABORT:
+        qemu_log_mask(CPU_LOG_INT, "...with IFSR 0x%x IFAR 0x%x\n",
+                      env->cp15.c5_insn, env->cp15.c6_insn);
         new_mode = ARM_CPU_MODE_ABT;
         addr = 0x0c;
         mask = CPSR_A | CPSR_I;
         offset = 4;
         break;
     case EXCP_DATA_ABORT:
+        qemu_log_mask(CPU_LOG_INT, "...with DFSR 0x%x DFAR 0x%x\n",
+                      env->cp15.c5_data, env->cp15.c6_data);
         new_mode = ARM_CPU_MODE_ABT;
         addr = 0x10;
         mask = CPSR_A | CPSR_I;
@@ -2424,39 +2481,23 @@ void arm_cpu_do_interrupt(CPUState *cs)
         mask = CPSR_A | CPSR_I | CPSR_F;
         offset = 4;
         break;
-    case EXCP_SMC:
-        if (semihosting_enabled) {
-            cpu_abort(env, "SMC handling under semihosting not implemented\n");
-            return;
-        }
-        if ((env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
-            env->cp15.c1_scr &= ~1;
-        }
-        offset = env->thumb ? 2 : 0;
-        new_mode = ARM_CPU_MODE_SMC;
-        addr = 0x08;
-        mask = CPSR_A | CPSR_I | CPSR_F;
-        break;
     default:
         cpu_abort(env, "Unhandled exception 0x%x\n", env->exception_index);
         return; /* Never happens.  Keep compiler happy.  */
     }
-    if (arm_feature(env, ARM_FEATURE_TRUSTZONE)) {
-        if (new_mode == ARM_CPU_MODE_SMC ||
-            (env->uncached_cpsr & CPSR_M) == ARM_CPU_MODE_SMC) {
-            addr += env->cp15.c12_mvbar;
-        } else {
-            if (env->cp15.c1_sys & (1 << 13)) {
-                addr += 0xffff0000;
-            } else {
-                addr += env->cp15.c12_vbar;
-            }
-        }
+    /* High vectors.  */
+    if (env->cp15.c1_sys & (1 << 13)) {
+        /* when enabled, base address cannot be remapped.  */
+        addr += 0xffff0000;
     } else {
-        /* High vectors.  */
-        if (env->cp15.c1_sys & (1 << 13)) {
-            addr += 0xffff0000;
-        }
+        /* ARM v7 architectures provide a vector base address register to remap
+         * the interrupt vector table.
+         * This register is only followed in non-monitor mode, and has a secure
+         * and un-secure copy. Since the cpu is always in a un-secure operation
+         * and is never in monitor mode this feature is always active.
+         * Note: only bits 31:5 are valid.
+         */
+        addr += env->cp15.c12_vbar;
     }
     switch_mode (env, new_mode);
     env->spsr = cpsr_read(env);
