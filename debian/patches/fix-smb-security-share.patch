@@ -17,11 +17,11 @@ Signed-off-by: Michael Buesch <m@bues.ch>
 
 ---
 
-Index: qemu-1.6.0+dfsg/net/slirp.c
+Index: qemu/net/slirp.c
 ===================================================================
---- qemu-1.6.0+dfsg.orig/net/slirp.c
-+++ qemu-1.6.0+dfsg/net/slirp.c
-@@ -529,7 +529,8 @@ static int slirp_smb(SlirpState* s, cons
+--- qemu.orig/net/slirp.c	2013-12-06 23:38:20.702329820 +0000
++++ qemu/net/slirp.c	2013-12-06 23:38:29.000000000 +0000
+@@ -529,7 +529,8 @@
              "state directory=%s\n"
              "log file=%s/log.smbd\n"
              "smb passwd file=%s/smbpasswd\n"

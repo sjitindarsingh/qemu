@@ -1,0 +1,3 @@
+etc/qemu-ifup etc/kvm/kvm-ifup
+etc/qemu-ifdown etc/kvm/kvm-ifdown
+usr/share/ovmf/OVMF.fd usr/share/qemu/OVMF.fd

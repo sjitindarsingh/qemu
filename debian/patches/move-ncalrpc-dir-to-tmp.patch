@@ -18,11 +18,11 @@ Signed-off-by: Michael Buesch <m@bues.ch>
 
 ---
 
-Index: qemu-1.6.0+dfsg/net/slirp.c
+Index: qemu/net/slirp.c
 ===================================================================
---- qemu-1.6.0+dfsg.orig/net/slirp.c
-+++ qemu-1.6.0+dfsg/net/slirp.c
-@@ -527,6 +527,7 @@ static int slirp_smb(SlirpState* s, cons
+--- qemu.orig/net/slirp.c	2013-12-06 23:38:20.722329771 +0000
++++ qemu/net/slirp.c	2013-12-06 23:38:26.000000000 +0000
+@@ -527,6 +527,7 @@
              "pid directory=%s\n"
              "lock directory=%s\n"
              "state directory=%s\n"
@@ -30,7 +30,7 @@ Index: qemu-1.6.0+dfsg/net/slirp.c
              "log file=%s/log.smbd\n"
              "smb passwd file=%s/smbpasswd\n"
              "security = user\n"
-@@ -539,6 +540,7 @@ static int slirp_smb(SlirpState* s, cons
+@@ -539,6 +540,7 @@
              s->smb_dir,
              s->smb_dir,
              s->smb_dir,
