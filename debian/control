@@ -94,7 +94,7 @@ Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
 Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
 
 Package: qemu
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${misc:Depends}, qemu-system (>= ${source:Version}), qemu-user (>= ${source:Version}) [linux-any], qemu-utils (>= ${source:Version})
 Suggests: qemu-user-static [linux-any]
@@ -133,7 +133,7 @@ Description: QEMU keyboard maps
  package or QEMU derivatives.
 
 Package: qemu-system
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${misc:Depends},
  qemu-system-arm,
@@ -153,7 +153,7 @@ Description: QEMU full system emulation binaries
  QEMU supports.
 
 Package: qemu-system-common
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Pre-Depends: adduser
 Depends: ${misc:Depends}, ${shlibs:Depends}, udev, acl
@@ -181,7 +181,7 @@ Description: QEMU full system emulation binaries (common files)
  full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-misc
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version}),
@@ -207,7 +207,7 @@ Description: QEMU full system emulation binaries (miscelaneous)
  machines on a single server.
 
 Package: qemu-system-arm
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version}),
@@ -238,7 +238,7 @@ Description: QEMU full system emulation binaries (arm)
  machines on a single server.
 
 Package: qemu-system-mips
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version}),
@@ -261,7 +261,7 @@ Description: QEMU full system emulation binaries (mips)
  machines on a single server.
 
 Package: qemu-system-ppc
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version})
@@ -292,7 +292,7 @@ Description: QEMU full system emulation binaries (ppc)
  machines on a single server.
 
 Package: qemu-system-sparc
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version})
@@ -323,7 +323,7 @@ Description: QEMU full system emulation binaries (sparc)
  machines on a single server.
 
 Package: qemu-system-x86
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends},
  qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version}),
@@ -361,7 +361,7 @@ Description: QEMU full system emulation binaries (x86)
  usage on systems which supports it.
 
 Package: qemu-user
-Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Breaks: qemu-kvm (<< 1.2.0.dfsg-1)
@@ -377,7 +377,7 @@ Description: QEMU user mode emulation binaries
  QEMU can launch Linux processes compiled for one CPU on another CPU.
 
 Package: qemu-user-static
-Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: binfmt-support
@@ -393,7 +393,7 @@ Description: QEMU user mode emulation binaries (static version)
  one CPU on another CPU.
 
 Package: qemu-utils
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
+Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sharutils
