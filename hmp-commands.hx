@@ -1130,7 +1130,7 @@ STEXI
 Add drive to PCI storage controller.
 ETEXI
 
-#if defined(CONFIG_PCI_HOTPLUG_OLD)
+#if defined(TARGET_I386)
     {
         .name       = "pci_add",
         .args_type  = "pci_addr:s,type:s,opts:s?",
@@ -1146,7 +1146,7 @@ STEXI
 Hot-add PCI device.
 ETEXI
 
-#if defined(CONFIG_PCI_HOTPLUG_OLD)
+#if defined(TARGET_I386)
     {
         .name       = "pci_del",
         .args_type  = "pci_addr:s",
