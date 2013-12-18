@@ -1,0 +1,88 @@
+commit 4e6205391388af23a3ebe6a0f573f2946af5636c
+Author: John Rigby <john.rigby@linaro.org>
+Date:   Thu Sep 12 11:17:52 2013 +0100
+
+    hw/arm/boot: Allow boards to provide an fdt blob
+    
+    If no fdt is provided on command line and the new field
+    get_dtb in struct arm_boot_info is set then call it to
+    get a device tree blob.
+    
+    Signed-off-by: John Rigby <john.rigby@linaro.org>
+    [PMM: minor tweaks and cleanup]
+    Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+
+Index: qemu/hw/arm/boot.c
+===================================================================
+--- qemu.orig/hw/arm/boot.c	2013-12-18 12:23:49.903375598 -0600
++++ qemu/hw/arm/boot.c	2013-12-18 12:23:49.891375598 -0600
+@@ -228,23 +228,31 @@
+ static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
+ {
+     void *fdt = NULL;
+-    char *filename;
+     int size, rc;
+     uint32_t acells, scells;
+ 
+-    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, binfo->dtb_filename);
+-    if (!filename) {
+-        fprintf(stderr, "Couldn't open dtb file %s\n", binfo->dtb_filename);
+-        goto fail;
+-    }
++    if (binfo->dtb_filename) {
++        char *filename;
++        filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, binfo->dtb_filename);
++        if (!filename) {
++            fprintf(stderr, "Couldn't open dtb file %s\n", binfo->dtb_filename);
++            goto fail;
++        }
+ 
+-    fdt = load_device_tree(filename, &size);
+-    if (!fdt) {
+-        fprintf(stderr, "Couldn't open dtb file %s\n", filename);
++        fdt = load_device_tree(filename, &size);
++        if (!fdt) {
++            fprintf(stderr, "Couldn't open dtb file %s\n", filename);
++            g_free(filename);
++            goto fail;
++        }
+         g_free(filename);
+-        goto fail;
++    } else if (binfo->get_dtb) {
++        fdt = binfo->get_dtb(binfo, &size);
++        if (!fdt) {
++            fprintf(stderr, "Board was unable to create a dtb blob\n");
++            goto fail;
++        }
+     }
+-    g_free(filename);
+ 
+     acells = qemu_devtree_getprop_cell(fdt, "/", "#address-cells");
+     scells = qemu_devtree_getprop_cell(fdt, "/", "#size-cells");
+@@ -438,7 +446,7 @@
+         /* for device tree boot, we pass the DTB directly in r2. Otherwise
+          * we point to the kernel args.
+          */
+-        if (info->dtb_filename) {
++        if (info->dtb_filename || info->get_dtb) {
+             /* Place the DTB after the initrd in memory. Note that some
+              * kernels will trash anything in the 4K page the initrd
+              * ends in, so make sure the DTB isn't caught up in that.
+Index: qemu/include/hw/arm/arm.h
+===================================================================
+--- qemu.orig/include/hw/arm/arm.h	2013-12-18 12:23:49.903375598 -0600
++++ qemu/include/hw/arm/arm.h	2013-12-18 12:23:49.891375598 -0600
+@@ -50,6 +50,13 @@
+                                  const struct arm_boot_info *info);
+     void (*secondary_cpu_reset_hook)(ARMCPU *cpu,
+                                      const struct arm_boot_info *info);
++    /* if a board is able to create a dtb without a dtb file then it
++     * sets get_dtb. This will only be used if no dtb file is provided
++     * by the user. On success, sets *size to the length of the created
++     * dtb, and returns a pointer to it. (The caller must free this memory
++     * with g_free() when it has finished with it.) On failure, returns NULL.
++     */
++    void *(*get_dtb)(const struct arm_boot_info *info, int *size);
+     /* if a board needs to be able to modify a device tree provided by
+      * the user it should implement this hook.
+      */
