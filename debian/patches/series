@@ -6,3 +6,6 @@ move-ncalrpc-dir-to-tmp.patch
 slirp-smb-redirect-port-445-too.patch
 expose-vmx_qemu64cpu.patch
 fix-pci-add
+hw_arm_boot_allow_boards_to_provide_an_fdt_blob.patch
+device_tree_c_terminate_the_empty_reservemap.patch
+hw_arm_add_virt_platform.patch

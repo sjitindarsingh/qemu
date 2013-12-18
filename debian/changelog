@@ -1,3 +1,10 @@
+qemu (1.7.0+dfsg-2ubuntu3) trusty; urgency=medium
+
+  * add missing arm virt patches from the mach-virt-v7 branch of
+    git://git.linaro.org/people/cdall/qemu-arm.git
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 18 Dec 2013 12:25:59 -0600
+
 qemu (1.7.0+dfsg-2ubuntu2) trusty; urgency=medium
 
   * debian/control: add arm64 to list of architectures.
