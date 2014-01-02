@@ -1,3 +1,9 @@
+qemu (1.7.0+dfsg-2ubuntu4) trusty; urgency=medium
+
+  * d/control: enable usbredir (LP: 1126390)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 02 Jan 2014 08:55:43 -0600
+
 qemu (1.7.0+dfsg-2ubuntu3) trusty; urgency=medium
 
   * add missing arm virt patches from the mach-virt-v7 branch of
