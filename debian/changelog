@@ -1,3 +1,14 @@
+qemu (1.7.0+dfsg-2ubuntu5) trusty; urgency=medium
+
+  * Drop d/p/fix-pci-add: upstream does not intend for pci_add to be
+    supported any longer.
+  * Add patchset from git://git.linaro.org/qemu/qemu-linaro.git#rebasing
+  * Refresh debian/patches/hw_arm_add_virt_platform.patch against context
+    churn caused by linaro patchset.
+  * debian/rules: enable parallel builds.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 03 Jan 2014 10:53:17 -0600
+
 qemu (1.7.0+dfsg-2ubuntu4) trusty; urgency=medium
 
   * d/control: enable usbredir (LP: 1126390)

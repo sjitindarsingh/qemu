@@ -31,21 +31,21 @@ Date:   Thu Sep 12 11:17:53 2013 +0100
 
 Index: qemu/hw/arm/Makefile.objs
 ===================================================================
---- qemu.orig/hw/arm/Makefile.objs	2013-12-18 12:23:59.839375604 -0600
-+++ qemu/hw/arm/Makefile.objs	2013-12-18 12:23:59.827375604 -0600
+--- qemu.orig/hw/arm/Makefile.objs	2014-01-03 10:58:50.870518341 -0600
++++ qemu/hw/arm/Makefile.objs	2014-01-03 10:59:33.814518897 -0600
 @@ -1,7 +1,7 @@
  obj-y += boot.o collie.o exynos4_boards.o gumstix.o highbank.o
  obj-y += integratorcp.o kzm.o mainstone.o musicpal.o nseries.o
- obj-y += omap_sx1.o palm.o realview.o spitz.o stellaris.o
+ obj-y += omap_sx1.o overo.o palm.o realview.o spitz.o stellaris.o
 -obj-y += tosa.o versatilepb.o vexpress.o xilinx_zynq.o z2.o
 +obj-y += tosa.o versatilepb.o vexpress.o virt.o xilinx_zynq.o z2.o
  
  obj-y += armv7m.o exynos4210.o pxa2xx.o pxa2xx_gpio.o pxa2xx_pic.o
- obj-y += omap1.o omap2.o strongarm.o
+ obj-y += omap1.o omap2.o omap3.o strongarm.o beagle.o
 Index: qemu/hw/arm/virt.c
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ qemu/hw/arm/virt.c	2013-12-18 12:23:59.827375604 -0600
++++ qemu/hw/arm/virt.c	2014-01-03 10:58:50.866518341 -0600
 @@ -0,0 +1,419 @@
 +/*
 + * ARM mach-virt emulation

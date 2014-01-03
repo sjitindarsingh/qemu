@@ -333,10 +333,17 @@ static void serial_ioport_write(void *opaque, hwaddr addr, uint64_t val,
             timer_del(s->fifo_timeout_timer);
             s->timeout_ipending=0;
             fifo8_reset(&s->recv_fifo);
+            if ((s->lsr & UART_LSR_DR)) {
+                s->lsr &= ~(UART_LSR_DR | UART_LSR_BI | UART_LSR_OE);
+                if (!(s->mcr & UART_MCR_LOOP)) {
+                    qemu_chr_accept_input(s->chr);
+                }
+            }
         }
 
         if (val & UART_FCR_XFR) {
             fifo8_reset(&s->xmit_fifo);
+            s->lsr |= UART_LSR_THRE;
         }
 
         if (val & UART_FCR_FE) {
@@ -667,6 +674,18 @@ void serial_exit_core(SerialState *s)
     qemu_unregister_reset(serial_reset, s);
 }
 
+/* Get number of stored bytes in receive fifo. */
+unsigned serial_rx_fifo_count(SerialState *s)
+{
+    return fifo8_num(&s->recv_fifo);
+}
+
+/* Get number of stored bytes in transmit fifo. */
+unsigned serial_tx_fifo_count(SerialState *s)
+{
+    return fifo8_num(&s->xmit_fifo);
+}
+
 /* Change the main reference oscillator frequency. */
 void serial_set_frequency(SerialState *s, uint32_t frequency)
 {
@@ -767,10 +786,32 @@ SerialState *serial_mm_init(MemoryRegion *address_space,
     }
     vmstate_register(NULL, base, &vmstate_serial, s);
 
-    memory_region_init_io(&s->io, NULL, &serial_mm_ops[end], s,
-                          "serial", 8 << it_shift);
-    memory_region_add_subregion(address_space, base, &s->io);
+    if (address_space) {
+        memory_region_init_io(&s->io, NULL, &serial_mm_ops[end], s,
+                              "serial", 8 << it_shift);
+        memory_region_add_subregion(address_space, base, &s->io);
+    }
 
     serial_update_msl(s);
     return s;
+}
+
+void serial_change_char_driver(SerialState *s, CharDriverState *chr)
+{
+    /* TODO this is somewhat guesswork, and pretty ugly anyhow */
+    qemu_chr_add_handlers(s->chr, NULL, NULL, NULL, NULL);
+    s->chr = chr;
+    qemu_chr_add_handlers(s->chr, serial_can_receive1, serial_receive1,
+                          serial_event, s);
+    serial_update_msl(s);
+}
+
+const MemoryRegionOps *serial_get_memops(enum device_endian end)
+{
+    return &serial_mm_ops[end];
+}
+
+qemu_irq *serial_get_irq(SerialState *s)
+{
+    return &s->irq;
 }
