@@ -1,0 +1,42 @@
+From e9cba272aeb85d0734cacaaffc88a0257c745219 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Fri, 22 Nov 2013 17:17:11 +0000
+Subject: [PATCH 05/49] target-arm: Provide PSCI constants to generic QEMU code
+
+Provide versions of the KVM PSCI constants to non-KVM code;
+this will allow us to avoid an ifdef in boards which set up
+a PSCI node in the device tree.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Christoffer Dall <christoffer.dall@linaro.org>
+Message-id: 1385140638-10444-5-git-send-email-peter.maydell@linaro.org
+---
+ target-arm/kvm-consts.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/target-arm/kvm-consts.h b/target-arm/kvm-consts.h
+index 6f56f72..4062f11 100644
+--- a/target-arm/kvm-consts.h
++++ b/target-arm/kvm-consts.h
+@@ -36,6 +36,18 @@ MISMATCH_CHECK(CP_REG_SIZE_U32, KVM_REG_SIZE_U32)
+ MISMATCH_CHECK(CP_REG_SIZE_U64, KVM_REG_SIZE_U64)
+ MISMATCH_CHECK(CP_REG_ARM, KVM_REG_ARM)
+ 
++#define PSCI_FN_BASE 0x95c1ba5e
++#define PSCI_FN(n) (PSCI_FN_BASE + (n))
++#define PSCI_FN_CPU_SUSPEND PSCI_FN(0)
++#define PSCI_FN_CPU_OFF PSCI_FN(1)
++#define PSCI_FN_CPU_ON PSCI_FN(2)
++#define PSCI_FN_MIGRATE PSCI_FN(3)
++
++MISMATCH_CHECK(PSCI_FN_CPU_SUSPEND, KVM_PSCI_FN_CPU_SUSPEND)
++MISMATCH_CHECK(PSCI_FN_CPU_OFF, KVM_PSCI_FN_CPU_OFF)
++MISMATCH_CHECK(PSCI_FN_CPU_ON, KVM_PSCI_FN_CPU_ON)
++MISMATCH_CHECK(PSCI_FN_MIGRATE, KVM_PSCI_FN_MIGRATE)
++
+ #undef MISMATCH_CHECK
+ 
+ #endif
+-- 
+1.8.5.2
+

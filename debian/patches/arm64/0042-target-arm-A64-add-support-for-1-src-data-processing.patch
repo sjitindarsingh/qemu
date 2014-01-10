@@ -1,0 +1,108 @@
+From 3b99d6442034bd674560ff92aa173bdc8a3d3aa9 Mon Sep 17 00:00:00 2001
+From: Claudio Fontana <claudio.fontana@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:35 +0000
+Subject: [PATCH 42/49] target-arm: A64: add support for 1-src data processing
+ and CLZ
+
+This patch adds support for decoding 1-src data processing insns,
+and the first user, C5.6.40 CLZ (count leading zeroes).
+
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/helper-a64.c    |  5 +++++
+ target-arm/helper-a64.h    |  1 +
+ target-arm/translate-a64.c | 52 ++++++++++++++++++++++++++++++++++++++++++++--
+ 3 files changed, 56 insertions(+), 2 deletions(-)
+
+diff --git a/target-arm/helper-a64.c b/target-arm/helper-a64.c
+index abb98c0..e4c5346 100644
+--- a/target-arm/helper-a64.c
++++ b/target-arm/helper-a64.c
+@@ -44,3 +44,8 @@ int64_t HELPER(sdiv64)(int64_t num, int64_t den)
+     }
+     return num / den;
+ }
++
++uint64_t HELPER(clz64)(uint64_t x)
++{
++    return clz64(x);
++}
+diff --git a/target-arm/helper-a64.h b/target-arm/helper-a64.h
+index e0d6506..b10b6c3 100644
+--- a/target-arm/helper-a64.h
++++ b/target-arm/helper-a64.h
+@@ -18,3 +18,4 @@
+  */
+ DEF_HELPER_FLAGS_2(udiv64, TCG_CALL_NO_RWG_SE, i64, i64, i64)
+ DEF_HELPER_FLAGS_2(sdiv64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
++DEF_HELPER_FLAGS_1(clz64, TCG_CALL_NO_RWG_SE, i64, i64)
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index acf30c3..e5481da 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -1044,10 +1044,58 @@ static void disas_cond_select(DisasContext *s, uint32_t insn)
+     }
+ }
+ 
+-/* Data-processing (1 source) */
++static void handle_clz(DisasContext *s, unsigned int sf,
++                       unsigned int rn, unsigned int rd)
++{
++    TCGv_i64 tcg_rd, tcg_rn;
++    tcg_rd = cpu_reg(s, rd);
++    tcg_rn = cpu_reg(s, rn);
++
++    if (sf) {
++        gen_helper_clz64(tcg_rd, tcg_rn);
++    } else {
++        TCGv_i32 tcg_tmp32 = tcg_temp_new_i32();
++        tcg_gen_trunc_i64_i32(tcg_tmp32, tcg_rn);
++        gen_helper_clz(tcg_tmp32, tcg_tmp32);
++        tcg_gen_extu_i32_i64(tcg_rd, tcg_tmp32);
++        tcg_temp_free_i32(tcg_tmp32);
++    }
++}
++
++/* C3.5.7 Data-processing (1 source)
++ *   31  30  29  28             21 20     16 15    10 9    5 4    0
++ * +----+---+---+-----------------+---------+--------+------+------+
++ * | sf | 1 | S | 1 1 0 1 0 1 1 0 | opcode2 | opcode |  Rn  |  Rd  |
++ * +----+---+---+-----------------+---------+--------+------+------+
++ */
+ static void disas_data_proc_1src(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    unsigned int sf, opcode, rn, rd;
++
++    if (extract32(insn, 29, 1) || extract32(insn, 16, 5)) {
++        unallocated_encoding(s);
++        return;
++    }
++
++    sf = extract32(insn, 31, 1);
++    opcode = extract32(insn, 10, 6);
++    rn = extract32(insn, 5, 5);
++    rd = extract32(insn, 0, 5);
++
++    switch (opcode) {
++    case 0: /* RBIT */
++    case 1: /* REV16 */
++    case 2: /* REV32 */
++    case 3: /* REV64 */
++        unsupported_encoding(s, insn);
++        break;
++    case 4: /* CLZ */
++        handle_clz(s, sf, rn, rd);
++        break;
++    case 5: /* CLS */
++        unsupported_encoding(s, insn);
++        break;
++    }
+ }
+ 
+ static void handle_div(DisasContext *s, bool is_signed, unsigned int sf,
+-- 
+1.8.5.2
+

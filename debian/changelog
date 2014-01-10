@@ -1,3 +1,15 @@
+qemu (1.7.0+dfsg-2ubuntu6) trusty; urgency=medium
+
+  [ Serge Hallyn ]
+  * add arm64 patchset from upstream.  The three arm virt patches previously
+    pushed are in that set, so drop them.
+
+  [ dann frazier ]
+  * Add packaging for qemu-system-aarch64. This package is currently only
+    available for arm64, as full software emulation is not yet supported.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 10 Jan 2014 12:19:08 -0600
+
 qemu (1.7.0+dfsg-2ubuntu5) trusty; urgency=medium
 
   * Drop d/p/fix-pci-add: upstream does not intend for pci_add to be

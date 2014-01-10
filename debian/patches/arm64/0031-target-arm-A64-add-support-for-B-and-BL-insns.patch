@@ -1,0 +1,136 @@
+From 7bf264c7a6dd339b9af642d8119fdc273e08569c Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Tue, 17 Dec 2013 19:42:32 +0000
+Subject: [PATCH 31/49] target-arm: A64: add support for B and BL insns
+
+Implement the B and BL instructions (PC relative branches and calls).
+
+For convenience in managing TCG temporaries which might be generated
+if a source register is the zero-register XZR, we provide a simple
+mechanism for creating a new temp which is automatically freed at the
+end of decode of the instruction.
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+[claudio: renamed functions, adapted to new decoder layout]
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/translate-a64.c | 64 ++++++++++++++++++++++++++++++++++++++++++++--
+ target-arm/translate.h     |  3 +++
+ 2 files changed, 65 insertions(+), 2 deletions(-)
+
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index 1e2b371..ead5658 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -160,16 +160,71 @@ static void unallocated_encoding(DisasContext *s)
+         unallocated_encoding(s);                                         \
+     } while (0);
+ 
++static void init_tmp_a64_array(DisasContext *s)
++{
++#ifdef CONFIG_DEBUG_TCG
++    int i;
++    for (i = 0; i < ARRAY_SIZE(s->tmp_a64); i++) {
++        TCGV_UNUSED_I64(s->tmp_a64[i]);
++    }
++#endif
++    s->tmp_a64_count = 0;
++}
++
++static void free_tmp_a64(DisasContext *s)
++{
++    int i;
++    for (i = 0; i < s->tmp_a64_count; i++) {
++        tcg_temp_free_i64(s->tmp_a64[i]);
++    }
++    init_tmp_a64_array(s);
++}
++
++static TCGv_i64 new_tmp_a64(DisasContext *s)
++{
++    assert(s->tmp_a64_count < TMP_A64_MAX);
++    return s->tmp_a64[s->tmp_a64_count++] = tcg_temp_new_i64();
++}
++
++static TCGv_i64 new_tmp_a64_zero(DisasContext *s)
++{
++    TCGv_i64 t = new_tmp_a64(s);
++    tcg_gen_movi_i64(t, 0);
++    return t;
++}
++
++static TCGv_i64 cpu_reg(DisasContext *s, int reg)
++{
++    if (reg == 31) {
++        return new_tmp_a64_zero(s);
++    } else {
++        return cpu_X[reg];
++    }
++}
++
+ /*
+  * the instruction disassembly implemented here matches
+  * the instruction encoding classifications in chapter 3 (C3)
+  * of the ARM Architecture Reference Manual (DDI0487A_a)
+  */
+ 
+-/* Unconditional branch (immediate) */
++/* C3.2.7 Unconditional branch (immediate)
++ *   31  30       26 25                                  0
++ * +----+-----------+-------------------------------------+
++ * | op | 0 0 1 0 1 |                 imm26               |
++ * +----+-----------+-------------------------------------+
++ */
+ static void disas_uncond_b_imm(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    uint64_t addr = s->pc + sextract32(insn, 0, 26) * 4 - 4;
++
++    if (insn & (1 << 31)) {
++        /* C5.6.26 BL Branch with link */
++        tcg_gen_movi_i64(cpu_reg(s, 30), s->pc);
++    }
++
++    /* C5.6.20 B Branch / C5.6.26 BL Branch with link */
++    gen_goto_tb(s, 0, addr);
+ }
+ 
+ /* Compare & branch (immediate) */
+@@ -651,6 +706,9 @@ static void disas_a64_insn(CPUARMState *env, DisasContext *s)
+         assert(FALSE); /* all 15 cases should be handled above */
+         break;
+     }
++
++    /* if we allocated any temporaries, free them here */
++    free_tmp_a64(s);
+ }
+ 
+ void gen_intermediate_code_internal_a64(ARMCPU *cpu,
+@@ -691,6 +749,8 @@ void gen_intermediate_code_internal_a64(ARMCPU *cpu,
+     dc->vec_len = 0;
+     dc->vec_stride = 0;
+ 
++    init_tmp_a64_array(dc);
++
+     next_page_start = (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
+     lj = -1;
+     num_insns = 0;
+diff --git a/target-arm/translate.h b/target-arm/translate.h
+index 8789181..23a45da 100644
+--- a/target-arm/translate.h
++++ b/target-arm/translate.h
+@@ -24,6 +24,9 @@ typedef struct DisasContext {
+     int vec_len;
+     int vec_stride;
+     int aarch64;
++#define TMP_A64_MAX 16
++    int tmp_a64_count;
++    TCGv_i64 tmp_a64[TMP_A64_MAX];
+ } DisasContext;
+ 
+ extern TCGv_ptr cpu_env;
+-- 
+1.8.5.2
+

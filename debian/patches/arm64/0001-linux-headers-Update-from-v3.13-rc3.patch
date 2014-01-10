@@ -1,0 +1,286 @@
+From ccd95b1ab41e19d1473493921c3ee166b538fcf2 Mon Sep 17 00:00:00 2001
+From: Alex Williamson <alex.williamson@redhat.com>
+Date: Fri, 6 Dec 2013 11:16:09 -0700
+Subject: [PATCH 01/49] linux-headers: Update from v3.13-rc3
+
+Update to tag v3.13-rc3 (374b105797c3d4f29c685f3be535c35f5689b30e)
+
+Signed-off-by: Alex Williamson <alex.williamson@redhat.com>
+---
+ linux-headers/asm-arm/kvm.h              |  3 +-
+ linux-headers/asm-powerpc/epapr_hcalls.h |  4 +-
+ linux-headers/asm-powerpc/kvm.h          | 86 ++++++++++++++++++++++++++++++--
+ linux-headers/asm-x86/hyperv.h           | 19 +++++++
+ linux-headers/asm-x86/kvm.h              |  6 +--
+ linux-headers/linux/kvm.h                | 11 ++++
+ 6 files changed, 119 insertions(+), 10 deletions(-)
+
+diff --git a/linux-headers/asm-arm/kvm.h b/linux-headers/asm-arm/kvm.h
+index c1ee007..c498b60 100644
+--- a/linux-headers/asm-arm/kvm.h
++++ b/linux-headers/asm-arm/kvm.h
+@@ -63,7 +63,8 @@ struct kvm_regs {
+ 
+ /* Supported Processor Types */
+ #define KVM_ARM_TARGET_CORTEX_A15	0
+-#define KVM_ARM_NUM_TARGETS		1
++#define KVM_ARM_TARGET_CORTEX_A7	1
++#define KVM_ARM_NUM_TARGETS		2
+ 
+ /* KVM_ARM_SET_DEVICE_ADDR ioctl id encoding */
+ #define KVM_ARM_DEVICE_TYPE_SHIFT	0
+diff --git a/linux-headers/asm-powerpc/epapr_hcalls.h b/linux-headers/asm-powerpc/epapr_hcalls.h
+index 33b3f89..06f7247 100644
+--- a/linux-headers/asm-powerpc/epapr_hcalls.h
++++ b/linux-headers/asm-powerpc/epapr_hcalls.h
+@@ -78,7 +78,7 @@
+ #define EV_SUCCESS		0
+ #define EV_EPERM		1	/* Operation not permitted */
+ #define EV_ENOENT		2	/*  Entry Not Found */
+-#define EV_EIO			3	/* I/O error occurred */
++#define EV_EIO			3	/* I/O error occured */
+ #define EV_EAGAIN		4	/* The operation had insufficient
+ 					 * resources to complete and should be
+ 					 * retried
+@@ -89,7 +89,7 @@
+ #define EV_ENODEV		7	/* No such device */
+ #define EV_EINVAL		8	/* An argument supplied to the hcall
+ 					   was out of range or invalid */
+-#define EV_INTERNAL		9	/* An internal error occurred */
++#define EV_INTERNAL		9	/* An internal error occured */
+ #define EV_CONFIG		10	/* A configuration error was detected */
+ #define EV_INVALID_STATE	11	/* The object is in an invalid state */
+ #define EV_UNIMPLEMENTED	12	/* Unimplemented hypercall */
+diff --git a/linux-headers/asm-powerpc/kvm.h b/linux-headers/asm-powerpc/kvm.h
+index 0fb1a6e..6836ec7 100644
+--- a/linux-headers/asm-powerpc/kvm.h
++++ b/linux-headers/asm-powerpc/kvm.h
+@@ -27,6 +27,7 @@
+ #define __KVM_HAVE_PPC_SMT
+ #define __KVM_HAVE_IRQCHIP
+ #define __KVM_HAVE_IRQ_LINE
++#define __KVM_HAVE_GUEST_DEBUG
+ 
+ struct kvm_regs {
+ 	__u64 pc;
+@@ -269,7 +270,24 @@ struct kvm_fpu {
+ 	__u64 fpr[32];
+ };
+ 
++/*
++ * Defines for h/w breakpoint, watchpoint (read, write or both) and
++ * software breakpoint.
++ * These are used as "type" in KVM_SET_GUEST_DEBUG ioctl and "status"
++ * for KVM_DEBUG_EXIT.
++ */
++#define KVMPPC_DEBUG_NONE		0x0
++#define KVMPPC_DEBUG_BREAKPOINT		(1UL << 1)
++#define KVMPPC_DEBUG_WATCH_WRITE	(1UL << 2)
++#define KVMPPC_DEBUG_WATCH_READ		(1UL << 3)
+ struct kvm_debug_exit_arch {
++	__u64 address;
++	/*
++	 * exiting to userspace because of h/w breakpoint, watchpoint
++	 * (read, write or both) and software breakpoint.
++	 */
++	__u32 status;
++	__u32 reserved;
+ };
+ 
+ /* for KVM_SET_GUEST_DEBUG */
+@@ -281,10 +299,6 @@ struct kvm_guest_debug_arch {
+ 		 * Type denotes h/w breakpoint, read watchpoint, write
+ 		 * watchpoint or watchpoint (both read and write).
+ 		 */
+-#define KVMPPC_DEBUG_NONE		0x0
+-#define KVMPPC_DEBUG_BREAKPOINT		(1UL << 1)
+-#define KVMPPC_DEBUG_WATCH_WRITE	(1UL << 2)
+-#define KVMPPC_DEBUG_WATCH_READ		(1UL << 3)
+ 		__u32 type;
+ 		__u32 reserved;
+ 	} bp[16];
+@@ -429,6 +443,11 @@ struct kvm_get_htab_header {
+ #define KVM_REG_PPC_MMCR0	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x10)
+ #define KVM_REG_PPC_MMCR1	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x11)
+ #define KVM_REG_PPC_MMCRA	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x12)
++#define KVM_REG_PPC_MMCR2	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x13)
++#define KVM_REG_PPC_MMCRS	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x14)
++#define KVM_REG_PPC_SIAR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x15)
++#define KVM_REG_PPC_SDAR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x16)
++#define KVM_REG_PPC_SIER	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x17)
+ 
+ #define KVM_REG_PPC_PMC1	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0x18)
+ #define KVM_REG_PPC_PMC2	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0x19)
+@@ -499,6 +518,65 @@ struct kvm_get_htab_header {
+ #define KVM_REG_PPC_TLB3PS	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0x9a)
+ #define KVM_REG_PPC_EPTCFG	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0x9b)
+ 
++/* Timebase offset */
++#define KVM_REG_PPC_TB_OFFSET	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x9c)
++
++/* POWER8 registers */
++#define KVM_REG_PPC_SPMC1	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0x9d)
++#define KVM_REG_PPC_SPMC2	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0x9e)
++#define KVM_REG_PPC_IAMR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0x9f)
++#define KVM_REG_PPC_TFHAR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa0)
++#define KVM_REG_PPC_TFIAR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa1)
++#define KVM_REG_PPC_TEXASR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa2)
++#define KVM_REG_PPC_FSCR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa3)
++#define KVM_REG_PPC_PSPB	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0xa4)
++#define KVM_REG_PPC_EBBHR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa5)
++#define KVM_REG_PPC_EBBRR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa6)
++#define KVM_REG_PPC_BESCR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa7)
++#define KVM_REG_PPC_TAR		(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa8)
++#define KVM_REG_PPC_DPDES	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xa9)
++#define KVM_REG_PPC_DAWR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xaa)
++#define KVM_REG_PPC_DAWRX	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xab)
++#define KVM_REG_PPC_CIABR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xac)
++#define KVM_REG_PPC_IC		(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xad)
++#define KVM_REG_PPC_VTB		(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xae)
++#define KVM_REG_PPC_CSIGR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xaf)
++#define KVM_REG_PPC_TACR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xb0)
++#define KVM_REG_PPC_TCSCR	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xb1)
++#define KVM_REG_PPC_PID		(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xb2)
++#define KVM_REG_PPC_ACOP	(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xb3)
++
++#define KVM_REG_PPC_VRSAVE	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0xb4)
++#define KVM_REG_PPC_LPCR	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0xb5)
++#define KVM_REG_PPC_PPR		(KVM_REG_PPC | KVM_REG_SIZE_U64 | 0xb6)
++
++/* Architecture compatibility level */
++#define KVM_REG_PPC_ARCH_COMPAT	(KVM_REG_PPC | KVM_REG_SIZE_U32 | 0xb7)
++
++/* Transactional Memory checkpointed state:
++ * This is all GPRs, all VSX regs and a subset of SPRs
++ */
++#define KVM_REG_PPC_TM		(KVM_REG_PPC | 0x80000000)
++/* TM GPRs */
++#define KVM_REG_PPC_TM_GPR0	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0)
++#define KVM_REG_PPC_TM_GPR(n)	(KVM_REG_PPC_TM_GPR0 + (n))
++#define KVM_REG_PPC_TM_GPR31	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x1f)
++/* TM VSX */
++#define KVM_REG_PPC_TM_VSR0	(KVM_REG_PPC_TM | KVM_REG_SIZE_U128 | 0x20)
++#define KVM_REG_PPC_TM_VSR(n)	(KVM_REG_PPC_TM_VSR0 + (n))
++#define KVM_REG_PPC_TM_VSR63	(KVM_REG_PPC_TM | KVM_REG_SIZE_U128 | 0x5f)
++/* TM SPRS */
++#define KVM_REG_PPC_TM_CR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x60)
++#define KVM_REG_PPC_TM_LR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x61)
++#define KVM_REG_PPC_TM_CTR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x62)
++#define KVM_REG_PPC_TM_FPSCR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x63)
++#define KVM_REG_PPC_TM_AMR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x64)
++#define KVM_REG_PPC_TM_PPR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x65)
++#define KVM_REG_PPC_TM_VRSAVE	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x66)
++#define KVM_REG_PPC_TM_VSCR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U32 | 0x67)
++#define KVM_REG_PPC_TM_DSCR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x68)
++#define KVM_REG_PPC_TM_TAR	(KVM_REG_PPC_TM | KVM_REG_SIZE_U64 | 0x69)
++
+ /* PPC64 eXternal Interrupt Controller Specification */
+ #define KVM_DEV_XICS_GRP_SOURCES	1	/* 64-bit source attributes */
+ 
+diff --git a/linux-headers/asm-x86/hyperv.h b/linux-headers/asm-x86/hyperv.h
+index b80420b..b8f1c01 100644
+--- a/linux-headers/asm-x86/hyperv.h
++++ b/linux-headers/asm-x86/hyperv.h
+@@ -27,6 +27,19 @@
+ #define HV_X64_MSR_VP_RUNTIME_AVAILABLE		(1 << 0)
+ /* Partition Reference Counter (HV_X64_MSR_TIME_REF_COUNT) available*/
+ #define HV_X64_MSR_TIME_REF_COUNT_AVAILABLE	(1 << 1)
++
++/*
++ * There is a single feature flag that signifies the presence of the MSR
++ * that can be used to retrieve both the local APIC Timer frequency as
++ * well as the TSC frequency.
++ */
++
++/* Local APIC timer frequency MSR (HV_X64_MSR_APIC_FREQUENCY) is available */
++#define HV_X64_MSR_APIC_FREQUENCY_AVAILABLE (1 << 11)
++
++/* TSC frequency MSR (HV_X64_MSR_TSC_FREQUENCY) is available */
++#define HV_X64_MSR_TSC_FREQUENCY_AVAILABLE (1 << 11)
++
+ /*
+  * Basic SynIC MSRs (HV_X64_MSR_SCONTROL through HV_X64_MSR_EOM
+  * and HV_X64_MSR_SINT0 through HV_X64_MSR_SINT15) available
+@@ -136,6 +149,12 @@
+ /* MSR used to read the per-partition time reference counter */
+ #define HV_X64_MSR_TIME_REF_COUNT		0x40000020
+ 
++/* MSR used to retrieve the TSC frequency */
++#define HV_X64_MSR_TSC_FREQUENCY		0x40000022
++
++/* MSR used to retrieve the local APIC timer frequency */
++#define HV_X64_MSR_APIC_FREQUENCY		0x40000023
++
+ /* Define the virtual APIC registers */
+ #define HV_X64_MSR_EOI				0x40000070
+ #define HV_X64_MSR_ICR				0x40000071
+diff --git a/linux-headers/asm-x86/kvm.h b/linux-headers/asm-x86/kvm.h
+index 5d9a303..d3a8778 100644
+--- a/linux-headers/asm-x86/kvm.h
++++ b/linux-headers/asm-x86/kvm.h
+@@ -211,9 +211,9 @@ struct kvm_cpuid_entry2 {
+ 	__u32 padding[3];
+ };
+ 
+-#define KVM_CPUID_FLAG_SIGNIFCANT_INDEX 1
+-#define KVM_CPUID_FLAG_STATEFUL_FUNC    2
+-#define KVM_CPUID_FLAG_STATE_READ_NEXT  4
++#define KVM_CPUID_FLAG_SIGNIFCANT_INDEX		BIT(0)
++#define KVM_CPUID_FLAG_STATEFUL_FUNC		BIT(1)
++#define KVM_CPUID_FLAG_STATE_READ_NEXT		BIT(2)
+ 
+ /* for KVM_SET_CPUID2 */
+ struct kvm_cpuid2 {
+diff --git a/linux-headers/linux/kvm.h b/linux-headers/linux/kvm.h
+index 13e890c..5a49671 100644
+--- a/linux-headers/linux/kvm.h
++++ b/linux-headers/linux/kvm.h
+@@ -518,6 +518,10 @@ struct kvm_ppc_smmu_info {
+ /* machine type bits, to be used as argument to KVM_CREATE_VM */
+ #define KVM_VM_S390_UCONTROL	1
+ 
++/* on ppc, 0 indicate default, 1 should force HV and 2 PR */
++#define KVM_VM_PPC_HV 1
++#define KVM_VM_PPC_PR 2
++
+ #define KVM_S390_SIE_PAGE_OFFSET 1
+ 
+ /*
+@@ -541,6 +545,7 @@ struct kvm_ppc_smmu_info {
+ #define KVM_TRACE_ENABLE          __KVM_DEPRECATED_MAIN_W_0x06
+ #define KVM_TRACE_PAUSE           __KVM_DEPRECATED_MAIN_0x07
+ #define KVM_TRACE_DISABLE         __KVM_DEPRECATED_MAIN_0x08
++#define KVM_GET_EMULATED_CPUID	  _IOWR(KVMIO, 0x09, struct kvm_cpuid2)
+ 
+ /*
+  * Extension capability list.
+@@ -668,6 +673,7 @@ struct kvm_ppc_smmu_info {
+ #define KVM_CAP_IRQ_XICS 92
+ #define KVM_CAP_ARM_EL1_32BIT 93
+ #define KVM_CAP_SPAPR_MULTITCE 94
++#define KVM_CAP_EXT_EMUL_CPUID 95
+ 
+ #ifdef KVM_CAP_IRQ_ROUTING
+ 
+@@ -843,6 +849,10 @@ struct kvm_device_attr {
+ #define KVM_DEV_TYPE_FSL_MPIC_20	1
+ #define KVM_DEV_TYPE_FSL_MPIC_42	2
+ #define KVM_DEV_TYPE_XICS		3
++#define KVM_DEV_TYPE_VFIO		4
++#define  KVM_DEV_VFIO_GROUP			1
++#define   KVM_DEV_VFIO_GROUP_ADD			1
++#define   KVM_DEV_VFIO_GROUP_DEL			2
+ 
+ /*
+  * ioctls for VM fds
+@@ -1012,6 +1022,7 @@ struct kvm_s390_ucas_mapping {
+ /* VM is being stopped by host */
+ #define KVM_KVMCLOCK_CTRL	  _IO(KVMIO,   0xad)
+ #define KVM_ARM_VCPU_INIT	  _IOW(KVMIO,  0xae, struct kvm_vcpu_init)
++#define KVM_ARM_PREFERRED_TARGET  _IOR(KVMIO,  0xaf, struct kvm_vcpu_init)
+ #define KVM_GET_REG_LIST	  _IOWR(KVMIO, 0xb0, struct kvm_reg_list)
+ 
+ #define KVM_DEV_ASSIGN_ENABLE_IOMMU	(1 << 0)
+-- 
+1.8.5.2
+
