@@ -1,0 +1,63 @@
+From e89f4df823ccc039ffc12d0dffb4b7b87a575ca5 Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Tue, 17 Dec 2013 19:42:34 +0000
+Subject: [PATCH 41/49] target-arm: A64: add support for 2-src shift reg insns
+
+This adds 2-src variable shift register instructions:
+C5.6.115 LSLV, C5.6.118 LSRV, C5.6.17 ASRV, C5.6.154 RORV
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+[claudio: adapted to new decoder, use enums for shift types]
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/translate-a64.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index a0bc876..acf30c3 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -1077,6 +1077,20 @@ static void handle_div(DisasContext *s, bool is_signed, unsigned int sf,
+     }
+ }
+ 
++/* C5.6.115 LSLV, C5.6.118 LSRV, C5.6.17 ASRV, C5.6.154 RORV */
++static void handle_shift_reg(DisasContext *s,
++                             enum a64_shift_type shift_type, unsigned int sf,
++                             unsigned int rm, unsigned int rn, unsigned int rd)
++{
++    TCGv_i64 tcg_shift = tcg_temp_new_i64();
++    TCGv_i64 tcg_rd = cpu_reg(s, rd);
++    TCGv_i64 tcg_rn = read_cpu_reg(s, rn, sf);
++
++    tcg_gen_andi_i64(tcg_shift, cpu_reg(s, rm), sf ? 63 : 31);
++    shift_reg(tcg_rd, tcg_rn, sf, shift_type, tcg_shift);
++    tcg_temp_free_i64(tcg_shift);
++}
++
+ /* C3.5.8 Data-processing (2 source)
+  *   31   30  29 28             21 20  16 15    10 9    5 4    0
+  * +----+---+---+-----------------+------+--------+------+------+
+@@ -1105,9 +1119,17 @@ static void disas_data_proc_2src(DisasContext *s, uint32_t insn)
+         handle_div(s, true, sf, rm, rn, rd);
+         break;
+     case 8: /* LSLV */
++        handle_shift_reg(s, A64_SHIFT_TYPE_LSL, sf, rm, rn, rd);
++        break;
+     case 9: /* LSRV */
++        handle_shift_reg(s, A64_SHIFT_TYPE_LSR, sf, rm, rn, rd);
++        break;
+     case 10: /* ASRV */
++        handle_shift_reg(s, A64_SHIFT_TYPE_ASR, sf, rm, rn, rd);
++        break;
+     case 11: /* RORV */
++        handle_shift_reg(s, A64_SHIFT_TYPE_ROR, sf, rm, rn, rd);
++        break;
+     case 16:
+     case 17:
+     case 18:
+-- 
+1.8.5.2
+

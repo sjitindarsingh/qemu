@@ -44,13 +44,14 @@ ifeq (${enable_system},enable)
 
 # list of system (softmmu) targets, from ./configure
 system_targets = \
- i386 x86_64 alpha arm cris lm32 m68k microblaze microblazeel \
+ i386 x86_64 aarch64 alpha arm cris lm32 m68k microblaze microblazeel \
  mips mipsel mips64 mips64el moxie or32 ppc ppcemb ppc64 sh4 sh4eb \
  sparc sparc64 s390x xtensa xtensaeb unicore32
 
 # qemu-system subpackages, from d/control
-sys_systems = arm mips ppc sparc x86
+sys_systems = aarch64 arm mips ppc sparc x86
 systems = ${sys_systems} misc
+sysarch_aarch64 = $(filter aarch64,${system_targets})
 sysarch_arm   = $(filter arm,${system_targets})
 sysarch_mips  = $(filter mips mipsel mips64 mips64el,${system_targets})
 sysarch_ppc   = $(filter ppc ppc64 ppcemb,${system_targets})
@@ -84,6 +85,7 @@ filter_binfmts = $(shell \
  case $(DEB_HOST_ARCH) in \
    (amd64 | i386) echo i386 x86_64 ;;\
    (arm | armel | armhf) echo arm ;;\
+   (arm64) echo aarch64 ;;\
    (mips | mipsel) echo $(DEB_HOST_ARCH) ;;\
    (powerpc) echo ppc ;;\
    (ppc64) echo ppc ppc64 ppc64abi32 ;;\

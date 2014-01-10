@@ -1,0 +1,47 @@
+From 263f8349a22187698e925c369e944e7948b786a3 Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Tue, 17 Dec 2013 19:42:31 +0000
+Subject: [PATCH 25/49] target-arm: A64: add set_pc cpu method
+
+When executing translation blocks we need to be able to recover
+our program counter. Add a method to set it for AArch64 CPUs.
+This covers user-mode, but for system mode emulation we will
+need to check if the CPU is in an AArch32 execution state.
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/cpu64.c | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/target-arm/cpu64.c b/target-arm/cpu64.c
+index 3e99c21..04ce879 100644
+--- a/target-arm/cpu64.c
++++ b/target-arm/cpu64.c
+@@ -68,11 +68,22 @@ static void aarch64_cpu_finalizefn(Object *obj)
+ {
+ }
+ 
++static void aarch64_cpu_set_pc(CPUState *cs, vaddr value)
++{
++    ARMCPU *cpu = ARM_CPU(cs);
++    /*
++     * TODO: this will need updating for system emulation,
++     * when the core may be in AArch32 mode.
++     */
++    cpu->env.pc = value;
++}
++
+ static void aarch64_cpu_class_init(ObjectClass *oc, void *data)
+ {
+     CPUClass *cc = CPU_CLASS(oc);
+ 
+     cc->dump_state = aarch64_cpu_dump_state;
++    cc->set_pc = aarch64_cpu_set_pc;
+     cc->gdb_read_register = aarch64_cpu_gdb_read_register;
+     cc->gdb_write_register = aarch64_cpu_gdb_write_register;
+     cc->gdb_num_core_regs = 34;
+-- 
+1.8.5.2
+

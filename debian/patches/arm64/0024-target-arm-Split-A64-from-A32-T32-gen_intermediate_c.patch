@@ -1,0 +1,442 @@
+From f96f1df1c9b50914fb618369b747fff4ae66b72e Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:31 +0000
+Subject: [PATCH 24/49] target-arm: Split A64 from A32/T32
+ gen_intermediate_code_internal()
+
+The A32/T32 gen_intermediate_code_internal() is complicated because it
+has to deal with:
+ * conditionally executed instructions
+ * Thumb IT blocks
+ * kernel helper page
+ * M profile exception-exit special casing
+
+None of these apply to A64, so putting the "this is A64 so
+call the A64 decoder" check in the middle of the A32/T32
+loop is confusing and means the A64 decoder's handling of
+things like conditional jump and singlestepping has to take
+account of the conditional-execution jumps the main loop
+might emit.
+
+Refactor the code to give A64 its own gen_intermediate_code_internal
+function instead.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/translate-a64.c | 209 +++++++++++++++++++++++++++++++++++++++++++--
+ target-arm/translate.c     |  62 ++++++--------
+ target-arm/translate.h     |  20 ++++-
+ 3 files changed, 246 insertions(+), 45 deletions(-)
+
+Index: qemu/target-arm/translate-a64.c
+===================================================================
+--- qemu.orig/target-arm/translate-a64.c	2014-01-10 12:08:03.444166815 -0600
++++ qemu/target-arm/translate-a64.c	2014-01-10 12:08:03.436166815 -0600
+@@ -28,6 +28,8 @@
+ #include "translate.h"
+ #include "qemu/host-utils.h"
+ 
++#include "exec/gen-icount.h"
++
+ #include "helper.h"
+ #define GEN_HELPER 1
+ #include "helper.h"
+@@ -106,7 +108,42 @@ static void gen_exception_insn(DisasCont
+ {
+     gen_a64_set_pc_im(s->pc - offset);
+     gen_exception(excp);
+-    s->is_jmp = DISAS_JUMP;
++    s->is_jmp = DISAS_EXC;
++}
++
++static inline bool use_goto_tb(DisasContext *s, int n, uint64_t dest)
++{
++    /* No direct tb linking with singlestep or deterministic io */
++    if (s->singlestep_enabled || (s->tb->cflags & CF_LAST_IO)) {
++        return false;
++    }
++
++    /* Only link tbs from inside the same guest page */
++    if ((s->tb->pc & TARGET_PAGE_MASK) != (dest & TARGET_PAGE_MASK)) {
++        return false;
++    }
++
++    return true;
++}
++
++static inline void gen_goto_tb(DisasContext *s, int n, uint64_t dest)
++{
++    TranslationBlock *tb;
++
++    tb = s->tb;
++    if (use_goto_tb(s, n, dest)) {
++        tcg_gen_goto_tb(n);
++        gen_a64_set_pc_im(dest);
++        tcg_gen_exit_tb((tcg_target_long)tb + n);
++        s->is_jmp = DISAS_TB_JUMP;
++    } else {
++        gen_a64_set_pc_im(dest);
++        if (s->singlestep_enabled) {
++            gen_exception(EXCP_DEBUG);
++        }
++        tcg_gen_exit_tb(0);
++        s->is_jmp = DISAS_JUMP;
++    }
+ }
+ 
+ static void real_unallocated_encoding(DisasContext *s)
+@@ -120,7 +157,7 @@ static void real_unallocated_encoding(Di
+     real_unallocated_encoding(s); \
+     } while (0)
+ 
+-void disas_a64_insn(CPUARMState *env, DisasContext *s)
++static void disas_a64_insn(CPUARMState *env, DisasContext *s)
+ {
+     uint32_t insn;
+ 
+@@ -133,9 +170,171 @@ void disas_a64_insn(CPUARMState *env, Di
+         unallocated_encoding(s);
+         break;
+     }
++}
+ 
+-    if (unlikely(s->singlestep_enabled) && (s->is_jmp == DISAS_TB_JUMP)) {
+-        /* go through the main loop for single step */
+-        s->is_jmp = DISAS_JUMP;
++void gen_intermediate_code_internal_a64(ARMCPU *cpu,
++                                        TranslationBlock *tb,
++                                        bool search_pc)
++{
++    CPUState *cs = CPU(cpu);
++    CPUARMState *env = &cpu->env;
++    DisasContext dc1, *dc = &dc1;
++    CPUBreakpoint *bp;
++    uint16_t *gen_opc_end;
++    int j, lj;
++    target_ulong pc_start;
++    target_ulong next_page_start;
++    int num_insns;
++    int max_insns;
++
++    pc_start = tb->pc;
++
++    dc->tb = tb;
++
++    gen_opc_end = tcg_ctx.gen_opc_buf + OPC_MAX_SIZE;
++
++    dc->is_jmp = DISAS_NEXT;
++    dc->pc = pc_start;
++    dc->singlestep_enabled = cs->singlestep_enabled;
++    dc->condjmp = 0;
++
++    dc->aarch64 = 1;
++    dc->thumb = 0;
++    dc->bswap_code = 0;
++    dc->condexec_mask = 0;
++    dc->condexec_cond = 0;
++#if !defined(CONFIG_USER_ONLY)
++    dc->user = 0;
++#endif
++    dc->vfp_enabled = 0;
++    dc->vec_len = 0;
++    dc->vec_stride = 0;
++
++    next_page_start = (pc_start & TARGET_PAGE_MASK) + TARGET_PAGE_SIZE;
++    lj = -1;
++    num_insns = 0;
++    max_insns = tb->cflags & CF_COUNT_MASK;
++    if (max_insns == 0) {
++        max_insns = CF_COUNT_MASK;
++    }
++
++    gen_tb_start();
++
++    tcg_clear_temp_count();
++
++    do {
++        if (unlikely(!QTAILQ_EMPTY(&env->breakpoints))) {
++            QTAILQ_FOREACH(bp, &env->breakpoints, entry) {
++                if (bp->pc == dc->pc) {
++                    gen_exception_insn(dc, 0, EXCP_DEBUG);
++                    /* Advance PC so that clearing the breakpoint will
++                       invalidate this TB.  */
++                    dc->pc += 2;
++                    goto done_generating;
++                }
++            }
++        }
++
++        if (search_pc) {
++            j = tcg_ctx.gen_opc_ptr - tcg_ctx.gen_opc_buf;
++            if (lj < j) {
++                lj++;
++                while (lj < j) {
++                    tcg_ctx.gen_opc_instr_start[lj++] = 0;
++                }
++            }
++            tcg_ctx.gen_opc_pc[lj] = dc->pc;
++            tcg_ctx.gen_opc_instr_start[lj] = 1;
++            tcg_ctx.gen_opc_icount[lj] = num_insns;
++        }
++
++        if (num_insns + 1 == max_insns && (tb->cflags & CF_LAST_IO)) {
++            gen_io_start();
++        }
++
++        if (unlikely(qemu_loglevel_mask(CPU_LOG_TB_OP | CPU_LOG_TB_OP_OPT))) {
++            tcg_gen_debug_insn_start(dc->pc);
++        }
++
++        disas_a64_insn(env, dc);
++
++        if (tcg_check_temp_count()) {
++            fprintf(stderr, "TCG temporary leak before "TARGET_FMT_lx"\n",
++                    dc->pc);
++        }
++
++        /* Translation stops when a conditional branch is encountered.
++         * Otherwise the subsequent code could get translated several times.
++         * Also stop translation when a page boundary is reached.  This
++         * ensures prefetch aborts occur at the right place.
++         */
++        num_insns++;
++    } while (!dc->is_jmp && tcg_ctx.gen_opc_ptr < gen_opc_end &&
++             !cs->singlestep_enabled &&
++             !singlestep &&
++             dc->pc < next_page_start &&
++             num_insns < max_insns);
++
++    if (tb->cflags & CF_LAST_IO) {
++        gen_io_end();
++    }
++
++    if (unlikely(cs->singlestep_enabled) && dc->is_jmp != DISAS_EXC) {
++        /* Note that this means single stepping WFI doesn't halt the CPU.
++         * For conditional branch insns this is harmless unreachable code as
++         * gen_goto_tb() has already handled emitting the debug exception
++         * (and thus a tb-jump is not possible when singlestepping).
++         */
++        assert(dc->is_jmp != DISAS_TB_JUMP);
++        if (dc->is_jmp != DISAS_JUMP) {
++            gen_a64_set_pc_im(dc->pc);
++        }
++        gen_exception(EXCP_DEBUG);
++    } else {
++        switch (dc->is_jmp) {
++        case DISAS_NEXT:
++            gen_goto_tb(dc, 1, dc->pc);
++            break;
++        default:
++        case DISAS_JUMP:
++        case DISAS_UPDATE:
++            /* indicate that the hash table must be used to find the next TB */
++            tcg_gen_exit_tb(0);
++            break;
++        case DISAS_TB_JUMP:
++        case DISAS_EXC:
++        case DISAS_SWI:
++            break;
++        case DISAS_WFI:
++            /* This is a special case because we don't want to just halt the CPU
++             * if trying to debug across a WFI.
++             */
++            gen_helper_wfi(cpu_env);
++            break;
++        }
++    }
++
++done_generating:
++    gen_tb_end(tb, num_insns);
++    *tcg_ctx.gen_opc_ptr = INDEX_op_end;
++
++#ifdef DEBUG_DISAS
++    if (qemu_loglevel_mask(CPU_LOG_TB_IN_ASM)) {
++        qemu_log("----------------\n");
++        qemu_log("IN: %s\n", lookup_symbol(pc_start));
++        log_target_disas(env, pc_start, dc->pc - pc_start,
++                         dc->thumb | (dc->bswap_code << 1));
++        qemu_log("\n");
++    }
++#endif
++    if (search_pc) {
++        j = tcg_ctx.gen_opc_ptr - tcg_ctx.gen_opc_buf;
++        lj++;
++        while (lj <= j) {
++            tcg_ctx.gen_opc_instr_start[lj++] = 0;
++        }
++    } else {
++        tb->size = dc->pc - pc_start;
++        tb->icount = num_insns;
+     }
+ }
+Index: qemu/target-arm/translate.c
+===================================================================
+--- qemu.orig/target-arm/translate.c	2014-01-10 12:07:58.348166701 -0600
++++ qemu/target-arm/translate.c	2014-01-10 12:14:18.576175248 -0600
+@@ -50,18 +50,18 @@
+ #include "translate.h"
+ static uint32_t gen_opc_condexec_bits[OPC_BUF_SIZE];
+ 
+-#if defined(CONFIG_USER_ONLY)
+-#define IS_USER(s) 1
+-#else
+-#define IS_USER(s) (s->user)
+-#endif
+-
+ /* These instructions trap after executing, so defer them until after the
+    conditional execution state has been updated.  */
+ #define DISAS_WFI 4
+ #define DISAS_SWI 5
+ #define DISAS_SMC 6
+ 
++#if defined(CONFIG_USER_ONLY)
++#define IS_USER(s) 1
++#else
++#define IS_USER(s) (s->user)
++#endif
++
+ TCGv_ptr cpu_env;
+ /* We reuse the same 64-bit temporaries for efficiency.  */
+ static TCGv_i64 cpu_V0, cpu_V1, cpu_M0;
+@@ -907,11 +907,7 @@ static inline void gen_smc(CPUARMState *
+ 
+ static inline void gen_set_pc_im(DisasContext *s, target_ulong val)
+ {
+-    if (s->aarch64) {
+-        gen_a64_set_pc_im(val);
+-    } else {
+-        tcg_gen_movi_i32(cpu_R[15], val);
+-    }
++    tcg_gen_movi_i32(cpu_R[15], val);
+ }
+ 
+ /* Force a TB lookup after an instruction that changes the CPU state.  */
+@@ -10235,6 +10231,15 @@ static inline void gen_intermediate_code
+     int max_insns;
+ 
+     /* generate intermediate code */
++
++    /* The A64 decoder has its own top level loop, because it doesn't need
++     * the A32/T32 complexity to do with conditional execution/IT blocks/etc.
++     */
++    if (ARM_TBFLAG_AARCH64_STATE(tb->flags)) {
++        gen_intermediate_code_internal_a64(cpu, tb, search_pc);
++        return;
++    }
++
+     pc_start = tb->pc;
+ 
+     dc->tb = tb;
+@@ -10246,31 +10251,18 @@ static inline void gen_intermediate_code
+     dc->singlestep_enabled = cs->singlestep_enabled;
+     dc->condjmp = 0;
+ 
+-    if (ARM_TBFLAG_AARCH64_STATE(tb->flags)) {
+-        dc->aarch64 = 1;
+-        dc->thumb = 0;
+-        dc->bswap_code = 0;
+-        dc->condexec_mask = 0;
+-        dc->condexec_cond = 0;
+-#if !defined(CONFIG_USER_ONLY)
+-        dc->user = 0;
+-#endif
+-        dc->vfp_enabled = 0;
+-        dc->vec_len = 0;
+-        dc->vec_stride = 0;
+-    } else {
+-        dc->aarch64 = 0;
+-        dc->thumb = ARM_TBFLAG_THUMB(tb->flags);
+-        dc->bswap_code = ARM_TBFLAG_BSWAP_CODE(tb->flags);
+-        dc->condexec_mask = (ARM_TBFLAG_CONDEXEC(tb->flags) & 0xf) << 1;
+-        dc->condexec_cond = ARM_TBFLAG_CONDEXEC(tb->flags) >> 4;
++    dc->aarch64 = 0;
++    dc->thumb = ARM_TBFLAG_THUMB(tb->flags);
++    dc->bswap_code = ARM_TBFLAG_BSWAP_CODE(tb->flags);
++    dc->condexec_mask = (ARM_TBFLAG_CONDEXEC(tb->flags) & 0xf) << 1;
++    dc->condexec_cond = ARM_TBFLAG_CONDEXEC(tb->flags) >> 4;
+ #if !defined(CONFIG_USER_ONLY)
+-        dc->user = (ARM_TBFLAG_PRIV(tb->flags) == 0);
++    dc->user = (ARM_TBFLAG_PRIV(tb->flags) == 0);
+ #endif
+-        dc->vfp_enabled = ARM_TBFLAG_VFPEN(tb->flags);
+-        dc->vec_len = ARM_TBFLAG_VECLEN(tb->flags);
+-        dc->vec_stride = ARM_TBFLAG_VECSTRIDE(tb->flags);
+-    }
++    dc->vfp_enabled = ARM_TBFLAG_VFPEN(tb->flags);
++    dc->vec_len = ARM_TBFLAG_VECLEN(tb->flags);
++    dc->vec_stride = ARM_TBFLAG_VECSTRIDE(tb->flags);
++
+     cpu_F0s = tcg_temp_new_i32();
+     cpu_F1s = tcg_temp_new_i32();
+     cpu_F0d = tcg_temp_new_i64();
+@@ -10332,7 +10324,7 @@ static inline void gen_intermediate_code
+     do {
+ #ifdef CONFIG_USER_ONLY
+         /* Intercept jump to the magic kernel page.  */
+-        if (!dc->aarch64 && dc->pc >= 0xffff0000) {
++        if (dc->pc >= 0xffff0000) {
+             /* We always get here via a jump, so know we are not in a
+                conditional execution block.  */
+             gen_exception(EXCP_KERNEL_TRAP);
+@@ -10380,9 +10372,7 @@ static inline void gen_intermediate_code
+             tcg_gen_debug_insn_start(dc->pc);
+         }
+ 
+-        if (dc->aarch64) {
+-            disas_a64_insn(env, dc);
+-        } else if (dc->thumb) {
++        if (dc->thumb) {
+             disas_thumb_insn(env, dc);
+             if (dc->condexec_mask) {
+                 dc->condexec_cond = (dc->condexec_cond & 0xe)
+@@ -10584,8 +10574,9 @@ void restore_state_to_opc(CPUARMState *e
+ {
+     if (is_a64(env)) {
+         env->pc = tcg_ctx.gen_opc_pc[pc_pos];
++        env->condexec_bits = 0;
+     } else {
+         env->regs[15] = tcg_ctx.gen_opc_pc[pc_pos];
++        env->condexec_bits = gen_opc_condexec_bits[pc_pos];
+     }
+-    env->condexec_bits = gen_opc_condexec_bits[pc_pos];
+ }
+Index: qemu/target-arm/translate.h
+===================================================================
+--- qemu.orig/target-arm/translate.h	2014-01-10 12:08:03.444166815 -0600
++++ qemu/target-arm/translate.h	2014-01-10 12:08:03.440166815 -0600
+@@ -28,16 +28,32 @@ typedef struct DisasContext {
+ 
+ extern TCGv_ptr cpu_env;
+ 
++/* target-specific extra values for is_jmp */
++/* These instructions trap after executing, so the A32/T32 decoder must
++ * defer them until after the conditional execution state has been updated.
++ * WFI also needs special handling when single-stepping.
++ */
++#define DISAS_WFI 4
++#define DISAS_SWI 5
++/* For instructions which unconditionally cause an exception we can skip
++ * emitting unreachable code at the end of the TB in the A64 decoder
++ */
++#define DISAS_EXC 6
++
+ #ifdef TARGET_AARCH64
+ void a64_translate_init(void);
+-void disas_a64_insn(CPUARMState *env, DisasContext *s);
++void gen_intermediate_code_internal_a64(ARMCPU *cpu,
++                                        TranslationBlock *tb,
++                                        bool search_pc);
+ void gen_a64_set_pc_im(uint64_t val);
+ #else
+ static inline void a64_translate_init(void)
+ {
+ }
+ 
+-static inline void disas_a64_insn(CPUARMState *env, DisasContext *s)
++static inline void gen_intermediate_code_internal_a64(ARMCPU *cpu,
++                                                      TranslationBlock *tb,
++                                                      bool search_pc)
+ {
+ }
+ 

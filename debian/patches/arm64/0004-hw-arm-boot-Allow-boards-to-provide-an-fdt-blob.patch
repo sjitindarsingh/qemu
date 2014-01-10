@@ -1,22 +1,27 @@
-commit 4e6205391388af23a3ebe6a0f573f2946af5636c
-Author: John Rigby <john.rigby@linaro.org>
-Date:   Thu Sep 12 11:17:52 2013 +0100
+From fd4c2641391efa626ae01512153163021b542063 Mon Sep 17 00:00:00 2001
+From: John Rigby <john.rigby@linaro.org>
+Date: Fri, 22 Nov 2013 17:17:10 +0000
+Subject: [PATCH 04/49] hw/arm/boot: Allow boards to provide an fdt blob
 
-    hw/arm/boot: Allow boards to provide an fdt blob
-    
-    If no fdt is provided on command line and the new field
-    get_dtb in struct arm_boot_info is set then call it to
-    get a device tree blob.
-    
-    Signed-off-by: John Rigby <john.rigby@linaro.org>
-    [PMM: minor tweaks and cleanup]
-    Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+If no fdt is provided on command line and the new field
+get_dtb in struct arm_boot_info is set then call it to
+get a device tree blob.
 
-Index: qemu/hw/arm/boot.c
-===================================================================
---- qemu.orig/hw/arm/boot.c	2013-12-18 12:23:49.903375598 -0600
-+++ qemu/hw/arm/boot.c	2013-12-18 12:23:49.891375598 -0600
-@@ -228,23 +228,31 @@
+Signed-off-by: John Rigby <john.rigby@linaro.org>
+Reviewed-by: Christoffer Dall <christoffer.dall@linaro.org>
+Message-id: 1385140638-10444-4-git-send-email-peter.maydell@linaro.org
+[PMM: minor tweaks and cleanup]
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ hw/arm/boot.c        | 32 ++++++++++++++++++++------------
+ include/hw/arm/arm.h |  7 +++++++
+ 2 files changed, 27 insertions(+), 12 deletions(-)
+
+diff --git a/hw/arm/boot.c b/hw/arm/boot.c
+index 583ec79..55d552f 100644
+--- a/hw/arm/boot.c
++++ b/hw/arm/boot.c
+@@ -228,23 +228,31 @@ static void set_kernel_args_old(const struct arm_boot_info *info)
  static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
  {
      void *fdt = NULL;
@@ -59,7 +64,7 @@ Index: qemu/hw/arm/boot.c
  
      acells = qemu_devtree_getprop_cell(fdt, "/", "#address-cells");
      scells = qemu_devtree_getprop_cell(fdt, "/", "#size-cells");
-@@ -438,7 +446,7 @@
+@@ -438,7 +446,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
          /* for device tree boot, we pass the DTB directly in r2. Otherwise
           * we point to the kernel args.
           */
@@ -68,11 +73,11 @@ Index: qemu/hw/arm/boot.c
              /* Place the DTB after the initrd in memory. Note that some
               * kernels will trash anything in the 4K page the initrd
               * ends in, so make sure the DTB isn't caught up in that.
-Index: qemu/include/hw/arm/arm.h
-===================================================================
---- qemu.orig/include/hw/arm/arm.h	2013-12-18 12:23:49.903375598 -0600
-+++ qemu/include/hw/arm/arm.h	2013-12-18 12:23:49.891375598 -0600
-@@ -50,6 +50,13 @@
+diff --git a/include/hw/arm/arm.h b/include/hw/arm/arm.h
+index ecbbba8..cbbf4ca 100644
+--- a/include/hw/arm/arm.h
++++ b/include/hw/arm/arm.h
+@@ -50,6 +50,13 @@ struct arm_boot_info {
                                   const struct arm_boot_info *info);
      void (*secondary_cpu_reset_hook)(ARMCPU *cpu,
                                       const struct arm_boot_info *info);
@@ -86,3 +91,6 @@ Index: qemu/include/hw/arm/arm.h
      /* if a board needs to be able to modify a device tree provided by
       * the user it should implement this hook.
       */
+-- 
+1.8.5.2
+

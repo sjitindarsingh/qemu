@@ -1,0 +1,32 @@
+From c36857ad19f6dd9fa0850e1d985465b45606d6e9 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:31 +0000
+Subject: [PATCH 23/49] default-configs: Add config for aarch64-softmmu
+
+Add a config for aarch64-softmmu; this enables building of this target.
+The resulting executable doesn't know about any 64 bit CPUs, but all
+the 32 bit CPUs and board models work.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Message-id: 1385645602-18662-8-git-send-email-peter.maydell@linaro.org
+Reviewed-by: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+---
+ default-configs/aarch64-softmmu.mak | 6 ++++++
+ 1 file changed, 6 insertions(+)
+ create mode 100644 default-configs/aarch64-softmmu.mak
+
+diff --git a/default-configs/aarch64-softmmu.mak b/default-configs/aarch64-softmmu.mak
+new file mode 100644
+index 0000000..6d3b5c7
+--- /dev/null
++++ b/default-configs/aarch64-softmmu.mak
+@@ -0,0 +1,6 @@
++# Default configuration for aarch64-softmmu
++
++# We support all the 32 bit boards so need all their config
++include arm-softmmu.mak
++
++# Currently no 64-bit specific config requirements
+-- 
+1.8.5.2
+

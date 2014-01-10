@@ -65,6 +65,48 @@ static int vfp_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg)
     return 0;
 }
 
+static int aarch64_fpu_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg)
+{
+    switch (reg) {
+    case 0 ... 31:
+        /* 128 bit FP register */
+        stfq_le_p(buf, env->vfp.regs[reg * 2]);
+        stfq_le_p(buf + 8, env->vfp.regs[reg * 2 + 1]);
+        return 16;
+    case 32:
+        /* FPSR */
+        stl_p(buf, vfp_get_fpsr(env));
+        return 4;
+    case 33:
+        /* FPCR */
+        stl_p(buf, vfp_get_fpcr(env));
+        return 4;
+    default:
+        return 0;
+    }
+}
+
+static int aarch64_fpu_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg)
+{
+    switch (reg) {
+    case 0 ... 31:
+        /* 128 bit FP register */
+        env->vfp.regs[reg * 2] = ldfq_le_p(buf);
+        env->vfp.regs[reg * 2 + 1] = ldfq_le_p(buf + 8);
+        return 16;
+    case 32:
+        /* FPSR */
+        vfp_set_fpsr(env, ldl_p(buf));
+        return 4;
+    case 33:
+        /* FPCR */
+        vfp_set_fpcr(env, ldl_p(buf));
+        return 4;
+    default:
+        return 0;
+    }
+}
+
 static int raw_read(CPUARMState *env, const ARMCPRegInfo *ri,
                     uint64_t *value)
 {
@@ -1804,7 +1846,11 @@ void arm_cpu_register_gdb_regs_for_features(ARMCPU *cpu)
     CPUState *cs = CPU(cpu);
     CPUARMState *env = &cpu->env;
 
-    if (arm_feature(env, ARM_FEATURE_NEON)) {
+    if (arm_feature(env, ARM_FEATURE_AARCH64)) {
+        gdb_register_coprocessor(cs, aarch64_fpu_gdb_get_reg,
+                                 aarch64_fpu_gdb_set_reg,
+                                 34, "aarch64-fpu.xml", 0);
+    } else if (arm_feature(env, ARM_FEATURE_NEON)) {
         gdb_register_coprocessor(cs, vfp_gdb_get_reg, vfp_gdb_set_reg,
                                  51, "arm-neon.xml", 0);
     } else if (arm_feature(env, ARM_FEATURE_VFP3)) {
@@ -1861,6 +1907,12 @@ void arm_cpu_list(FILE *f, fprintf_function cpu_fprintf)
     (*cpu_fprintf)(f, "Available CPUs:\n");
     g_slist_foreach(list, arm_cpu_list_entry, &s);
     g_slist_free(list);
+#ifdef CONFIG_KVM
+    /* The 'host' CPU type is dynamically registered only if KVM is
+     * enabled, so we have to special-case it here:
+     */
+    (*cpu_fprintf)(f, "  host (only available in KVM mode)\n");
+#endif
 }
 
 static void arm_cpu_add_definition(gpointer data, gpointer user_data)
@@ -4115,4 +4167,29 @@ float64 VFP_HELPER(muladd, d)(float64 a, float64 b, float64 c, void *fpstp)
 {
     float_status *fpst = fpstp;
     return float64_muladd(a, b, c, 0, fpst);
+}
+
+/* ARMv8 VMAXNM/VMINNM */
+float32 VFP_HELPER(maxnm, s)(float32 a, float32 b, void *fpstp)
+{
+    float_status *fpst = fpstp;
+    return float32_maxnum(a, b, fpst);
+}
+
+float64 VFP_HELPER(maxnm, d)(float64 a, float64 b, void *fpstp)
+{
+    float_status *fpst = fpstp;
+    return float64_maxnum(a, b, fpst);
+}
+
+float32 VFP_HELPER(minnm, s)(float32 a, float32 b, void *fpstp)
+{
+    float_status *fpst = fpstp;
+    return float32_minnum(a, b, fpst);
+}
+
+float64 VFP_HELPER(minnm, d)(float64 a, float64 b, void *fpstp)
+{
+    float_status *fpst = fpstp;
+    return float64_minnum(a, b, fpst);
 }

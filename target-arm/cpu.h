@@ -21,6 +21,8 @@
 
 #include "config.h"
 
+#include "kvm-consts.h"
+
 #if defined(TARGET_AARCH64)
   /* AArch64 definitions */
 #  define TARGET_LONG_BITS 64
@@ -112,8 +114,15 @@ typedef struct CPUARMState {
     /* Regs for A64 mode.  */
     uint64_t xregs[32];
     uint64_t pc;
-    /* TODO: pstate doesn't correspond to an architectural register;
-     * it would be better modelled as the underlying fields.
+    /* PSTATE isn't an architectural register for ARMv8. However, it is
+     * convenient for us to assemble the underlying state into a 32 bit format
+     * identical to the architectural format used for the SPSR. (This is also
+     * what the Linux kernel's 'pstate' field in signal handlers and KVM's
+     * 'pstate' register are.) Of the PSTATE bits:
+     *  NZCV are kept in the split out env->CF/VF/NF/ZF, (which have the same
+     *    semantics as for AArch32, as described in the comments on each field)
+     *  nRW (also known as M[4]) is kept, inverted, in env->aarch64
+     *  all other bits are stored in their correct places in env->pstate
      */
     uint32_t pstate;
     uint32_t aarch64; /* 1 if CPU is in aarch64 state; inverse of PSTATE.nRW */
@@ -311,15 +320,6 @@ static inline bool is_a64(CPUARMState *env)
     return env->aarch64;
 }
 
-#define PSTATE_N_SHIFT 3
-#define PSTATE_N  (1 << PSTATE_N_SHIFT)
-#define PSTATE_Z_SHIFT 2
-#define PSTATE_Z  (1 << PSTATE_Z_SHIFT)
-#define PSTATE_C_SHIFT 1
-#define PSTATE_C  (1 << PSTATE_C_SHIFT)
-#define PSTATE_V_SHIFT 0
-#define PSTATE_V  (1 << PSTATE_V_SHIFT)
-
 /* you can call this signal handler from your SIGBUS and SIGSEGV
    signal handlers to inform the virtual CPU of exceptions. non zero
    is returned if the signal was handled by the virtual CPU.  */
@@ -353,6 +353,56 @@ int cpu_arm_handle_mmu_fault (CPUARMState *env, target_ulong address, int rw,
 #define CPSR_USER (CPSR_NZCV | CPSR_Q | CPSR_GE)
 /* Execution state bits.  MRS read as zero, MSR writes ignored.  */
 #define CPSR_EXEC (CPSR_T | CPSR_IT | CPSR_J)
+
+/* Bit definitions for ARMv8 SPSR (PSTATE) format.
+ * Only these are valid when in AArch64 mode; in
+ * AArch32 mode SPSRs are basically CPSR-format.
+ */
+#define PSTATE_M (0xFU)
+#define PSTATE_nRW (1U << 4)
+#define PSTATE_F (1U << 6)
+#define PSTATE_I (1U << 7)
+#define PSTATE_A (1U << 8)
+#define PSTATE_D (1U << 9)
+#define PSTATE_IL (1U << 20)
+#define PSTATE_SS (1U << 21)
+#define PSTATE_V (1U << 28)
+#define PSTATE_C (1U << 29)
+#define PSTATE_Z (1U << 30)
+#define PSTATE_N (1U << 31)
+#define PSTATE_NZCV (PSTATE_N | PSTATE_Z | PSTATE_C | PSTATE_V)
+#define CACHED_PSTATE_BITS (PSTATE_NZCV)
+/* Mode values for AArch64 */
+#define PSTATE_MODE_EL3h 13
+#define PSTATE_MODE_EL3t 12
+#define PSTATE_MODE_EL2h 9
+#define PSTATE_MODE_EL2t 8
+#define PSTATE_MODE_EL1h 5
+#define PSTATE_MODE_EL1t 4
+#define PSTATE_MODE_EL0t 0
+
+/* Return the current PSTATE value. For the moment we don't support 32<->64 bit
+ * interprocessing, so we don't attempt to sync with the cpsr state used by
+ * the 32 bit decoder.
+ */
+static inline uint32_t pstate_read(CPUARMState *env)
+{
+    int ZF;
+
+    ZF = (env->ZF == 0);
+    return (env->NF & 0x80000000) | (ZF << 30)
+        | (env->CF << 29) | ((env->VF & 0x80000000) >> 3)
+        | env->pstate;
+}
+
+static inline void pstate_write(CPUARMState *env, uint32_t val)
+{
+    env->ZF = (~val) & PSTATE_Z;
+    env->NF = val;
+    env->CF = (val >> 29) & 1;
+    env->VF = (val << 3) & 0x80000000;
+    env->pstate = val & ~CACHED_PSTATE_BITS;
+}
 
 /* Return the current CPSR value.  */
 uint32_t cpsr_read(CPUARMState *env);
@@ -400,6 +450,34 @@ static inline void xpsr_write(CPUARMState *env, uint32_t val, uint32_t mask)
 /* Return the current FPSCR value.  */
 uint32_t vfp_get_fpscr(CPUARMState *env);
 void vfp_set_fpscr(CPUARMState *env, uint32_t val);
+
+/* For A64 the FPSCR is split into two logically distinct registers,
+ * FPCR and FPSR. However since they still use non-overlapping bits
+ * we store the underlying state in fpscr and just mask on read/write.
+ */
+#define FPSR_MASK 0xf800009f
+#define FPCR_MASK 0x07f79f00
+static inline uint32_t vfp_get_fpsr(CPUARMState *env)
+{
+    return vfp_get_fpscr(env) & FPSR_MASK;
+}
+
+static inline void vfp_set_fpsr(CPUARMState *env, uint32_t val)
+{
+    uint32_t new_fpscr = (vfp_get_fpscr(env) & ~FPSR_MASK) | (val & FPSR_MASK);
+    vfp_set_fpscr(env, new_fpscr);
+}
+
+static inline uint32_t vfp_get_fpcr(CPUARMState *env)
+{
+    return vfp_get_fpscr(env) & FPCR_MASK;
+}
+
+static inline void vfp_set_fpcr(CPUARMState *env, uint32_t val)
+{
+    uint32_t new_fpscr = (vfp_get_fpscr(env) & ~FPCR_MASK) | (val & FPCR_MASK);
+    vfp_set_fpscr(env, new_fpscr);
+}
 
 enum arm_cpu_mode {
   ARM_CPU_MODE_USR = 0x10,
@@ -502,17 +580,6 @@ void armv7m_nvic_complete_irq(void *opaque, int irq);
 #define ENCODE_CP_REG(cp, is64, crn, crm, opc1, opc2)   \
     (((cp) << 16) | ((is64) << 15) | ((crn) << 11) |    \
      ((crm) << 7) | ((opc1) << 3) | (opc2))
-
-/* Note that these must line up with the KVM/ARM register
- * ID field definitions (kvm.c will check this, but we
- * can't just use the KVM defines here as the kvm headers
- * are unavailable to non-KVM-specific files)
- */
-#define CP_REG_SIZE_SHIFT 52
-#define CP_REG_SIZE_MASK       0x00f0000000000000ULL
-#define CP_REG_SIZE_U32        0x0020000000000000ULL
-#define CP_REG_SIZE_U64        0x0030000000000000ULL
-#define CP_REG_ARM             0x4000000000000000ULL
 
 /* Convert a full 64 bit KVM register ID to the truncated 32 bit
  * version used as a key for the coprocessor register hashtable

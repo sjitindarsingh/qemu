@@ -1,0 +1,58 @@
+From 25aef23b5028efbf7f33545e6c89aad8d933ce25 Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Tue, 17 Dec 2013 19:42:34 +0000
+Subject: [PATCH 38/49] target-arm: A64: add support for ADR and ADRP
+
+Add support for the instructions described in
+"C3.4.6 PC-rel. addressing" (ADR and ADRP).
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+[claudio: adapted to new decoder structure]
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ target-arm/translate-a64.c | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
+
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index a459ce6..9677d01 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -653,10 +653,31 @@ static void disas_ldst(DisasContext *s, uint32_t insn)
+     }
+ }
+ 
+-/* PC-rel. addressing */
++/* C3.4.6 PC-rel. addressing
++ *   31  30   29 28       24 23                5 4    0
++ * +----+-------+-----------+-------------------+------+
++ * | op | immlo | 1 0 0 0 0 |       immhi       |  Rd  |
++ * +----+-------+-----------+-------------------+------+
++ */
+ static void disas_pc_rel_adr(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    unsigned int page, rd;
++    uint64_t base;
++    int64_t offset;
++
++    page = extract32(insn, 31, 1);
++    /* SignExtend(immhi:immlo) -> offset */
++    offset = ((int64_t)sextract32(insn, 5, 19) << 2) | extract32(insn, 29, 2);
++    rd = extract32(insn, 0, 5);
++    base = s->pc - 4;
++
++    if (page) {
++        /* ADRP (page based) */
++        base &= ~0xfff;
++        offset <<= 12;
++    }
++
++    tcg_gen_movi_i64(cpu_reg(s, rd), base + offset);
+ }
+ 
+ /* Add/subtract (immediate) */
+-- 
+1.8.5.2
+

@@ -1,0 +1,43 @@
+From 1c18bd18d37de28488fe4c9767cacd13516ef8e4 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Fri, 22 Nov 2013 17:17:09 +0000
+Subject: [PATCH 03/49] device_tree.c: Terminate the empty reservemap in
+ create_device_tree()
+
+Device trees created with create_device_tree() may not have any
+entries in their reservemap, because the FDT API requires that the
+reservemap is completed before any FDT nodes are added, and
+create_device_tree() itself creates a node.  However we were not
+calling fdt_finish_reservemap(), which meant that there was no
+terminator in the reservemap list and whatever happened to be at the
+start of the FDT data section would end up being interpreted as
+reservemap entries.  Avoid this by calling fdt_finish_reservemap()
+to add the terminator.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Acked-by: Alexander Graf <agraf@suse.de>
+Reviewed-by: Christoffer Dall <christoffer.dall@linaro.org>
+Reviewed-by: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+Message-id: 1385140638-10444-3-git-send-email-peter.maydell@linaro.org
+---
+ device_tree.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/device_tree.c b/device_tree.c
+index ffec99a..391da8c 100644
+--- a/device_tree.c
++++ b/device_tree.c
+@@ -41,6 +41,10 @@ void *create_device_tree(int *sizep)
+     if (ret < 0) {
+         goto fail;
+     }
++    ret = fdt_finish_reservemap(fdt);
++    if (ret < 0) {
++        goto fail;
++    }
+     ret = fdt_begin_node(fdt, "");
+     if (ret < 0) {
+         goto fail;
+-- 
+1.8.5.2
+

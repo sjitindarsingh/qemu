@@ -1,0 +1,37 @@
+From 3ded9f1c71d346ddf64c6cb3e376625e76ce04c9 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Fri, 22 Nov 2013 17:17:18 +0000
+Subject: [PATCH 11/49] hw/arm/virt: Support -cpu host
+
+Support -cpu host in virt machine (treating it like an A15, ie
+with a GIC v2 and the A15's private peripherals.)
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Christoffer Dall <christoffer.dall@linaro.org>
+Message-id: 1385140638-10444-12-git-send-email-peter.maydell@linaro.org
+---
+ hw/arm/virt.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/hw/arm/virt.c b/hw/arm/virt.c
+index 1e42cc2..9531b5a 100644
+--- a/hw/arm/virt.c
++++ b/hw/arm/virt.c
+@@ -122,6 +122,14 @@ static VirtBoardInfo machines[] = {
+         .memmap = a15memmap,
+         .irqmap = a15irqmap,
+     },
++    {
++        .cpu_model = "host",
++        /* We use the A15 private peripheral model to get a V2 GIC */
++        .qdevname = "a15mpcore_priv",
++        .gic_compatible = "arm,cortex-a15-gic",
++        .memmap = a15memmap,
++        .irqmap = a15irqmap,
++    },
+ };
+ 
+ static VirtBoardInfo *find_machine_info(const char *cpu)
+-- 
+1.8.5.2
+

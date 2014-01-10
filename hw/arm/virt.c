@@ -75,7 +75,6 @@ typedef struct MemMapEntry {
 typedef struct VirtBoardInfo {
     struct arm_boot_info bootinfo;
     const char *cpu_model;
-    const char *cpu_compatible;
     const char *qdevname;
     const char *gic_compatible;
     const MemMapEntry *memmap;
@@ -87,21 +86,27 @@ typedef struct VirtBoardInfo {
 } VirtBoardInfo;
 
 /* Addresses and sizes of our components.
- * We leave the first 64K free for possible use later for
- * flash (for running boot code such as UEFI); following
- * that is I/O, and then everything else is RAM (which may
- * happily spill over into the high memory region beyond 4GB).
+ * 0..128MB is space for a flash device so we can run bootrom code such as UEFI.
+ * 128MB..256MB is used for miscellaneous device I/O.
+ * 256MB..1GB is reserved for possible future PCI support (ie where the
+ * PCI memory window will go if we add a PCI host controller).
+ * 1GB and up is RAM (which may happily spill over into the
+ * high memory region beyond 4GB).
+ * This represents a compromise between how much RAM can be given to
+ * a 32 bit VM and leaving space for expansion and in particular for PCI.
  */
 static const MemMapEntry a15memmap[] = {
-    [VIRT_FLASH] = { 0, 0x1000000 },
-    [VIRT_CPUPERIPHS] = { 0x1000000, 0x8000 },
+    /* Space up to 0x8000000 is reserved for a boot ROM */
+    [VIRT_FLASH] = { 0, 0x8000000 },
+    [VIRT_CPUPERIPHS] = { 0x8000000, 0x8000 },
     /* GIC distributor and CPU interfaces sit inside the CPU peripheral space */
-    [VIRT_GIC_DIST] = { 0x1001000, 0x1000 },
-    [VIRT_GIC_CPU] = { 0x1002000, 0x1000 },
-    [VIRT_UART] = { 0x1008000, 0x1000 },
-    [VIRT_MMIO] = { 0x2000000, 0x200 },
+    [VIRT_GIC_DIST] = { 0x8001000, 0x1000 },
+    [VIRT_GIC_CPU] = { 0x8002000, 0x1000 },
+    [VIRT_UART] = { 0x9000000, 0x1000 },
+    [VIRT_MMIO] = { 0xa000000, 0x200 },
     /* ...repeating for a total of NUM_VIRTIO_TRANSPORTS, each of that size */
-    [VIRT_MEM] = { 0x8000000, 30ULL * 1024 * 1024 * 1024 },
+    /* 0x10000000 .. 0x40000000 reserved for PCI */
+    [VIRT_MEM] = { 0x40000000, 30ULL * 1024 * 1024 * 1024 },
 };
 
 static const int a15irqmap[] = {
@@ -112,7 +117,14 @@ static const int a15irqmap[] = {
 static VirtBoardInfo machines[] = {
     {
         .cpu_model = "cortex-a15",
-        .cpu_compatible = "arm,cortex-a15",
+        .qdevname = "a15mpcore_priv",
+        .gic_compatible = "arm,cortex-a15-gic",
+        .memmap = a15memmap,
+        .irqmap = a15irqmap,
+    },
+    {
+        .cpu_model = "host",
+        /* We use the A15 private peripheral model to get a V2 GIC */
         .qdevname = "a15mpcore_priv",
         .gic_compatible = "arm,cortex-a15-gic",
         .memmap = a15memmap,
@@ -171,18 +183,16 @@ static void create_fdt(VirtBoardInfo *vbi)
     qemu_devtree_setprop_cell(fdt, "/apb-pclk", "phandle", vbi->clock_phandle);
 
     /* No PSCI for TCG yet */
-#ifdef CONFIG_KVM
     if (kvm_enabled()) {
         qemu_devtree_add_subnode(fdt, "/psci");
         qemu_devtree_setprop_string(fdt, "/psci", "compatible", "arm,psci");
         qemu_devtree_setprop_string(fdt, "/psci", "method", "hvc");
         qemu_devtree_setprop_cell(fdt, "/psci", "cpu_suspend",
-                                  KVM_PSCI_FN_CPU_SUSPEND);
-        qemu_devtree_setprop_cell(fdt, "/psci", "cpu_off", KVM_PSCI_FN_CPU_OFF);
-        qemu_devtree_setprop_cell(fdt, "/psci", "cpu_on", KVM_PSCI_FN_CPU_ON);
-        qemu_devtree_setprop_cell(fdt, "/psci", "migrate", KVM_PSCI_FN_MIGRATE);
+                                  PSCI_FN_CPU_SUSPEND);
+        qemu_devtree_setprop_cell(fdt, "/psci", "cpu_off", PSCI_FN_CPU_OFF);
+        qemu_devtree_setprop_cell(fdt, "/psci", "cpu_on", PSCI_FN_CPU_ON);
+        qemu_devtree_setprop_cell(fdt, "/psci", "migrate", PSCI_FN_MIGRATE);
     }
-#endif
 }
 
 static void fdt_add_timer_nodes(const VirtBoardInfo *vbi)
@@ -214,13 +224,14 @@ static void fdt_add_cpu_nodes(const VirtBoardInfo *vbi)
     qemu_devtree_setprop_cell(vbi->fdt, "/cpus", "#address-cells", 0x1);
     qemu_devtree_setprop_cell(vbi->fdt, "/cpus", "#size-cells", 0x0);
 
-    for (cpu = 0; cpu < vbi->smp_cpus; cpu++) {
+    for (cpu = vbi->smp_cpus - 1; cpu >= 0; cpu--) {
         char *nodename = g_strdup_printf("/cpus/cpu@%d", cpu);
+        ARMCPU *armcpu = ARM_CPU(qemu_get_cpu(cpu));
 
         qemu_devtree_add_subnode(vbi->fdt, nodename);
         qemu_devtree_setprop_string(vbi->fdt, nodename, "device_type", "cpu");
         qemu_devtree_setprop_string(vbi->fdt, nodename, "compatible",
-                                    vbi->cpu_compatible);
+                                    armcpu->dtb_compatible);
 
         if (vbi->smp_cpus > 1) {
             qemu_devtree_setprop_string(vbi->fdt, nodename,
@@ -283,14 +294,24 @@ static void create_uart(const VirtBoardInfo *vbi, qemu_irq *pic)
 static void create_virtio_devices(const VirtBoardInfo *vbi, qemu_irq *pic)
 {
     int i;
-    hwaddr base = vbi->memmap[VIRT_MMIO].base;
     hwaddr size = vbi->memmap[VIRT_MMIO].size;
 
+    /* Note that we have to create the transports in forwards order
+     * so that command line devices are inserted lowest address first,
+     * and then add dtb nodes in reverse order so that they appear in
+     * the finished device tree lowest address first.
+     */
     for (i = 0; i < NUM_VIRTIO_TRANSPORTS; i++) {
-        char *nodename;
-        int irq = i + vbi->irqmap[VIRT_MMIO];
+        int irq = vbi->irqmap[VIRT_MMIO] + i;
+        hwaddr base = vbi->memmap[VIRT_MMIO].base + i * size;
 
         sysbus_create_simple("virtio-mmio", base, pic[irq]);
+    }
+
+    for (i = NUM_VIRTIO_TRANSPORTS - 1; i >= 0; i--) {
+        char *nodename;
+        int irq = vbi->irqmap[VIRT_MMIO] + i;
+        hwaddr base = vbi->memmap[VIRT_MMIO].base + i * size;
 
         nodename = g_strdup_printf("/virtio_mmio@%" PRIx64, base);
         qemu_devtree_add_subnode(vbi->fdt, nodename);
@@ -302,7 +323,6 @@ static void create_virtio_devices(const VirtBoardInfo *vbi, qemu_irq *pic)
                                    GIC_FDT_IRQ_TYPE_SPI, irq,
                                    GIC_FDT_IRQ_FLAGS_EDGE_LO_HI);
         g_free(nodename);
-        base += size;
     }
 }
 
@@ -357,7 +377,20 @@ static void machvirt_init(QEMUMachineInitArgs *args)
     fdt_add_timer_nodes(vbi);
 
     for (n = 0; n < smp_cpus; n++) {
-        cpu_arm_init(cpu_model);
+        ObjectClass *oc = cpu_class_by_name(TYPE_ARM_CPU, cpu_model);
+        Object *cpuobj;
+
+        if (!oc) {
+            fprintf(stderr, "Unable to find CPU definition\n");
+            exit(1);
+        }
+        cpuobj = object_new(object_class_get_name(oc));
+
+        /* Secondary CPUs start in PSCI powered-down state */
+        if (n > 0) {
+            object_property_set_bool(cpuobj, true, "start-powered-off", NULL);
+        }
+        object_property_set_bool(cpuobj, true, "realized", NULL);
     }
     fdt_add_cpu_nodes(vbi);
 

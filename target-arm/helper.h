@@ -132,6 +132,11 @@ DEF_HELPER_2(neon_fcvt_f32_to_f16, i32, f32, env)
 DEF_HELPER_4(vfp_muladdd, f64, f64, f64, f64, ptr)
 DEF_HELPER_4(vfp_muladds, f32, f32, f32, f32, ptr)
 
+DEF_HELPER_3(vfp_maxnmd, f64, f64, f64, ptr)
+DEF_HELPER_3(vfp_maxnms, f32, f32, f32, ptr)
+DEF_HELPER_3(vfp_minnmd, f64, f64, f64, ptr)
+DEF_HELPER_3(vfp_minnms, f32, f32, f32, ptr)
+
 DEF_HELPER_3(recps_f32, f32, f32, f32, env)
 DEF_HELPER_3(rsqrts_f32, f32, f32, f32, env)
 DEF_HELPER_2(recpe_f32, f32, f32, env)
@@ -457,5 +462,9 @@ DEF_HELPER_3(neon_zip16, void, env, i32, i32)
 DEF_HELPER_3(neon_qzip8, void, env, i32, i32)
 DEF_HELPER_3(neon_qzip16, void, env, i32, i32)
 DEF_HELPER_3(neon_qzip32, void, env, i32, i32)
+
+#ifdef TARGET_AARCH64
+#include "helper-a64.h"
+#endif
 
 #include "exec/def-helper.h"

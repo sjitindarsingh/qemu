@@ -1,0 +1,128 @@
+From e993aef3beb76acb151077147d617d29f459d297 Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Tue, 17 Dec 2013 19:42:33 +0000
+Subject: [PATCH 33/49] target-arm: A64: add support for conditional branches
+
+This patch adds emulation for the conditional branch (b.cond) instruction.
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+[claudio: adapted to new decoder structure,
+          reused arm infrastructure for checking the flags]
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/translate-a64.c | 29 +++++++++++++++++++++++++++--
+ target-arm/translate.c     | 14 +++++++++-----
+ target-arm/translate.h     |  2 ++
+ 3 files changed, 38 insertions(+), 7 deletions(-)
+
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index b694665..4eb2992 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -239,10 +239,35 @@ static void disas_test_b_imm(DisasContext *s, uint32_t insn)
+     unsupported_encoding(s, insn);
+ }
+ 
+-/* Conditional branch (immediate) */
++/* C3.2.2 / C5.6.19 Conditional branch (immediate)
++ *  31           25  24  23                  5   4  3    0
++ * +---------------+----+---------------------+----+------+
++ * | 0 1 0 1 0 1 0 | o1 |         imm19       | o0 | cond |
++ * +---------------+----+---------------------+----+------+
++ */
+ static void disas_cond_b_imm(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    unsigned int cond;
++    uint64_t addr;
++
++    if ((insn & (1 << 4)) || (insn & (1 << 24))) {
++        unallocated_encoding(s);
++        return;
++    }
++    addr = s->pc + sextract32(insn, 5, 19) * 4 - 4;
++    cond = extract32(insn, 0, 4);
++
++    if (cond < 0x0e) {
++        /* genuinely conditional branches */
++        int label_match = gen_new_label();
++        arm_gen_test_cc(cond, label_match);
++        gen_goto_tb(s, 0, s->pc);
++        gen_set_label(label_match);
++        gen_goto_tb(s, 1, addr);
++    } else {
++        /* 0xe and 0xf are both "always" conditions */
++        gen_goto_tb(s, 0, addr);
++    }
+ }
+ 
+ /* C5.6.68 HINT */
+diff --git a/target-arm/translate.c b/target-arm/translate.c
+index 3a1387e..64bccaa 100644
+--- a/target-arm/translate.c
++++ b/target-arm/translate.c
+@@ -671,7 +671,11 @@ static void gen_thumb2_parallel_addsub(int op1, int op2, TCGv_i32 a, TCGv_i32 b)
+ }
+ #undef PAS_OP
+ 
+-static void gen_test_cc(int cc, int label)
++/*
++ * generate a conditional branch based on ARM condition code cc.
++ * This is common between ARM and Aarch64 targets.
++ */
++void arm_gen_test_cc(int cc, int label)
+ {
+     TCGv_i32 tmp;
+     int inv;
+@@ -7105,7 +7109,7 @@ static void disas_arm_insn(CPUARMState * env, DisasContext *s)
+         /* if not always execute, we generate a conditional jump to
+            next instruction */
+         s->condlabel = gen_new_label();
+-        gen_test_cc(cond ^ 1, s->condlabel);
++        arm_gen_test_cc(cond ^ 1, s->condlabel);
+         s->condjmp = 1;
+     }
+     if ((insn & 0x0f900000) == 0x03000000) {
+@@ -9122,7 +9126,7 @@ static int disas_thumb2_insn(CPUARMState *env, DisasContext *s, uint16_t insn_hw
+                 op = (insn >> 22) & 0xf;
+                 /* Generate a conditional jump to next instruction.  */
+                 s->condlabel = gen_new_label();
+-                gen_test_cc(op ^ 1, s->condlabel);
++                arm_gen_test_cc(op ^ 1, s->condlabel);
+                 s->condjmp = 1;
+ 
+                 /* offset[11:1] = insn[10:0] */
+@@ -9479,7 +9483,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
+         cond = s->condexec_cond;
+         if (cond != 0x0e) {     /* Skip conditional when condition is AL. */
+           s->condlabel = gen_new_label();
+-          gen_test_cc(cond ^ 1, s->condlabel);
++          arm_gen_test_cc(cond ^ 1, s->condlabel);
+           s->condjmp = 1;
+         }
+     }
+@@ -10152,7 +10156,7 @@ static void disas_thumb_insn(CPUARMState *env, DisasContext *s)
+         }
+         /* generate a conditional jump to next instruction */
+         s->condlabel = gen_new_label();
+-        gen_test_cc(cond ^ 1, s->condlabel);
++        arm_gen_test_cc(cond ^ 1, s->condlabel);
+         s->condjmp = 1;
+ 
+         /* jump to the offset */
+diff --git a/target-arm/translate.h b/target-arm/translate.h
+index 23a45da..a6f6b3e 100644
+--- a/target-arm/translate.h
++++ b/target-arm/translate.h
+@@ -65,4 +65,6 @@ static inline void gen_a64_set_pc_im(uint64_t val)
+ }
+ #endif
+ 
++void arm_gen_test_cc(int cc, int label);
++
+ #endif /* TARGET_ARM_TRANSLATE_H */
+-- 
+1.8.5.2
+
