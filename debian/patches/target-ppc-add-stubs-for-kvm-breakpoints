@@ -1,0 +1,64 @@
+commit c65f9a07a78afa3c98712f6192962ffd6babe339
+Author: Greg Kurz <gkurz@linux.vnet.ibm.com>
+Date:   Wed Dec 11 14:15:34 2013 +0100
+
+    target-ppc: add stubs for KVM breakpoints
+    
+    The latest update to v3.13-rc3 (bf63839f) breaks the
+    ppc build with KVM:
+    
+    kvm-all.o: In function `kvm_update_guest_debug':
+    kvm-all.c:1910: undefined reference to `kvm_arch_update_guest_debug'
+    kvm-all.o: In function `kvm_insert_breakpoint':
+    kvm-all.c:1937: undefined reference to `kvm_arch_insert_sw_breakpoint'
+    kvm-all.c:1945: undefined reference to `kvm_arch_insert_hw_breakpoint'
+    kvm-all.o: In function `kvm_remove_breakpoint':
+    kvm-all.c:1977: undefined reference to `kvm_arch_remove_sw_breakpoint'
+    kvm-all.c:1985: undefined reference to `kvm_arch_remove_hw_breakpoint'
+    kvm-all.o: In function `kvm_remove_all_breakpoints':
+    kvm-all.c:2009: undefined reference to `kvm_arch_remove_sw_breakpoint'
+    kvm-all.c:2006: undefined reference to `kvm_arch_remove_sw_breakpoint'
+    kvm-all.c:2017: undefined reference to `kvm_arch_remove_all_hw_breakpoints'
+    
+    We need stubs until something gets implemented.
+    
+    Signed-off-by: Greg Kurz <gkurz@linux.vnet.ibm.com>
+    Reviewed-by: Alexander Graf <agraf@suse.de>
+    Signed-off-by: Alexander Graf <agraf@suse.de>
+
+diff --git a/target-ppc/kvm.c b/target-ppc/kvm.c
+index b77ce5e..29a8ded 100644
+--- a/target-ppc/kvm.c
++++ b/target-ppc/kvm.c
+@@ -1902,3 +1902,31 @@ int kvm_arch_on_sigbus(int code, void *addr)
+ void kvm_arch_init_irq_routing(KVMState *s)
+ {
+ }
++
++int kvm_arch_insert_sw_breakpoint(CPUState *cpu, struct kvm_sw_breakpoint *bp)
++{
++    return -EINVAL;
++}
++
++int kvm_arch_remove_sw_breakpoint(CPUState *cpu, struct kvm_sw_breakpoint *bp)
++{
++    return -EINVAL;
++}
++
++int kvm_arch_insert_hw_breakpoint(target_ulong addr, target_ulong len, int type)
++{
++    return -EINVAL;
++}
++
++int kvm_arch_remove_hw_breakpoint(target_ulong addr, target_ulong len, int type)
++{
++    return -EINVAL;
++}
++
++void kvm_arch_remove_all_hw_breakpoints(void)
++{
++}
++
++void kvm_arch_update_guest_debug(CPUState *cpu, struct kvm_guest_debug *dbg)
++{
++}
