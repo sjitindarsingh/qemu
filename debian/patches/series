@@ -119,3 +119,4 @@ arm64/0046-host-utils-add-clrsb32-64-count-leading-redundant-si.patch
 arm64/0047-target-arm-A64-add-support-for-1-src-CLS-insn.patch
 arm64/0048-target-arm-A64-add-support-for-logical-immediate-ins.patch
 arm64/0049-softfloat-Add-minNum-and-maxNum-functions-to-softflo.patch
+target-ppc-add-stubs-for-kvm-breakpoints
