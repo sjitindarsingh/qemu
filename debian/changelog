@@ -1,3 +1,12 @@
+qemu (1.7.0+dfsg-2ubuntu8) trusty; urgency=medium
+
+  * SECURITY UPDATE: denial of service via virtio device hot-plugging
+    - debian/patches/CVE-2013-4377.patch: upstream commits to refactor
+      virtio device unplugging.
+    - CVE-2013-4377
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Mon, 27 Jan 2014 09:10:37 -0500
+
 qemu (1.7.0+dfsg-2ubuntu7) trusty; urgency=medium
 
   * d/p/target-ppc-add-stubs-for-kvm-breakpoints: fix FTBFS on
