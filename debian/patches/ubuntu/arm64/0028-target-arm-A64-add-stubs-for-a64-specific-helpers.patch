@@ -1,0 +1,106 @@
+From 52089f8f64beb4536e00ef0218423dd78a3b72a0 Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Tue, 17 Dec 2013 19:42:32 +0000
+Subject: [PATCH 28/49] target-arm: A64: add stubs for a64 specific helpers
+
+We will need helpers that only make sense with AArch64. Add
+helper-a64.{c,h} files as stubs that we can fill with these
+helpers in the following patches.
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+
+Conflicts:
+	target-arm/Makefile.objs
+	target-arm/helper.h
+---
+ target-arm/Makefile.objs |  2 +-
+ target-arm/helper-a64.c  | 25 +++++++++++++++++++++++++
+ target-arm/helper-a64.h  | 18 ++++++++++++++++++
+ target-arm/helper.h      |  4 ++++
+ 4 files changed, 48 insertions(+), 1 deletion(-)
+ create mode 100644 target-arm/helper-a64.c
+ create mode 100644 target-arm/helper-a64.h
+
+diff --git a/target-arm/Makefile.objs b/target-arm/Makefile.objs
+index bc23563..df6d972 100644
+--- a/target-arm/Makefile.objs
++++ b/target-arm/Makefile.objs
+@@ -7,4 +7,4 @@ obj-$(call lnot,$(CONFIG_KVM)) += kvm-stub.o
+ obj-y += translate.o op_helper.o helper.o cpu.o
+ obj-y += neon_helper.o iwmmxt_helper.o
+ obj-y += gdbstub.o
+-obj-$(TARGET_AARCH64) += cpu64.o translate-a64.o gdbstub64.o
++obj-$(TARGET_AARCH64) += cpu64.o translate-a64.o helper-a64.o gdbstub64.o
+diff --git a/target-arm/helper-a64.c b/target-arm/helper-a64.c
+new file mode 100644
+index 0000000..adb8428
+--- /dev/null
++++ b/target-arm/helper-a64.c
+@@ -0,0 +1,25 @@
++/*
++ *  AArch64 specific helpers
++ *
++ *  Copyright (c) 2013 Alexander Graf <agraf@suse.de>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "cpu.h"
++#include "exec/gdbstub.h"
++#include "helper.h"
++#include "qemu/host-utils.h"
++#include "sysemu/sysemu.h"
++#include "qemu/bitops.h"
+diff --git a/target-arm/helper-a64.h b/target-arm/helper-a64.h
+new file mode 100644
+index 0000000..dd28306
+--- /dev/null
++++ b/target-arm/helper-a64.h
+@@ -0,0 +1,18 @@
++/*
++ *  AArch64 specific helper definitions
++ *
++ *  Copyright (c) 2013 Alexander Graf <agraf@suse.de>
++ *
++ * This library is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2 of the License, or (at your option) any later version.
++ *
++ * This library is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
++ */
+diff --git a/target-arm/helper.h b/target-arm/helper.h
+index d459a39..643e28e 100644
+--- a/target-arm/helper.h
++++ b/target-arm/helper.h
+@@ -463,4 +463,8 @@ DEF_HELPER_3(neon_qzip8, void, env, i32, i32)
+ DEF_HELPER_3(neon_qzip16, void, env, i32, i32)
+ DEF_HELPER_3(neon_qzip32, void, env, i32, i32)
+ 
++#ifdef TARGET_AARCH64
++#include "helper-a64.h"
++#endif
++
+ #include "exec/def-helper.h"
+-- 
+1.8.5.2
+

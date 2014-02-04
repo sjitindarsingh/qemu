@@ -44,6 +44,7 @@ Build-Depends: debhelper (>= 9),
 # --disable-gtk
 ## --with-gtkabi=2.0
 # libgtk2.0-dev, libvte-dev (>> 0.18.0~),
+# ubuntu/libiscsi is in universe
 :debian:# --enable-libiscsi
 :debian: libiscsi-dev,
 # --enable-curses
@@ -65,10 +66,12 @@ Build-Depends: debhelper (>= 9),
  libspice-protocol-dev (>= 0.12.3~) [linux-amd64 linux-i386],
 # --enable-libusb	linux-*
  libusb-1.0-0-dev (>= 2:1.0.13~) [linux-any],
-:debian:# --enable-usb-redir	linux-*
-:debian: libusbredirparser-dev (>= 0.6~) [linux-any],
+# --enable-usb-redir	linux-*
+ libusbredirparser-dev (>= 0.6~) [linux-any],
+# ubuntu/libssh2 is in universe
 :debian:# --enable-libssh2
 :debian: libssh2-1-dev,
+# ubuntu/vde2 is in universe
 :debian:# --enable-vde
 :debian: libvdeplug-dev,
 # needed for sdl
@@ -93,11 +96,14 @@ Build-Depends: debhelper (>= 9),
 Build-Conflicts: oss4-dev
 Standards-Version: 3.9.4
 Homepage: http://www.qemu.org/
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
-Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
+:debian:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
+:ubuntu:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git;a=shortlog;h=refs/heads/ubuntu-trusty
+:debian:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
+:ubuntu:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git -b ubuntu-trusty
 
 Package: qemu
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${misc:Depends}, qemu-system (>= ${source:Version}), qemu-user (>= ${source:Version}) [linux-any], qemu-utils (>= ${source:Version})
 Suggests: qemu-user-static [linux-any]
@@ -136,15 +142,17 @@ Description: QEMU keyboard maps
  package or QEMU derivatives.
 
 Package: qemu-system
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${misc:Depends},
  qemu-system-arm,
+:ubuntu: qemu-system-aarch64 [arm64],
  qemu-system-mips,
  qemu-system-ppc, 
  qemu-system-sparc, 
  qemu-system-x86,
- qemu-system-misc 
+ qemu-system-misc
 Description: QEMU full system emulation binaries
  QEMU is a fast processor emulator: currently the package supports
  ARM, CRIS, i386, M68k (ColdFire), MicroBlaze, MIPS, PowerPC, SH4,
@@ -156,7 +164,8 @@ Description: QEMU full system emulation binaries
  QEMU supports.
 
 Package: qemu-system-common
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Pre-Depends: adduser
 Depends: ${misc:Depends}, ${shlibs:Depends},
@@ -184,7 +193,8 @@ Description: QEMU full system emulation binaries (common files)
  full system emulation (qemu-system-*) packages.
 
 Package: qemu-system-misc
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
 Recommends: qemu-utils
@@ -209,7 +219,8 @@ Description: QEMU full system emulation binaries (miscelaneous)
  machines on a single server.
 
 Package: qemu-system-arm
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
 Recommends: qemu-utils
@@ -237,7 +248,8 @@ Description: QEMU full system emulation binaries (arm)
  machines on a single server.
 
 Package: qemu-system-mips
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
 Recommends: qemu-utils
@@ -259,13 +271,15 @@ Description: QEMU full system emulation binaries (mips)
  machines on a single server.
 
 Package: qemu-system-ppc
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
- openbios-ppc (>= 1.1+svn1229), openhackware,
-:debian: qemu-slof
+:debian: qemu-slof, openbios-ppc (>= 1.1+svn1229), openhackware,
 Recommends: qemu-utils
-Suggests: samba, vde2
+Suggests: samba, vde2,
+# ubuntu can't Depend on openbios-ppc and openhackware as they're in universe
+:ubuntu: openbios-ppc (>= 1.1+svn1229), openhackware, qemu-slof
 Provides: ${sysprovides:ppc}
 Breaks: qemu-system (<< 1.3.0+dfsg-5),
 :ubuntu: qemu-common (<< 1.3.0+dfsg-5),
@@ -289,9 +303,11 @@ Description: QEMU full system emulation binaries (ppc)
  machines on a single server.
 
 Package: qemu-system-sparc
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
+# ubuntu/openbios-sparc is in universe
 :debian: openbios-sparc (>= 1.1+svn1229)
 Recommends: qemu-utils
 Suggests: samba, vde2
@@ -320,7 +336,8 @@ Description: QEMU full system emulation binaries (sparc)
  machines on a single server.
 
 Package: qemu-system-x86
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
  seabios (>= 1.7.2-2~), ipxe-qemu
@@ -358,7 +375,8 @@ Description: QEMU full system emulation binaries (x86)
  usage on systems which supports it.
 
 Package: qemu-user
-Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Suggests: sudo
@@ -374,7 +392,8 @@ Description: QEMU user mode emulation binaries
  QEMU can launch Linux processes compiled for one CPU on another CPU.
 
 Package: qemu-user-static
-Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: binfmt-support
@@ -390,7 +409,8 @@ Description: QEMU user mode emulation binaries (static version)
  one CPU on another CPU.
 
 Package: qemu-utils
-Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:debian:Architecture: amd64 arm armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
+:ubuntu:Architecture: amd64 arm arm64 armel armhf hppa i386 ia64 kfreebsd-amd64 kfreebsd-i386 mips mipsel powerpc powerpcspe ppc64 s390x sparc sparc64
 Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: sharutils
@@ -451,3 +471,42 @@ Description: QEMU Full virtualization on x86 hardware (transitional package)
  Please note that old qemu-kvm configuration files (in /etc/kvm/) are
  no longer used.
 
+:ubuntu:Package: qemu-common
+:ubuntu:Architecture: all
+:ubuntu:Depends: ${misc:Depends}, qemu-keymaps
+:ubuntu:Section: oldlibs
+:ubuntu:Description: dummy transitional package from qemu-common to qemu-keymaps
+:ubuntu: This transitional package helps users transition from the qemu-common package
+:ubuntu: to the qemu-keymaps package.  Once this package and its dependencies are
+:ubuntu: installed you can safely remove it.
+
+:ubuntu:Package: qemu-system-aarch64
+:ubuntu:Architecture: arm64
+:ubuntu:Multi-Arch: foreign
+:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends},
+:ubuntu: qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version}),
+:ubuntu:Provides: ${sysprovides:arm64}
+:ubuntu:Breaks:
+:ubuntu:  qemu-common (<< 1.3.0+dfsg-5),
+:ubuntu:  qemu-system (<< 1.3.0+dfsg-5),
+:ubuntu:  qemu-kvm (<< 1.2.0.dfsg-1),
+:ubuntu:  kvm (<< 1.3.0+dfsg-5)
+:ubuntu:Replaces:
+:ubuntu:  qemu-common (<< 1.3.0+dfsg-5),
+:ubuntu:  qemu-system (<< 1.3.0+dfsg-5),
+:ubuntu:  qemu-kvm (<< 1.2.0.dfsg-1),
+:ubuntu:  kvm (<< 1.3.0+dfsg-5)
+:ubuntu:Recommends: qemu-utils
+:ubuntu:Suggests: samba, vde2
+:ubuntu:Description: QEMU full system emulation binaries (aarch64)
+:ubuntu: QEMU is a fast processor emulator: currently the package supports
+:ubuntu: ARM emulation. By using dynamic translation it achieves
+:ubuntu: reasonable speed while being easy to port on new host CPUs.
+:ubuntu: .
+:ubuntu: This package provides the full system emulation binaries to emulate
+:ubuntu: the following aarch64 hardware: ${sysarch:aarch64}.
+:ubuntu: .
+:ubuntu: In system emulation mode QEMU emulates a full system, including a processor
+:ubuntu: and various peripherals.  It enables easier testing and debugging of system
+:ubuntu: code.  It can also be used to provide virtual hosting of several virtual
+:ubuntu: machines on a single server.

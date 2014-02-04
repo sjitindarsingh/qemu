@@ -1,6 +1,11 @@
 #!/usr/bin/make -f
 
 VENDOR := debian
+DEB_VENDOR := $(shell dpkg-vendor --query vendor)
+ifeq ($(DEB_VENDOR),Ubuntu)
+VENDOR := ubuntu
+DEB_BUILD_PARALLEL = yes
+endif
 
 # support parallel build using DEB_BUILD_OPTIONS=parallel=N
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
@@ -48,9 +53,16 @@ system_targets = \
  i386 x86_64 alpha arm cris lm32 m68k microblaze microblazeel \
  mips mipsel mips64 mips64el moxie or32 ppc ppcemb ppc64 sh4 sh4eb \
  sparc sparc64 s390x xtensa xtensaeb unicore32
+ifeq ($(DEB_VENDOR),Ubuntu)
+system_targets += aarch64
+endif
 
 # qemu-system subpackages, from d/control
 sys_systems = arm mips ppc sparc x86
+ifeq ($(DEB_VENDOR),Ubuntu)
+sys_systems += aarch64
+sysarch_aarch64 = $(filter aarch64,${system_targets})
+endif
 systems = ${sys_systems} misc
 sysarch_arm   = $(filter arm,${system_targets})
 sysarch_mips  = $(filter mips mipsel mips64 mips64el,${system_targets})
@@ -85,6 +97,9 @@ filter_binfmts = $(shell \
  case $(DEB_HOST_ARCH) in \
    (amd64 | i386) echo i386 x86_64 ;;\
    (arm | armel | armhf) echo arm ;;\
+ifeq ($(DEB_VENDOR),Ubuntu)\
+   (arm64) echo aarch64 ;;\
+endif\
    (mips | mipsel) echo $(DEB_HOST_ARCH) ;;\
    (powerpc) echo ppc ;;\
    (ppc64) echo ppc ppc64 ppc64abi32 ;;\
@@ -202,6 +217,12 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	dh_install -pqemu-kvm debian/kvm /usr/bin/
 	dh_install -pqemu-kvm debian/kvm.1 /usr/share/man/man1/
+ifeq ($(DEB_VENDOR),Ubuntu)
+	mkdir -p debian/qemu-kvm/usr/bin
+	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
+	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice
+	dh_installmodules -pqemu-system-x86
+endif
 endif
 
 # virtfs-proxy-helper is linux-specific

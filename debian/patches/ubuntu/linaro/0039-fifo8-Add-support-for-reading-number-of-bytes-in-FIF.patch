@@ -1,0 +1,54 @@
+From 1cd0587fee5aee4cdc45607b4547be39a3b99583 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 5 Aug 2013 16:13:01 +0100
+Subject: [PATCH 39/70] fifo8: Add support for reading number of bytes in FIFO
+
+Add a fifo8_num() function which returns the number
+of bytes currently in the FIFO.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ include/qemu/fifo8.h | 10 ++++++++++
+ util/fifo8.c         |  5 +++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/include/qemu/fifo8.h b/include/qemu/fifo8.h
+index d318f71..fec175c 100644
+--- a/include/qemu/fifo8.h
++++ b/include/qemu/fifo8.h
+@@ -86,6 +86,16 @@ bool fifo8_is_empty(Fifo8 *fifo);
+ 
+ bool fifo8_is_full(Fifo8 *fifo);
+ 
++/**
++ * fifo8_num:
++ * @fifo: FIFO to check
++ *
++ * Return the number of bytes of data currently in the FIFO.
++ *
++ * Returns: number of bytes of data in FIFO.
++ */
++uint32_t fifo8_num(Fifo8 *fifo);
++
+ extern const VMStateDescription vmstate_fifo8;
+ 
+ #define VMSTATE_FIFO8(_field, _state) {                              \
+diff --git a/util/fifo8.c b/util/fifo8.c
+index 013e903..75f0f3b 100644
+--- a/util/fifo8.c
++++ b/util/fifo8.c
+@@ -65,6 +65,11 @@ bool fifo8_is_full(Fifo8 *fifo)
+     return (fifo->num == fifo->capacity);
+ }
+ 
++uint32_t fifo8_num(Fifo8 *fifo)
++{
++    return fifo->num;
++}
++
+ const VMStateDescription vmstate_fifo8 = {
+     .name = "Fifo8",
+     .version_id = 1,
+-- 
+1.8.5.2
+

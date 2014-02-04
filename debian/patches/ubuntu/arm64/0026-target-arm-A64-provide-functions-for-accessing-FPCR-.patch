@@ -1,0 +1,61 @@
+From 3942680a1b94d3bfd5ccf8414ecb47cb9fdeaf38 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:31 +0000
+Subject: [PATCH 26/49] target-arm: A64: provide functions for accessing FPCR
+ and FPSR
+
+The information which AArch32 holds in the FPSCR is split for
+AArch64 into two logically distinct registers, FPSR and FPCR.
+Since they are carefully arranged to use non-overlapping bits,
+we leave the underlying state in the same place, and provide
+accessor functions which just update the appropriate bits
+via vfp_get_fpscr() and vfp_set_fpscr().
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/cpu.h | 28 ++++++++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)
+
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index d15fdcd..4ad8965 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -447,6 +447,34 @@ static inline void xpsr_write(CPUARMState *env, uint32_t val, uint32_t mask)
+ uint32_t vfp_get_fpscr(CPUARMState *env);
+ void vfp_set_fpscr(CPUARMState *env, uint32_t val);
+ 
++/* For A64 the FPSCR is split into two logically distinct registers,
++ * FPCR and FPSR. However since they still use non-overlapping bits
++ * we store the underlying state in fpscr and just mask on read/write.
++ */
++#define FPSR_MASK 0xf800009f
++#define FPCR_MASK 0x07f79f00
++static inline uint32_t vfp_get_fpsr(CPUARMState *env)
++{
++    return vfp_get_fpscr(env) & FPSR_MASK;
++}
++
++static inline void vfp_set_fpsr(CPUARMState *env, uint32_t val)
++{
++    uint32_t new_fpscr = (vfp_get_fpscr(env) & ~FPSR_MASK) | (val & FPSR_MASK);
++    vfp_set_fpscr(env, new_fpscr);
++}
++
++static inline uint32_t vfp_get_fpcr(CPUARMState *env)
++{
++    return vfp_get_fpscr(env) & FPCR_MASK;
++}
++
++static inline void vfp_set_fpcr(CPUARMState *env, uint32_t val)
++{
++    uint32_t new_fpscr = (vfp_get_fpscr(env) & ~FPCR_MASK) | (val & FPCR_MASK);
++    vfp_set_fpscr(env, new_fpscr);
++}
++
+ enum arm_cpu_mode {
+   ARM_CPU_MODE_USR = 0x10,
+   ARM_CPU_MODE_FIQ = 0x11,
+-- 
+1.8.5.2
+

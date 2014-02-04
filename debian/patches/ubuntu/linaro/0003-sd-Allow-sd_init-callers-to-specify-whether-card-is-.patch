@@ -1,0 +1,144 @@
+From 4db17b380b240cf51601e99a85977b2b18221ba3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Juha=20Riihim=C3=A4ki?= <juha.riihimaki@nokia.com>
+Date: Mon, 18 Feb 2013 16:58:23 +0000
+Subject: [PATCH 03/70] sd: Allow sd_init callers to specify whether card is
+ MMC or SD
+
+Add a parameter to sd_init() which allows the caller to specify
+whether the card is MMC or SD.
+
+TODO: maybe we should have an sd_init() and an mmc_init()
+instead?
+
+TODO: these mmc patches need to be integrated with the ones
+Vincent Palatin proposed.
+---
+ hw/sd/milkymist-memcard.c | 2 +-
+ hw/sd/omap_mmc.c          | 4 ++--
+ hw/sd/pl181.c             | 2 +-
+ hw/sd/pxa2xx_mmci.c       | 2 +-
+ hw/sd/sd.c                | 2 +-
+ hw/sd/sdhci.c             | 2 +-
+ hw/sd/ssi-sd.c            | 5 +----
+ include/hw/sd.h           | 2 +-
+ 8 files changed, 9 insertions(+), 12 deletions(-)
+
+diff --git a/hw/sd/milkymist-memcard.c b/hw/sd/milkymist-memcard.c
+index d1168c9..6522eca 100644
+--- a/hw/sd/milkymist-memcard.c
++++ b/hw/sd/milkymist-memcard.c
+@@ -254,7 +254,7 @@ static int milkymist_memcard_init(SysBusDevice *dev)
+     DriveInfo *dinfo;
+ 
+     dinfo = drive_get_next(IF_SD);
+-    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, false);
++    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, false, false);
+     if (s->card == NULL) {
+         return -1;
+     }
+diff --git a/hw/sd/omap_mmc.c b/hw/sd/omap_mmc.c
+index 937a478..ca26d21 100644
+--- a/hw/sd/omap_mmc.c
++++ b/hw/sd/omap_mmc.c
+@@ -592,7 +592,7 @@ struct omap_mmc_s *omap_mmc_init(hwaddr base,
+     memory_region_add_subregion(sysmem, base, &s->iomem);
+ 
+     /* Instantiate the storage */
+-    s->card = sd_init(bd, false);
++    s->card = sd_init(bd, false, false);
+     if (s->card == NULL) {
+         exit(1);
+     }
+@@ -620,7 +620,7 @@ struct omap_mmc_s *omap2_mmc_init(struct omap_target_agent_s *ta,
+     omap_l4_attach(ta, 0, &s->iomem);
+ 
+     /* Instantiate the storage */
+-    s->card = sd_init(bd, false);
++    s->card = sd_init(bd, false, false);
+     if (s->card == NULL) {
+         exit(1);
+     }
+diff --git a/hw/sd/pl181.c b/hw/sd/pl181.c
+index c35896d..d22f6e2 100644
+--- a/hw/sd/pl181.c
++++ b/hw/sd/pl181.c
+@@ -490,7 +490,7 @@ static int pl181_init(SysBusDevice *sbd)
+     sysbus_init_irq(sbd, &s->irq[1]);
+     qdev_init_gpio_out(dev, s->cardstatus, 2);
+     dinfo = drive_get_next(IF_SD);
+-    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, false);
++    s->card = sd_init(dinfo ? dinfo->bdrv : NULL, false, false);
+     if (s->card == NULL) {
+         return -1;
+     }
+diff --git a/hw/sd/pxa2xx_mmci.c b/hw/sd/pxa2xx_mmci.c
+index b9d8b1a..85eb86d 100644
+--- a/hw/sd/pxa2xx_mmci.c
++++ b/hw/sd/pxa2xx_mmci.c
+@@ -538,7 +538,7 @@ PXA2xxMMCIState *pxa2xx_mmci_init(MemoryRegion *sysmem,
+     memory_region_add_subregion(sysmem, base, &s->iomem);
+ 
+     /* Instantiate the actual storage */
+-    s->card = sd_init(bd, false);
++    s->card = sd_init(bd, false, false);
+     if (s->card == NULL) {
+         exit(1);
+     }
+diff --git a/hw/sd/sd.c b/hw/sd/sd.c
+index 617ae51..ce7f57f 100644
+--- a/hw/sd/sd.c
++++ b/hw/sd/sd.c
+@@ -488,7 +488,7 @@ static const VMStateDescription sd_vmstate = {
+    whether card should be in SSI or MMC/SD mode.  It is also up to the
+    board to ensure that ssi transfers only occur when the chip select
+    is asserted.  */
+-SDState *sd_init(BlockDriverState *bs, bool is_spi)
++SDState *sd_init(BlockDriverState *bs, bool is_spi, bool is_mmc)
+ {
+     SDState *sd;
+ 
+diff --git a/hw/sd/sdhci.c b/hw/sd/sdhci.c
+index 0906a1d..6b5172d 100644
+--- a/hw/sd/sdhci.c
++++ b/hw/sd/sdhci.c
+@@ -1165,7 +1165,7 @@ static void sdhci_initfn(Object *obj)
+     DriveInfo *di;
+ 
+     di = drive_get_next(IF_SD);
+-    s->card = sd_init(di ? di->bdrv : NULL, false);
++    s->card = sd_init(di ? di->bdrv : NULL, false, false);
+     if (s->card == NULL) {
+         exit(1);
+     }
+diff --git a/hw/sd/ssi-sd.c b/hw/sd/ssi-sd.c
+index 1bb56c4..f11e02e 100644
+--- a/hw/sd/ssi-sd.c
++++ b/hw/sd/ssi-sd.c
+@@ -245,10 +245,7 @@ static int ssi_sd_init(SSISlave *dev)
+ 
+     s->mode = SSI_SD_CMD;
+     dinfo = drive_get_next(IF_SD);
+-    s->sd = sd_init(dinfo ? dinfo->bdrv : NULL, true);
+-    if (s->sd == NULL) {
+-        return -1;
+-    }
++    s->sd = sd_init(dinfo ? dinfo->bdrv : NULL, true, false);
+     register_savevm(&dev->qdev, "ssi_sd", -1, 1, ssi_sd_save, ssi_sd_load, s);
+     return 0;
+ }
+diff --git a/include/hw/sd.h b/include/hw/sd.h
+index 4ef822f..562eaa2 100644
+--- a/include/hw/sd.h
++++ b/include/hw/sd.h
+@@ -68,7 +68,7 @@ typedef struct {
+ 
+ typedef struct SDState SDState;
+ 
+-SDState *sd_init(BlockDriverState *bs, bool is_spi);
++SDState *sd_init(BlockDriverState *bs, bool is_spi, bool is_mmc);
+ void sd_reset(SDState *sd);
+ int sd_do_command(SDState *sd, SDRequest *req,
+                   uint8_t *response);
+-- 
+1.8.5.2
+

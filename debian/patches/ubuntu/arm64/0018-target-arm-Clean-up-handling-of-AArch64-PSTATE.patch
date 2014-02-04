@@ -1,0 +1,226 @@
+From 68c50a55125fe875eba92c6e414086b64c7c0798 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:30 +0000
+Subject: [PATCH 18/49] target-arm: Clean up handling of AArch64 PSTATE
+
+The env->pstate field is a little odd since it doesn't strictly
+speaking represent an architectural register. However it's convenient
+for QEMU to use it to hold the various PSTATE architectural bits
+in the same format the architecture specifies for SPSR registers
+(since this is the same format the kernel uses for signal handlers
+and the KVM register). Add some structure to how we deal with it:
+ * document what env->pstate is
+ * add some #defines for various bits in it
+ * add helpers for reading/writing it taking account of caching
+   of NZCV, and use them where appropriate
+ * reset it on startup
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Message-id: 1385645602-18662-3-git-send-email-peter.maydell@linaro.org
+Reviewed-by: Christoffer Dall <christoffer.dall@linaro.org>
+---
+ linux-user/signal.c        |  6 ++--
+ target-arm/cpu.c           |  6 ++++
+ target-arm/cpu.h           | 70 ++++++++++++++++++++++++++++++++++++++--------
+ target-arm/gdbstub64.c     |  4 +--
+ target-arm/translate-a64.c | 12 ++++----
+ 5 files changed, 78 insertions(+), 20 deletions(-)
+
+diff --git a/linux-user/signal.c b/linux-user/signal.c
+index 7751c47..4e7148a 100644
+--- a/linux-user/signal.c
++++ b/linux-user/signal.c
+@@ -1171,7 +1171,7 @@ static int target_setup_sigframe(struct target_rt_sigframe *sf,
+     }
+     __put_user(env->xregs[31], &sf->uc.tuc_mcontext.sp);
+     __put_user(env->pc, &sf->uc.tuc_mcontext.pc);
+-    __put_user(env->pstate, &sf->uc.tuc_mcontext.pstate);
++    __put_user(pstate_read(env), &sf->uc.tuc_mcontext.pstate);
+ 
+     __put_user(/*current->thread.fault_address*/ 0,
+             &sf->uc.tuc_mcontext.fault_address);
+@@ -1210,6 +1210,7 @@ static int target_restore_sigframe(CPUARMState *env,
+     struct target_aux_context *aux =
+         (struct target_aux_context *)sf->uc.tuc_mcontext.__reserved;
+     uint32_t magic, size;
++    uint64_t pstate;
+ 
+     target_to_host_sigset(&set, &sf->uc.tuc_sigmask);
+     sigprocmask(SIG_SETMASK, &set, NULL);
+@@ -1220,7 +1221,8 @@ static int target_restore_sigframe(CPUARMState *env,
+ 
+     __get_user(env->xregs[31], &sf->uc.tuc_mcontext.sp);
+     __get_user(env->pc, &sf->uc.tuc_mcontext.pc);
+-    __get_user(env->pstate, &sf->uc.tuc_mcontext.pstate);
++    __get_user(pstate, &sf->uc.tuc_mcontext.pstate);
++    pstate_write(env, pstate);
+ 
+     __get_user(magic, &aux->fpsimd.head.magic);
+     __get_user(size, &aux->fpsimd.head.size);
+diff --git a/target-arm/cpu.c b/target-arm/cpu.c
+index 0635e78..42057ad 100644
+--- a/target-arm/cpu.c
++++ b/target-arm/cpu.c
+@@ -88,6 +88,12 @@ static void arm_cpu_reset(CPUState *s)
+     if (arm_feature(env, ARM_FEATURE_AARCH64)) {
+         /* 64 bit CPUs always start in 64 bit mode */
+         env->aarch64 = 1;
++#if defined(CONFIG_USER_ONLY)
++        env->pstate = PSTATE_MODE_EL0t;
++#else
++        env->pstate = PSTATE_D | PSTATE_A | PSTATE_I | PSTATE_F
++            | PSTATE_MODE_EL1h;
++#endif
+     }
+ 
+ #if defined(CONFIG_USER_ONLY)
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index c3f007f..d15fdcd 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -113,8 +113,15 @@ typedef struct CPUARMState {
+     /* Regs for A64 mode.  */
+     uint64_t xregs[32];
+     uint64_t pc;
+-    /* TODO: pstate doesn't correspond to an architectural register;
+-     * it would be better modelled as the underlying fields.
++    /* PSTATE isn't an architectural register for ARMv8. However, it is
++     * convenient for us to assemble the underlying state into a 32 bit format
++     * identical to the architectural format used for the SPSR. (This is also
++     * what the Linux kernel's 'pstate' field in signal handlers and KVM's
++     * 'pstate' register are.) Of the PSTATE bits:
++     *  NZCV are kept in the split out env->CF/VF/NF/ZF, (which have the same
++     *    semantics as for AArch32, as described in the comments on each field)
++     *  nRW (also known as M[4]) is kept, inverted, in env->aarch64
++     *  all other bits are stored in their correct places in env->pstate
+      */
+     uint32_t pstate;
+     uint32_t aarch64; /* 1 if CPU is in aarch64 state; inverse of PSTATE.nRW */
+@@ -309,15 +316,6 @@ static inline bool is_a64(CPUARMState *env)
+     return env->aarch64;
+ }
+ 
+-#define PSTATE_N_SHIFT 3
+-#define PSTATE_N  (1 << PSTATE_N_SHIFT)
+-#define PSTATE_Z_SHIFT 2
+-#define PSTATE_Z  (1 << PSTATE_Z_SHIFT)
+-#define PSTATE_C_SHIFT 1
+-#define PSTATE_C  (1 << PSTATE_C_SHIFT)
+-#define PSTATE_V_SHIFT 0
+-#define PSTATE_V  (1 << PSTATE_V_SHIFT)
+-
+ /* you can call this signal handler from your SIGBUS and SIGSEGV
+    signal handlers to inform the virtual CPU of exceptions. non zero
+    is returned if the signal was handled by the virtual CPU.  */
+@@ -352,6 +350,56 @@ int cpu_arm_handle_mmu_fault (CPUARMState *env, target_ulong address, int rw,
+ /* Execution state bits.  MRS read as zero, MSR writes ignored.  */
+ #define CPSR_EXEC (CPSR_T | CPSR_IT | CPSR_J)
+ 
++/* Bit definitions for ARMv8 SPSR (PSTATE) format.
++ * Only these are valid when in AArch64 mode; in
++ * AArch32 mode SPSRs are basically CPSR-format.
++ */
++#define PSTATE_M (0xFU)
++#define PSTATE_nRW (1U << 4)
++#define PSTATE_F (1U << 6)
++#define PSTATE_I (1U << 7)
++#define PSTATE_A (1U << 8)
++#define PSTATE_D (1U << 9)
++#define PSTATE_IL (1U << 20)
++#define PSTATE_SS (1U << 21)
++#define PSTATE_V (1U << 28)
++#define PSTATE_C (1U << 29)
++#define PSTATE_Z (1U << 30)
++#define PSTATE_N (1U << 31)
++#define PSTATE_NZCV (PSTATE_N | PSTATE_Z | PSTATE_C | PSTATE_V)
++#define CACHED_PSTATE_BITS (PSTATE_NZCV)
++/* Mode values for AArch64 */
++#define PSTATE_MODE_EL3h 13
++#define PSTATE_MODE_EL3t 12
++#define PSTATE_MODE_EL2h 9
++#define PSTATE_MODE_EL2t 8
++#define PSTATE_MODE_EL1h 5
++#define PSTATE_MODE_EL1t 4
++#define PSTATE_MODE_EL0t 0
++
++/* Return the current PSTATE value. For the moment we don't support 32<->64 bit
++ * interprocessing, so we don't attempt to sync with the cpsr state used by
++ * the 32 bit decoder.
++ */
++static inline uint32_t pstate_read(CPUARMState *env)
++{
++    int ZF;
++
++    ZF = (env->ZF == 0);
++    return (env->NF & 0x80000000) | (ZF << 30)
++        | (env->CF << 29) | ((env->VF & 0x80000000) >> 3)
++        | env->pstate;
++}
++
++static inline void pstate_write(CPUARMState *env, uint32_t val)
++{
++    env->ZF = (~val) & PSTATE_Z;
++    env->NF = val;
++    env->CF = (val >> 29) & 1;
++    env->VF = (val << 3) & 0x80000000;
++    env->pstate = val & ~CACHED_PSTATE_BITS;
++}
++
+ /* Return the current CPSR value.  */
+ uint32_t cpsr_read(CPUARMState *env);
+ /* Set the CPSR.  Note that some bits of mask must be all-set or all-clear.  */
+diff --git a/target-arm/gdbstub64.c b/target-arm/gdbstub64.c
+index 7cb6a7c..e8a8295 100644
+--- a/target-arm/gdbstub64.c
++++ b/target-arm/gdbstub64.c
+@@ -37,7 +37,7 @@ int aarch64_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
+         return gdb_get_reg64(mem_buf, env->pc);
+         break;
+     case 33:
+-        return gdb_get_reg32(mem_buf, env->pstate);
++        return gdb_get_reg32(mem_buf, pstate_read(env));
+     }
+     /* Unknown register.  */
+     return 0;
+@@ -65,7 +65,7 @@ int aarch64_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
+         return 8;
+     case 33:
+         /* CPSR */
+-        env->pstate = tmp;
++        pstate_write(env, tmp);
+         return 4;
+     }
+     /* Unknown register.  */
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index f120088..932b601 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -67,6 +67,7 @@ void aarch64_cpu_dump_state(CPUState *cs, FILE *f,
+ {
+     ARMCPU *cpu = ARM_CPU(cs);
+     CPUARMState *env = &cpu->env;
++    uint32_t psr = pstate_read(env);
+     int i;
+ 
+     cpu_fprintf(f, "PC=%016"PRIx64"  SP=%016"PRIx64"\n",
+@@ -79,11 +80,12 @@ void aarch64_cpu_dump_state(CPUState *cs, FILE *f,
+             cpu_fprintf(f, " ");
+         }
+     }
+-    cpu_fprintf(f, "PSTATE=%c%c%c%c\n",
+-        env->pstate & PSTATE_N ? 'n' : '.',
+-        env->pstate & PSTATE_Z ? 'z' : '.',
+-        env->pstate & PSTATE_C ? 'c' : '.',
+-        env->pstate & PSTATE_V ? 'v' : '.');
++    cpu_fprintf(f, "PSTATE=%08x (flags %c%c%c%c)\n",
++                psr,
++                psr & PSTATE_N ? 'N' : '-',
++                psr & PSTATE_Z ? 'Z' : '-',
++                psr & PSTATE_C ? 'C' : '-',
++                psr & PSTATE_V ? 'V' : '-');
+     cpu_fprintf(f, "\n");
+ }
+ 
+-- 
+1.8.5.2
+

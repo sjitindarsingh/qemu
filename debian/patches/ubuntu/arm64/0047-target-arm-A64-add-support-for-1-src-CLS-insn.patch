@@ -1,0 +1,89 @@
+From 3716264c13b3ce89232862da1a86ae2d313cccce Mon Sep 17 00:00:00 2001
+From: Claudio Fontana <claudio.fontana@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:35 +0000
+Subject: [PATCH 47/49] target-arm: A64: add support for 1-src CLS insn
+
+this patch adds support for the CLS instruction.
+
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/helper-a64.c    | 10 ++++++++++
+ target-arm/helper-a64.h    |  2 ++
+ target-arm/translate-a64.c | 20 +++++++++++++++++++-
+ 3 files changed, 31 insertions(+), 1 deletion(-)
+
+diff --git a/target-arm/helper-a64.c b/target-arm/helper-a64.c
+index cccaac6..d3f7067 100644
+--- a/target-arm/helper-a64.c
++++ b/target-arm/helper-a64.c
+@@ -50,6 +50,16 @@ uint64_t HELPER(clz64)(uint64_t x)
+     return clz64(x);
+ }
+ 
++uint64_t HELPER(cls64)(uint64_t x)
++{
++    return clrsb64(x);
++}
++
++uint32_t HELPER(cls32)(uint32_t x)
++{
++    return clrsb32(x);
++}
++
+ uint64_t HELPER(rbit64)(uint64_t x)
+ {
+     /* assign the correct byte position */
+diff --git a/target-arm/helper-a64.h b/target-arm/helper-a64.h
+index 9959139..a163a94 100644
+--- a/target-arm/helper-a64.h
++++ b/target-arm/helper-a64.h
+@@ -19,4 +19,6 @@
+ DEF_HELPER_FLAGS_2(udiv64, TCG_CALL_NO_RWG_SE, i64, i64, i64)
+ DEF_HELPER_FLAGS_2(sdiv64, TCG_CALL_NO_RWG_SE, s64, s64, s64)
+ DEF_HELPER_FLAGS_1(clz64, TCG_CALL_NO_RWG_SE, i64, i64)
++DEF_HELPER_FLAGS_1(cls64, TCG_CALL_NO_RWG_SE, i64, i64)
++DEF_HELPER_FLAGS_1(cls32, TCG_CALL_NO_RWG_SE, i32, i32)
+ DEF_HELPER_FLAGS_1(rbit64, TCG_CALL_NO_RWG_SE, i64, i64)
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index 2111bcd..2bb1795 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -1114,6 +1114,24 @@ static void handle_clz(DisasContext *s, unsigned int sf,
+     }
+ }
+ 
++static void handle_cls(DisasContext *s, unsigned int sf,
++                       unsigned int rn, unsigned int rd)
++{
++    TCGv_i64 tcg_rd, tcg_rn;
++    tcg_rd = cpu_reg(s, rd);
++    tcg_rn = cpu_reg(s, rn);
++
++    if (sf) {
++        gen_helper_cls64(tcg_rd, tcg_rn);
++    } else {
++        TCGv_i32 tcg_tmp32 = tcg_temp_new_i32();
++        tcg_gen_trunc_i64_i32(tcg_tmp32, tcg_rn);
++        gen_helper_cls32(tcg_tmp32, tcg_tmp32);
++        tcg_gen_extu_i32_i64(tcg_rd, tcg_tmp32);
++        tcg_temp_free_i32(tcg_tmp32);
++    }
++}
++
+ static void handle_rbit(DisasContext *s, unsigned int sf,
+                         unsigned int rn, unsigned int rd)
+ {
+@@ -1236,7 +1254,7 @@ static void disas_data_proc_1src(DisasContext *s, uint32_t insn)
+         handle_clz(s, sf, rn, rd);
+         break;
+     case 5: /* CLS */
+-        unsupported_encoding(s, insn);
++        handle_cls(s, sf, rn, rd);
+         break;
+     }
+ }
+-- 
+1.8.5.2
+

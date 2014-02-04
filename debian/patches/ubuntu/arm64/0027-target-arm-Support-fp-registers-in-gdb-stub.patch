@@ -1,0 +1,192 @@
+From a55c46c1d27e0ac6e680d5088fb378dc7986a3e2 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 17 Dec 2013 19:42:32 +0000
+Subject: [PATCH 27/49] target-arm: Support fp registers in gdb stub
+
+Register the aarch64-fpu XML and implement the necessary
+read/write handlers so we can support reading and writing
+of FP registers in the gdb stub.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ configure               |  2 +-
+ gdb-xml/aarch64-fpu.xml | 86 +++++++++++++++++++++++++++++++++++++++++++++++++
+ target-arm/helper.c     | 48 ++++++++++++++++++++++++++-
+ 3 files changed, 134 insertions(+), 2 deletions(-)
+ create mode 100644 gdb-xml/aarch64-fpu.xml
+
+diff --git a/configure b/configure
+index 72432ef..76c0b8d 100755
+--- a/configure
++++ b/configure
+@@ -4406,7 +4406,7 @@ case "$target_name" in
+   aarch64)
+     TARGET_BASE_ARCH=arm
+     bflt="yes"
+-    gdb_xml_files="aarch64-core.xml"
++    gdb_xml_files="aarch64-core.xml aarch64-fpu.xml"
+   ;;
+   cris)
+   ;;
+diff --git a/gdb-xml/aarch64-fpu.xml b/gdb-xml/aarch64-fpu.xml
+new file mode 100644
+index 0000000..997197e
+--- /dev/null
++++ b/gdb-xml/aarch64-fpu.xml
+@@ -0,0 +1,86 @@
++<?xml version="1.0"?>
++<!-- Copyright (C) 2009-2012 Free Software Foundation, Inc.
++     Contributed by ARM Ltd.
++
++     Copying and distribution of this file, with or without modification,
++     are permitted in any medium without royalty provided the copyright
++     notice and this notice are preserved.  -->
++
++<!DOCTYPE feature SYSTEM "gdb-target.dtd">
++<feature name="org.gnu.gdb.aarch64.fpu">
++  <vector id="v2d" type="ieee_double" count="2"/>
++  <vector id="v2u" type="uint64" count="2"/>
++  <vector id="v2i" type="int64" count="2"/>
++  <vector id="v4f" type="ieee_single" count="4"/>
++  <vector id="v4u" type="uint32" count="4"/>
++  <vector id="v4i" type="int32" count="4"/>
++  <vector id="v8u" type="uint16" count="8"/>
++  <vector id="v8i" type="int16" count="8"/>
++  <vector id="v16u" type="uint8" count="16"/>
++  <vector id="v16i" type="int8" count="16"/>
++  <vector id="v1u" type="uint128" count="1"/>
++  <vector id="v1i" type="int128" count="1"/>
++  <union id="vnd">
++    <field name="f" type="v2d"/>
++    <field name="u" type="v2u"/>
++    <field name="s" type="v2i"/>
++  </union>
++  <union id="vns">
++    <field name="f" type="v4f"/>
++    <field name="u" type="v4u"/>
++    <field name="s" type="v4i"/>
++  </union>
++  <union id="vnh">
++    <field name="u" type="v8u"/>
++    <field name="s" type="v8i"/>
++  </union>
++  <union id="vnb">
++    <field name="u" type="v16u"/>
++    <field name="s" type="v16i"/>
++  </union>
++  <union id="vnq">
++    <field name="u" type="v1u"/>
++    <field name="s" type="v1i"/>
++  </union>
++  <union id="aarch64v">
++    <field name="d" type="vnd"/>
++    <field name="s" type="vns"/>
++    <field name="h" type="vnh"/>
++    <field name="b" type="vnb"/>
++    <field name="q" type="vnq"/>
++  </union>
++  <reg name="v0" bitsize="128" type="aarch64v" regnum="34"/>
++  <reg name="v1" bitsize="128" type="aarch64v" />
++  <reg name="v2" bitsize="128" type="aarch64v" />
++  <reg name="v3" bitsize="128" type="aarch64v" />
++  <reg name="v4" bitsize="128" type="aarch64v" />
++  <reg name="v5" bitsize="128" type="aarch64v" />
++  <reg name="v6" bitsize="128" type="aarch64v" />
++  <reg name="v7" bitsize="128" type="aarch64v" />
++  <reg name="v8" bitsize="128" type="aarch64v" />
++  <reg name="v9" bitsize="128" type="aarch64v" />
++  <reg name="v10" bitsize="128" type="aarch64v"/>
++  <reg name="v11" bitsize="128" type="aarch64v"/>
++  <reg name="v12" bitsize="128" type="aarch64v"/>
++  <reg name="v13" bitsize="128" type="aarch64v"/>
++  <reg name="v14" bitsize="128" type="aarch64v"/>
++  <reg name="v15" bitsize="128" type="aarch64v"/>
++  <reg name="v16" bitsize="128" type="aarch64v"/>
++  <reg name="v17" bitsize="128" type="aarch64v"/>
++  <reg name="v18" bitsize="128" type="aarch64v"/>
++  <reg name="v19" bitsize="128" type="aarch64v"/>
++  <reg name="v20" bitsize="128" type="aarch64v"/>
++  <reg name="v21" bitsize="128" type="aarch64v"/>
++  <reg name="v22" bitsize="128" type="aarch64v"/>
++  <reg name="v23" bitsize="128" type="aarch64v"/>
++  <reg name="v24" bitsize="128" type="aarch64v"/>
++  <reg name="v25" bitsize="128" type="aarch64v"/>
++  <reg name="v26" bitsize="128" type="aarch64v"/>
++  <reg name="v27" bitsize="128" type="aarch64v"/>
++  <reg name="v28" bitsize="128" type="aarch64v"/>
++  <reg name="v29" bitsize="128" type="aarch64v"/>
++  <reg name="v30" bitsize="128" type="aarch64v"/>
++  <reg name="v31" bitsize="128" type="aarch64v"/>
++  <reg name="fpsr" bitsize="32"/>
++  <reg name="fpcr" bitsize="32"/>
++</feature>
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index 8ec4cb1..7f8177e 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -65,6 +65,48 @@ static int vfp_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg)
+     return 0;
+ }
+ 
++static int aarch64_fpu_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg)
++{
++    switch (reg) {
++    case 0 ... 31:
++        /* 128 bit FP register */
++        stfq_le_p(buf, env->vfp.regs[reg * 2]);
++        stfq_le_p(buf + 8, env->vfp.regs[reg * 2 + 1]);
++        return 16;
++    case 32:
++        /* FPSR */
++        stl_p(buf, vfp_get_fpsr(env));
++        return 4;
++    case 33:
++        /* FPCR */
++        stl_p(buf, vfp_get_fpcr(env));
++        return 4;
++    default:
++        return 0;
++    }
++}
++
++static int aarch64_fpu_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg)
++{
++    switch (reg) {
++    case 0 ... 31:
++        /* 128 bit FP register */
++        env->vfp.regs[reg * 2] = ldfq_le_p(buf);
++        env->vfp.regs[reg * 2 + 1] = ldfq_le_p(buf + 8);
++        return 16;
++    case 32:
++        /* FPSR */
++        vfp_set_fpsr(env, ldl_p(buf));
++        return 4;
++    case 33:
++        /* FPCR */
++        vfp_set_fpcr(env, ldl_p(buf));
++        return 4;
++    default:
++        return 0;
++    }
++}
++
+ static int raw_read(CPUARMState *env, const ARMCPRegInfo *ri,
+                     uint64_t *value)
+ {
+@@ -1785,7 +1827,11 @@ void arm_cpu_register_gdb_regs_for_features(ARMCPU *cpu)
+     CPUState *cs = CPU(cpu);
+     CPUARMState *env = &cpu->env;
+ 
+-    if (arm_feature(env, ARM_FEATURE_NEON)) {
++    if (arm_feature(env, ARM_FEATURE_AARCH64)) {
++        gdb_register_coprocessor(cs, aarch64_fpu_gdb_get_reg,
++                                 aarch64_fpu_gdb_set_reg,
++                                 34, "aarch64-fpu.xml", 0);
++    } else if (arm_feature(env, ARM_FEATURE_NEON)) {
+         gdb_register_coprocessor(cs, vfp_gdb_get_reg, vfp_gdb_set_reg,
+                                  51, "arm-neon.xml", 0);
+     } else if (arm_feature(env, ARM_FEATURE_VFP3)) {
+-- 
+1.8.5.2
+

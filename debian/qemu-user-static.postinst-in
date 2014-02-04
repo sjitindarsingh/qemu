@@ -12,3 +12,11 @@ if [ configure = "$1" ] && [ -x /usr/sbin/update-binfmts ]; then
 		fi
 	done
 fi
+
+if dpkg-vendor --is ubuntu \
+   && dpkg --compare-versions "$2" lt-nl 1.7.0+dfsg-2ubuntu9 \
+   && [ -x /usr/sbin/update-binfmts ] \
+   && [ -f /var/lib/binfmts/qemu-arm64 ]
+then
+	update-binfmts --package qemu-user-static --remove qemu-arm64 /usr/bin/qemu-arm64-static
+fi
