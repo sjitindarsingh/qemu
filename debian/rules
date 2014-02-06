@@ -97,9 +97,7 @@ filter_binfmts = $(shell \
  case $(DEB_HOST_ARCH) in \
    (amd64 | i386) echo i386 x86_64 ;;\
    (arm | armel | armhf) echo arm ;;\
-ifeq ($(DEB_VENDOR),Ubuntu)\
    (arm64) echo aarch64 ;;\
-endif\
    (mips | mipsel) echo $(DEB_HOST_ARCH) ;;\
    (powerpc) echo ppc ;;\
    (ppc64) echo ppc ppc64 ppc64abi32 ;;\
