@@ -2,7 +2,6 @@
 
 set -e
 
-if dpkg-vendor --is ubuntu; then
 case "$1" in
 install|upgrade)
     # Add the kvm group unless it's already there
@@ -10,6 +9,5 @@ install|upgrade)
         addgroup --quiet --system kvm || true
     fi
 esac
-fi
 
 #DEBHELPER#

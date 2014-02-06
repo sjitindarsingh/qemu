@@ -1,3 +1,11 @@
+qemu (1.7.0+dfsg-3ubuntu1) trusty; urgency=medium
+
+  * Fix broken filter_binfmts
+  * Remove use of dpkg-version in postinsts, as we're not Depending on
+    dpkg-dev.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 05 Feb 2014 21:57:38 -0600
+
 qemu (1.7.0+dfsg-3ubuntu1~ppa1) trusty; urgency=medium
 
   * Merge 1.7.0+dfsg-3 from debian.  Remaining changes:
