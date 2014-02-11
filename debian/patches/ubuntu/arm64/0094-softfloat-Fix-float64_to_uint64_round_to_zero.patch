@@ -1,0 +1,53 @@
+From a1372145e64cd8ae3977440f6ace1c143140679c Mon Sep 17 00:00:00 2001
+From: Tom Musta <tommusta@gmail.com>
+Date: Tue, 7 Jan 2014 17:17:50 +0000
+Subject: [PATCH 094/158] softfloat: Fix float64_to_uint64_round_to_zero
+
+The float64_to_uint64_round_to_zero routine is incorrect.
+
+For example, the following test pattern:
+
+    46697351FF4AEC29 / 0x1.97351ff4aec29p+103
+
+currently produces 8000000000000000 instead of FFFFFFFFFFFFFFFF.
+
+This patch re-implements the routine to temporarily force the
+rounding mode and use the float64_to_uint64 routine.
+
+This contribution can be licensed under either the softfloat-2a or -2b
+license.
+
+Signed-off-by: Tom Musta <tommusta@gmail.com>
+Message-id: 1387397961-4894-4-git-send-email-tommusta@gmail.com
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ fpu/softfloat.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index 13d7ecb..141e7fd 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -6792,13 +6792,11 @@ uint64_t float64_to_uint64(float64 a STATUS_PARAM)
+ 
+ uint64_t float64_to_uint64_round_to_zero (float64 a STATUS_PARAM)
+ {
+-    int64_t v;
+-
+-    v = float64_val(int64_to_float64(INT64_MIN STATUS_VAR));
+-    v += float64_val(a);
+-    v = float64_to_int64_round_to_zero(make_float64(v) STATUS_VAR);
+-
+-    return v - INT64_MIN;
++    signed char current_rounding_mode = STATUS(float_rounding_mode);
++    set_float_rounding_mode(float_round_to_zero STATUS_VAR);
++    int64_t v = float64_to_uint64(a STATUS_VAR);
++    set_float_rounding_mode(current_rounding_mode STATUS_VAR);
++    return v;
+ }
+ 
+ #define COMPARE(s, nan_exp)                                                  \
+-- 
+1.9.rc1
+

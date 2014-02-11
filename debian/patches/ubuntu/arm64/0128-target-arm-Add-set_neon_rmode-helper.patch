@@ -1,0 +1,60 @@
+From 9aab5bb6a89921c02cf6371b7f873c65b5465f80 Mon Sep 17 00:00:00 2001
+From: Will Newton <will.newton@linaro.org>
+Date: Fri, 31 Jan 2014 14:47:35 +0000
+Subject: [PATCH 128/158] target-arm: Add set_neon_rmode helper
+
+This helper sets the rounding mode in the standard_fp_status word to
+allow NEON instructions to modify the rounding mode whilst using the
+standard FPSCR values for everything else.
+
+Signed-off-by: Will Newton <will.newton@linaro.org>
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ target-arm/helper.c | 17 +++++++++++++++++
+ target-arm/helper.h |  1 +
+ 2 files changed, 18 insertions(+)
+
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index 9c50f9e..b2da5ed 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -4075,6 +4075,23 @@ uint32_t HELPER(set_rmode)(uint32_t rmode, CPUARMState *env)
+     return prev_rmode;
+ }
+ 
++/* Set the current fp rounding mode in the standard fp status and return
++ * the old one. This is for NEON instructions that need to change the
++ * rounding mode but wish to use the standard FPSCR values for everything
++ * else. Always set the rounding mode back to the correct value after
++ * modifying it.
++ * The argument is a softfloat float_round_ value.
++ */
++uint32_t HELPER(set_neon_rmode)(uint32_t rmode, CPUARMState *env)
++{
++    float_status *fp_status = &env->vfp.standard_fp_status;
++
++    uint32_t prev_rmode = get_float_rounding_mode(fp_status);
++    set_float_rounding_mode(rmode, fp_status);
++
++    return prev_rmode;
++}
++
+ /* Half precision conversions.  */
+ static float32 do_fcvt_f16_to_f32(uint32_t a, CPUARMState *env, float_status *s)
+ {
+diff --git a/target-arm/helper.h b/target-arm/helper.h
+index f93f643..93e8e32 100644
+--- a/target-arm/helper.h
++++ b/target-arm/helper.h
+@@ -149,6 +149,7 @@ DEF_HELPER_3(vfp_ultod, f64, i64, i32, ptr)
+ DEF_HELPER_3(vfp_uqtod, f64, i64, i32, ptr)
+ 
+ DEF_HELPER_FLAGS_2(set_rmode, TCG_CALL_NO_RWG, i32, i32, env)
++DEF_HELPER_FLAGS_2(set_neon_rmode, TCG_CALL_NO_RWG, i32, i32, env)
+ 
+ DEF_HELPER_2(vfp_fcvt_f16_to_f32, f32, i32, env)
+ DEF_HELPER_2(vfp_fcvt_f32_to_f16, i32, f32, env)
+-- 
+1.9.rc1
+

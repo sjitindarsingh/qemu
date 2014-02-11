@@ -1,0 +1,86 @@
+From 7ec2ed2fa2ae0df9f01113a781af1fc3dd20ecdf Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Mon, 23 Dec 2013 23:27:30 +0000
+Subject: [PATCH 058/158] target-arm: A64: implement SVC, BRK
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add decoding for the exception generating instructions, and implement
+SVC (syscalls) and BRK (software breakpoint).
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: Alex Bennée <alex.bennee@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/translate-a64.c | 51 ++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 49 insertions(+), 2 deletions(-)
+
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index 3a9ffdf..9ca6460 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -808,10 +808,57 @@ static void disas_system(DisasContext *s, uint32_t insn)
+     }
+ }
+ 
+-/* Exception generation */
++/* C3.2.3 Exception generation
++ *
++ *  31             24 23 21 20                     5 4   2 1  0
++ * +-----------------+-----+------------------------+-----+----+
++ * | 1 1 0 1 0 1 0 0 | opc |          imm16         | op2 | LL |
++ * +-----------------------+------------------------+----------+
++ */
+ static void disas_exc(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    int opc = extract32(insn, 21, 3);
++    int op2_ll = extract32(insn, 0, 5);
++
++    switch (opc) {
++    case 0:
++        /* SVC, HVC, SMC; since we don't support the Virtualization
++         * or TrustZone extensions these all UNDEF except SVC.
++         */
++        if (op2_ll != 1) {
++            unallocated_encoding(s);
++            break;
++        }
++        gen_exception_insn(s, 0, EXCP_SWI);
++        break;
++    case 1:
++        if (op2_ll != 0) {
++            unallocated_encoding(s);
++            break;
++        }
++        /* BRK */
++        gen_exception_insn(s, 0, EXCP_BKPT);
++        break;
++    case 2:
++        if (op2_ll != 0) {
++            unallocated_encoding(s);
++            break;
++        }
++        /* HLT */
++        unsupported_encoding(s, insn);
++        break;
++    case 5:
++        if (op2_ll < 1 || op2_ll > 3) {
++            unallocated_encoding(s);
++            break;
++        }
++        /* DCPS1, DCPS2, DCPS3 */
++        unsupported_encoding(s, insn);
++        break;
++    default:
++        unallocated_encoding(s);
++        break;
++    }
+ }
+ 
+ /* C3.2.7 Unconditional branch (register)
+-- 
+1.9.rc1
+

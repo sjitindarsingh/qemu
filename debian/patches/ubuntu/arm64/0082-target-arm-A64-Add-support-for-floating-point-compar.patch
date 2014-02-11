@@ -1,0 +1,168 @@
+From 85e86eaa614a2516d07ab7233f4ecf97f0c31476 Mon Sep 17 00:00:00 2001
+From: Claudio Fontana <claudio.fontana@linaro.org>
+Date: Sat, 4 Jan 2014 22:15:50 +0000
+Subject: [PATCH 082/158] target-arm: A64: Add support for floating point
+ compare
+
+Add decoding support for C3.6.22 Floating-point compare.
+
+Signed-off-by: Claudio Fontana <claudio.fontana@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/helper-a64.c    | 45 ++++++++++++++++++++++++++++++++
+ target-arm/helper-a64.h    |  4 +++
+ target-arm/translate-a64.c | 65 +++++++++++++++++++++++++++++++++++++++++++++-
+ 3 files changed, 113 insertions(+), 1 deletion(-)
+
+diff --git a/target-arm/helper-a64.c b/target-arm/helper-a64.c
+index d3f7067..4ce0d01 100644
+--- a/target-arm/helper-a64.c
++++ b/target-arm/helper-a64.c
+@@ -77,3 +77,48 @@ uint64_t HELPER(rbit64)(uint64_t x)
+ 
+     return x;
+ }
++
++/* Convert a softfloat float_relation_ (as returned by
++ * the float*_compare functions) to the correct ARM
++ * NZCV flag state.
++ */
++static inline uint32_t float_rel_to_flags(int res)
++{
++    uint64_t flags;
++    switch (res) {
++    case float_relation_equal:
++        flags = PSTATE_Z | PSTATE_C;
++        break;
++    case float_relation_less:
++        flags = PSTATE_N;
++        break;
++    case float_relation_greater:
++        flags = PSTATE_C;
++        break;
++    case float_relation_unordered:
++    default:
++        flags = PSTATE_C | PSTATE_V;
++        break;
++    }
++    return flags;
++}
++
++uint64_t HELPER(vfp_cmps_a64)(float32 x, float32 y, void *fp_status)
++{
++    return float_rel_to_flags(float32_compare_quiet(x, y, fp_status));
++}
++
++uint64_t HELPER(vfp_cmpes_a64)(float32 x, float32 y, void *fp_status)
++{
++    return float_rel_to_flags(float32_compare(x, y, fp_status));
++}
++
++uint64_t HELPER(vfp_cmpd_a64)(float64 x, float64 y, void *fp_status)
++{
++    return float_rel_to_flags(float64_compare_quiet(x, y, fp_status));
++}
++
++uint64_t HELPER(vfp_cmped_a64)(float64 x, float64 y, void *fp_status)
++{
++    return float_rel_to_flags(float64_compare(x, y, fp_status));
++}
+diff --git a/target-arm/helper-a64.h b/target-arm/helper-a64.h
+index a163a94..bca19f3 100644
+--- a/target-arm/helper-a64.h
++++ b/target-arm/helper-a64.h
+@@ -22,3 +22,7 @@ DEF_HELPER_FLAGS_1(clz64, TCG_CALL_NO_RWG_SE, i64, i64)
+ DEF_HELPER_FLAGS_1(cls64, TCG_CALL_NO_RWG_SE, i64, i64)
+ DEF_HELPER_FLAGS_1(cls32, TCG_CALL_NO_RWG_SE, i32, i32)
+ DEF_HELPER_FLAGS_1(rbit64, TCG_CALL_NO_RWG_SE, i64, i64)
++DEF_HELPER_3(vfp_cmps_a64, i64, f32, f32, ptr)
++DEF_HELPER_3(vfp_cmpes_a64, i64, f32, f32, ptr)
++DEF_HELPER_3(vfp_cmpd_a64, i64, f64, f64, ptr)
++DEF_HELPER_3(vfp_cmped_a64, i64, f64, f64, ptr)
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index bb36a66..dc9cc14 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -3186,6 +3186,54 @@ static void disas_data_proc_reg(DisasContext *s, uint32_t insn)
+     }
+ }
+ 
++static void handle_fp_compare(DisasContext *s, bool is_double,
++                              unsigned int rn, unsigned int rm,
++                              bool cmp_with_zero, bool signal_all_nans)
++{
++    TCGv_i64 tcg_flags = tcg_temp_new_i64();
++    TCGv_ptr fpst = get_fpstatus_ptr();
++
++    if (is_double) {
++        TCGv_i64 tcg_vn, tcg_vm;
++
++        tcg_vn = read_fp_dreg(s, rn);
++        if (cmp_with_zero) {
++            tcg_vm = tcg_const_i64(0);
++        } else {
++            tcg_vm = read_fp_dreg(s, rm);
++        }
++        if (signal_all_nans) {
++            gen_helper_vfp_cmped_a64(tcg_flags, tcg_vn, tcg_vm, fpst);
++        } else {
++            gen_helper_vfp_cmpd_a64(tcg_flags, tcg_vn, tcg_vm, fpst);
++        }
++        tcg_temp_free_i64(tcg_vn);
++        tcg_temp_free_i64(tcg_vm);
++    } else {
++        TCGv_i32 tcg_vn, tcg_vm;
++
++        tcg_vn = read_fp_sreg(s, rn);
++        if (cmp_with_zero) {
++            tcg_vm = tcg_const_i32(0);
++        } else {
++            tcg_vm = read_fp_sreg(s, rm);
++        }
++        if (signal_all_nans) {
++            gen_helper_vfp_cmpes_a64(tcg_flags, tcg_vn, tcg_vm, fpst);
++        } else {
++            gen_helper_vfp_cmps_a64(tcg_flags, tcg_vn, tcg_vm, fpst);
++        }
++        tcg_temp_free_i32(tcg_vn);
++        tcg_temp_free_i32(tcg_vm);
++    }
++
++    tcg_temp_free_ptr(fpst);
++
++    gen_set_nzcv(tcg_flags);
++
++    tcg_temp_free_i64(tcg_flags);
++}
++
+ /* C3.6.22 Floating point compare
+  *   31  30  29 28       24 23  22  21 20  16 15 14 13  10    9    5 4     0
+  * +---+---+---+-----------+------+---+------+-----+---------+------+-------+
+@@ -3194,7 +3242,22 @@ static void disas_data_proc_reg(DisasContext *s, uint32_t insn)
+  */
+ static void disas_fp_compare(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    unsigned int mos, type, rm, op, rn, opc, op2r;
++
++    mos = extract32(insn, 29, 3);
++    type = extract32(insn, 22, 2); /* 0 = single, 1 = double */
++    rm = extract32(insn, 16, 5);
++    op = extract32(insn, 14, 2);
++    rn = extract32(insn, 5, 5);
++    opc = extract32(insn, 3, 2);
++    op2r = extract32(insn, 0, 3);
++
++    if (mos || op || op2r || type > 1) {
++        unallocated_encoding(s);
++        return;
++    }
++
++    handle_fp_compare(s, type, rn, rm, opc & 1, opc & 2);
+ }
+ 
+ /* C3.6.23 Floating point conditional compare
+-- 
+1.9.rc1
+

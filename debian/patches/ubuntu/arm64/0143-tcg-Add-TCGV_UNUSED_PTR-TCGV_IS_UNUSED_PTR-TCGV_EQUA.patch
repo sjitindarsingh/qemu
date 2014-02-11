@@ -1,0 +1,40 @@
+From d590093de06733d77862bf4451620e31e4dd9515 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Sat, 8 Feb 2014 14:46:55 +0000
+Subject: [PATCH 143/158] tcg: Add TCGV_UNUSED_PTR, TCGV_IS_UNUSED_PTR,
+ TCGV_EQUAL_PTR
+
+We have macros for marking TCGv values as unused, checking if they
+are unused and comparing them to each other. However these only exist
+for TCGv_i32 and TCGv_i64; add them for TCGv_ptr as well.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ tcg/tcg.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/tcg/tcg.h b/tcg/tcg.h
+index 0d9bd29..775bff6 100644
+--- a/tcg/tcg.h
++++ b/tcg/tcg.h
+@@ -324,13 +324,16 @@ typedef int TCGv_i64;
+ 
+ #define TCGV_EQUAL_I32(a, b) (GET_TCGV_I32(a) == GET_TCGV_I32(b))
+ #define TCGV_EQUAL_I64(a, b) (GET_TCGV_I64(a) == GET_TCGV_I64(b))
++#define TCGV_EQUAL_PTR(a, b) (GET_TCGV_PTR(a) == GET_TCGV_PTR(b))
+ 
+ /* Dummy definition to avoid compiler warnings.  */
+ #define TCGV_UNUSED_I32(x) x = MAKE_TCGV_I32(-1)
+ #define TCGV_UNUSED_I64(x) x = MAKE_TCGV_I64(-1)
++#define TCGV_UNUSED_PTR(x) x = MAKE_TCGV_PTR(-1)
+ 
+ #define TCGV_IS_UNUSED_I32(x) (GET_TCGV_I32(x) == -1)
+ #define TCGV_IS_UNUSED_I64(x) (GET_TCGV_I64(x) == -1)
++#define TCGV_IS_UNUSED_PTR(x) (GET_TCGV_PTR(x) == -1)
+ 
+ /* call flags */
+ /* Helper does not read globals (either directly or through an exception). It
+-- 
+1.9.rc1
+

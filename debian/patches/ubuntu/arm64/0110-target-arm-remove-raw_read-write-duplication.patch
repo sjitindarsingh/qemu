@@ -1,0 +1,49 @@
+From 0e089e177e80495730c4e96ffc4400084f15726f Mon Sep 17 00:00:00 2001
+From: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+Date: Wed, 1 Jan 2014 23:58:20 -0800
+Subject: [PATCH 110/158] target-arm: remove raw_read|write duplication
+
+There is an inline duplication of the raw_read and raw_write function
+bodies. Fix by just calling raw_read/raw_write instead.
+
+Signed-off-by: Peter Crosthwaite <peter.crosthwaite@xilinx.com>
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Message-id: e69281b7e1462b346cb313cf0b89eedc0568125f.1388649290.git.peter.crosthwaite@xilinx.com
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ target-arm/helper.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index 475a7fd..6b763e9 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -142,11 +142,7 @@ static bool read_raw_cp_reg(CPUARMState *env, const ARMCPRegInfo *ri,
+     } else if (ri->readfn) {
+         return (ri->readfn(env, ri, v) == 0);
+     } else {
+-        if (ri->type & ARM_CP_64BIT) {
+-            *v = CPREG_FIELD64(env, ri);
+-        } else {
+-            *v = CPREG_FIELD32(env, ri);
+-        }
++        raw_read(env, ri, v);
+     }
+     return true;
+ }
+@@ -167,11 +163,7 @@ static bool write_raw_cp_reg(CPUARMState *env, const ARMCPRegInfo *ri,
+     } else if (ri->writefn) {
+         return (ri->writefn(env, ri, v) == 0);
+     } else {
+-        if (ri->type & ARM_CP_64BIT) {
+-            CPREG_FIELD64(env, ri) = v;
+-        } else {
+-            CPREG_FIELD32(env, ri) = v;
+-        }
++        raw_write(env, ri, v);
+     }
+     return true;
+ }
+-- 
+1.9.rc1
+

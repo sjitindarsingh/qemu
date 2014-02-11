@@ -1,3 +1,13 @@
+qemu (1.7.0+dfsg-3ubuntu2) trusty; urgency=medium
+
+  * Backport changes to enable qemu-user-static support for aarch64
+  * debian/control: add ppc64el to Architectures
+  * debian/rules: only install qemu-system-aarch64 on arm64.
+    Fixes a FTBFS  when built twice in a row on non-arm64 due to a stale
+    debian/qemu-system-aarch64 directory
+
+ -- dann frazier <dann.frazier@canonical.com>  Tue, 11 Feb 2014 15:41:53 -0700
+
 qemu (1.7.0+dfsg-3ubuntu1) trusty; urgency=medium
 
   * Fix broken filter_binfmts

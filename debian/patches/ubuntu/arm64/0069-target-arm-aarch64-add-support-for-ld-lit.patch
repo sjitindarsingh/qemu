@@ -1,0 +1,82 @@
+From 65512f560e1538f895f45da05e52d10e753aaa16 Mon Sep 17 00:00:00 2001
+From: Alexander Graf <agraf@suse.de>
+Date: Sat, 4 Jan 2014 22:15:46 +0000
+Subject: [PATCH 069/158] target-arm: aarch64: add support for ld lit
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Adds support for Load Register (literal), both normal
+and SIMD/FP forms.
+
+Signed-off-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: Alex Bennée <alex.bennee@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/translate-a64.c | 47 ++++++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index 538d69e..6197441 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -1112,10 +1112,53 @@ static void disas_ldst_excl(DisasContext *s, uint32_t insn)
+     unsupported_encoding(s, insn);
+ }
+ 
+-/* Load register (literal) */
++/*
++ * C3.3.5 Load register (literal)
++ *
++ *  31 30 29   27  26 25 24 23                5 4     0
++ * +-----+-------+---+-----+-------------------+-------+
++ * | opc | 0 1 1 | V | 0 0 |     imm19         |  Rt   |
++ * +-----+-------+---+-----+-------------------+-------+
++ *
++ * V: 1 -> vector (simd/fp)
++ * opc (non-vector): 00 -> 32 bit, 01 -> 64 bit,
++ *                   10-> 32 bit signed, 11 -> prefetch
++ * opc (vector): 00 -> 32 bit, 01 -> 64 bit, 10 -> 128 bit (11 unallocated)
++ */
+ static void disas_ld_lit(DisasContext *s, uint32_t insn)
+ {
+-    unsupported_encoding(s, insn);
++    int rt = extract32(insn, 0, 5);
++    int64_t imm = sextract32(insn, 5, 19) << 2;
++    bool is_vector = extract32(insn, 26, 1);
++    int opc = extract32(insn, 30, 2);
++    bool is_signed = false;
++    int size = 2;
++    TCGv_i64 tcg_rt, tcg_addr;
++
++    if (is_vector) {
++        if (opc == 3) {
++            unallocated_encoding(s);
++            return;
++        }
++        size = 2 + opc;
++    } else {
++        if (opc == 3) {
++            /* PRFM (literal) : prefetch */
++            return;
++        }
++        size = 2 + extract32(opc, 0, 1);
++        is_signed = extract32(opc, 1, 1);
++    }
++
++    tcg_rt = cpu_reg(s, rt);
++
++    tcg_addr = tcg_const_i64((s->pc - 4) + imm);
++    if (is_vector) {
++        do_fp_ld(s, rt, tcg_addr, size);
++    } else {
++        do_gpr_ld(s, tcg_rt, tcg_addr, size, is_signed, false);
++    }
++    tcg_temp_free_i64(tcg_addr);
+ }
+ 
+ /*
+-- 
+1.9.rc1
+

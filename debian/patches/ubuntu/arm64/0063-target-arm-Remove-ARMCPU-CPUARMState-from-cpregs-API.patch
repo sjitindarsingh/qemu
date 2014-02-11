@@ -1,0 +1,166 @@
+From a451a7a6c7ea238490771d660b95dccc60dcd7ed Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Sat, 4 Jan 2014 22:15:44 +0000
+Subject: [PATCH 063/158] target-arm: Remove ARMCPU/CPUARMState from cpregs
+ APIs used by decoder
+
+The cpregs APIs used by the decoder (get_arm_cp_reginfo() and
+cp_access_ok()) currently take either a CPUARMState* or an ARMCPU*.
+This is problematic for the A64 decoder, which doesn't pass the
+environment pointer around everywhere the way the 32 bit decoder
+does. Adjust the parameters these functions take so that we can
+copy only the relevant info from the CPUARMState into the
+DisasContext and then use that.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/cpu.h           |  6 +++---
+ target-arm/helper.c        | 12 ++++++------
+ target-arm/translate-a64.c |  2 ++
+ target-arm/translate.c     |  7 ++++---
+ target-arm/translate.h     |  2 ++
+ 5 files changed, 17 insertions(+), 12 deletions(-)
+
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index a154429..9dade70 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -857,7 +857,7 @@ static inline void define_one_arm_cp_reg(ARMCPU *cpu, const ARMCPRegInfo *regs)
+ {
+     define_one_arm_cp_reg_with_opaque(cpu, regs, 0);
+ }
+-const ARMCPRegInfo *get_arm_cp_reginfo(ARMCPU *cpu, uint32_t encoded_cp);
++const ARMCPRegInfo *get_arm_cp_reginfo(GHashTable *cpregs, uint32_t encoded_cp);
+ 
+ /* CPWriteFn that can be used to implement writes-ignored behaviour */
+ int arm_cp_write_ignore(CPUARMState *env, const ARMCPRegInfo *ri,
+@@ -870,10 +870,10 @@ int arm_cp_read_zero(CPUARMState *env, const ARMCPRegInfo *ri, uint64_t *value);
+  */
+ void arm_cp_reset_ignore(CPUARMState *env, const ARMCPRegInfo *opaque);
+ 
+-static inline bool cp_access_ok(CPUARMState *env,
++static inline bool cp_access_ok(int current_pl,
+                                 const ARMCPRegInfo *ri, int isread)
+ {
+-    return (ri->access >> ((arm_current_pl(env) * 2) + isread)) & 1;
++    return (ri->access >> ((current_pl * 2) + isread)) & 1;
+ }
+ 
+ /**
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index ef73df9..be641bc 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -186,7 +186,7 @@ bool write_cpustate_to_list(ARMCPU *cpu)
+         uint32_t regidx = kvm_to_cpreg_id(cpu->cpreg_indexes[i]);
+         const ARMCPRegInfo *ri;
+         uint64_t v;
+-        ri = get_arm_cp_reginfo(cpu, regidx);
++        ri = get_arm_cp_reginfo(cpu->cp_regs, regidx);
+         if (!ri) {
+             ok = false;
+             continue;
+@@ -214,7 +214,7 @@ bool write_list_to_cpustate(ARMCPU *cpu)
+         uint64_t readback;
+         const ARMCPRegInfo *ri;
+ 
+-        ri = get_arm_cp_reginfo(cpu, regidx);
++        ri = get_arm_cp_reginfo(cpu->cp_regs, regidx);
+         if (!ri) {
+             ok = false;
+             continue;
+@@ -242,7 +242,7 @@ static void add_cpreg_to_list(gpointer key, gpointer opaque)
+     const ARMCPRegInfo *ri;
+ 
+     regidx = *(uint32_t *)key;
+-    ri = get_arm_cp_reginfo(cpu, regidx);
++    ri = get_arm_cp_reginfo(cpu->cp_regs, regidx);
+ 
+     if (!(ri->type & ARM_CP_NO_MIGRATE)) {
+         cpu->cpreg_indexes[cpu->cpreg_array_len] = cpreg_to_kvm_id(regidx);
+@@ -258,7 +258,7 @@ static void count_cpreg(gpointer key, gpointer opaque)
+     const ARMCPRegInfo *ri;
+ 
+     regidx = *(uint32_t *)key;
+-    ri = get_arm_cp_reginfo(cpu, regidx);
++    ri = get_arm_cp_reginfo(cpu->cp_regs, regidx);
+ 
+     if (!(ri->type & ARM_CP_NO_MIGRATE)) {
+         cpu->cpreg_array_len++;
+@@ -2145,9 +2145,9 @@ void define_arm_cp_regs_with_opaque(ARMCPU *cpu,
+     }
+ }
+ 
+-const ARMCPRegInfo *get_arm_cp_reginfo(ARMCPU *cpu, uint32_t encoded_cp)
++const ARMCPRegInfo *get_arm_cp_reginfo(GHashTable *cpregs, uint32_t encoded_cp)
+ {
+-    return g_hash_table_lookup(cpu->cp_regs, &encoded_cp);
++    return g_hash_table_lookup(cpregs, &encoded_cp);
+ }
+ 
+ int arm_cp_write_ignore(CPUARMState *env, const ARMCPRegInfo *ri,
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index 7d98337..e35d2f3 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -3007,6 +3007,8 @@ void gen_intermediate_code_internal_a64(ARMCPU *cpu,
+     dc->vfp_enabled = 0;
+     dc->vec_len = 0;
+     dc->vec_stride = 0;
++    dc->cp_regs = cpu->cp_regs;
++    dc->current_pl = arm_current_pl(env);
+ 
+     init_tmp_a64_array(dc);
+ 
+diff --git a/target-arm/translate.c b/target-arm/translate.c
+index a0a1ab2..e00c650 100644
+--- a/target-arm/translate.c
++++ b/target-arm/translate.c
+@@ -6484,7 +6484,6 @@ static int disas_coproc_insn(CPUARMState * env, DisasContext *s, uint32_t insn)
+ {
+     int cpnum, is64, crn, crm, opc1, opc2, isread, rt, rt2;
+     const ARMCPRegInfo *ri;
+-    ARMCPU *cpu = arm_env_get_cpu(env);
+ 
+     cpnum = (insn >> 8) & 0xf;
+     if (arm_feature(env, ARM_FEATURE_XSCALE)
+@@ -6527,11 +6526,11 @@ static int disas_coproc_insn(CPUARMState * env, DisasContext *s, uint32_t insn)
+     isread = (insn >> 20) & 1;
+     rt = (insn >> 12) & 0xf;
+ 
+-    ri = get_arm_cp_reginfo(cpu,
++    ri = get_arm_cp_reginfo(s->cp_regs,
+                             ENCODE_CP_REG(cpnum, is64, crn, crm, opc1, opc2));
+     if (ri) {
+         /* Check access permissions */
+-        if (!cp_access_ok(env, ri, isread)) {
++        if (!cp_access_ok(s->current_pl, ri, isread)) {
+             return 1;
+         }
+ 
+@@ -10266,6 +10265,8 @@ static inline void gen_intermediate_code_internal(ARMCPU *cpu,
+     dc->vfp_enabled = ARM_TBFLAG_VFPEN(tb->flags);
+     dc->vec_len = ARM_TBFLAG_VECLEN(tb->flags);
+     dc->vec_stride = ARM_TBFLAG_VECSTRIDE(tb->flags);
++    dc->cp_regs = cpu->cp_regs;
++    dc->current_pl = arm_current_pl(env);
+ 
+     cpu_F0s = tcg_temp_new_i32();
+     cpu_F1s = tcg_temp_new_i32();
+diff --git a/target-arm/translate.h b/target-arm/translate.h
+index a6f6b3e..67da699 100644
+--- a/target-arm/translate.h
++++ b/target-arm/translate.h
+@@ -24,6 +24,8 @@ typedef struct DisasContext {
+     int vec_len;
+     int vec_stride;
+     int aarch64;
++    int current_pl;
++    GHashTable *cp_regs;
+ #define TMP_A64_MAX 16
+     int tmp_a64_count;
+     TCGv_i64 tmp_a64[TMP_A64_MAX];
+-- 
+1.9.rc1
+
