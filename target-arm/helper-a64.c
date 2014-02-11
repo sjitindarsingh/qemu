@@ -77,3 +77,79 @@ uint64_t HELPER(rbit64)(uint64_t x)
 
     return x;
 }
+
+/* Convert a softfloat float_relation_ (as returned by
+ * the float*_compare functions) to the correct ARM
+ * NZCV flag state.
+ */
+static inline uint32_t float_rel_to_flags(int res)
+{
+    uint64_t flags;
+    switch (res) {
+    case float_relation_equal:
+        flags = PSTATE_Z | PSTATE_C;
+        break;
+    case float_relation_less:
+        flags = PSTATE_N;
+        break;
+    case float_relation_greater:
+        flags = PSTATE_C;
+        break;
+    case float_relation_unordered:
+    default:
+        flags = PSTATE_C | PSTATE_V;
+        break;
+    }
+    return flags;
+}
+
+uint64_t HELPER(vfp_cmps_a64)(float32 x, float32 y, void *fp_status)
+{
+    return float_rel_to_flags(float32_compare_quiet(x, y, fp_status));
+}
+
+uint64_t HELPER(vfp_cmpes_a64)(float32 x, float32 y, void *fp_status)
+{
+    return float_rel_to_flags(float32_compare(x, y, fp_status));
+}
+
+uint64_t HELPER(vfp_cmpd_a64)(float64 x, float64 y, void *fp_status)
+{
+    return float_rel_to_flags(float64_compare_quiet(x, y, fp_status));
+}
+
+uint64_t HELPER(vfp_cmped_a64)(float64 x, float64 y, void *fp_status)
+{
+    return float_rel_to_flags(float64_compare(x, y, fp_status));
+}
+
+uint64_t HELPER(simd_tbl)(CPUARMState *env, uint64_t result, uint64_t indices,
+                          uint32_t rn, uint32_t numregs)
+{
+    /* Helper function for SIMD TBL and TBX. We have to do the table
+     * lookup part for the 64 bits worth of indices we're passed in.
+     * result is the initial results vector (either zeroes for TBL
+     * or some guest values for TBX), rn the register number where
+     * the table starts, and numregs the number of registers in the table.
+     * We return the results of the lookups.
+     */
+    int shift;
+
+    for (shift = 0; shift < 64; shift += 8) {
+        int index = extract64(indices, shift, 8);
+        if (index < 16 * numregs) {
+            /* Convert index (a byte offset into the virtual table
+             * which is a series of 128-bit vectors concatenated)
+             * into the correct vfp.regs[] element plus a bit offset
+             * into that element, bearing in mind that the table
+             * can wrap around from V31 to V0.
+             */
+            int elt = (rn * 2 + (index >> 3)) % 64;
+            int bitidx = (index & 7) * 8;
+            uint64_t val = extract64(env->vfp.regs[elt], bitidx, 8);
+
+            result = deposit64(result, shift, 8, val);
+        }
+    }
+    return result;
+}

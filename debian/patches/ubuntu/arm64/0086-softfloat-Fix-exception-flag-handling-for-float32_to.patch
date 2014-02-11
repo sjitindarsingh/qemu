@@ -1,0 +1,178 @@
+From 1d3dc7cffce21cbe4d3703f13ed45ca3b923fe29 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Mon, 6 Jan 2014 11:47:21 +0000
+Subject: [PATCH 086/158] softfloat: Fix exception flag handling for
+ float32_to_float16()
+
+Our float32 to float16 conversion routine was generating the correct
+numerical answers, but not always setting the right set of exception
+flags. Fix this, mostly by rearranging the code to more closely
+resemble RoundAndPackFloat*, and in particular:
+ * non-IEEE halfprec always raises Invalid for input NaNs
+ * we need to check for the overflow case before underflow
+ * we weren't getting the tininess-detected-after-rounding
+   case correct (somewhat academic since only ARM uses halfprec
+   and it is always tininess-detected-before-rounding)
+ * non-IEEE halfprec overflow raises only Invalid, not
+   Invalid + Inexact
+ * we weren't setting Inexact when we should
+
+Also add some clarifying comments about what the code is doing.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ fpu/softfloat.c | 105 +++++++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 66 insertions(+), 39 deletions(-)
+
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index a3ca7e0..b1fe490 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -3046,6 +3046,10 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
+     uint32_t mask;
+     uint32_t increment;
+     int8 roundingMode;
++    int maxexp = ieee ? 15 : 16;
++    bool rounding_bumps_exp;
++    bool is_tiny = false;
++
+     a = float32_squash_input_denormal(a STATUS_VAR);
+ 
+     aSig = extractFloat32Frac( a );
+@@ -3054,11 +3058,12 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
+     if ( aExp == 0xFF ) {
+         if (aSig) {
+             /* Input is a NaN */
+-            float16 r = commonNaNToFloat16( float32ToCommonNaN( a STATUS_VAR ) STATUS_VAR );
+             if (!ieee) {
++                float_raise(float_flag_invalid STATUS_VAR);
+                 return packFloat16(aSign, 0, 0);
+             }
+-            return r;
++            return commonNaNToFloat16(
++                float32ToCommonNaN(a STATUS_VAR) STATUS_VAR);
+         }
+         /* Infinity */
+         if (!ieee) {
+@@ -3070,58 +3075,80 @@ float16 float32_to_float16(float32 a, flag ieee STATUS_PARAM)
+     if (aExp == 0 && aSig == 0) {
+         return packFloat16(aSign, 0, 0);
+     }
+-    /* Decimal point between bits 22 and 23.  */
++    /* Decimal point between bits 22 and 23. Note that we add the 1 bit
++     * even if the input is denormal; however this is harmless because
++     * the largest possible single-precision denormal is still smaller
++     * than the smallest representable half-precision denormal, and so we
++     * will end up ignoring aSig and returning via the "always return zero"
++     * codepath.
++     */
+     aSig |= 0x00800000;
+     aExp -= 0x7f;
++    /* Calculate the mask of bits of the mantissa which are not
++     * representable in half-precision and will be lost.
++     */
+     if (aExp < -14) {
++        /* Will be denormal in halfprec */
+         mask = 0x00ffffff;
+         if (aExp >= -24) {
+             mask >>= 25 + aExp;
+         }
+     } else {
++        /* Normal number in halfprec */
+         mask = 0x00001fff;
+     }
+-    if (aSig & mask) {
+-        float_raise( float_flag_underflow STATUS_VAR );
+-        roundingMode = STATUS(float_rounding_mode);
+-        switch (roundingMode) {
+-        case float_round_nearest_even:
+-            increment = (mask + 1) >> 1;
+-            if ((aSig & mask) == increment) {
+-                increment = aSig & (increment << 1);
+-            }
+-            break;
+-        case float_round_up:
+-            increment = aSign ? 0 : mask;
+-            break;
+-        case float_round_down:
+-            increment = aSign ? mask : 0;
+-            break;
+-        default: /* round_to_zero */
+-            increment = 0;
+-            break;
+-        }
+-        aSig += increment;
+-        if (aSig >= 0x01000000) {
+-            aSig >>= 1;
+-            aExp++;
+-        }
+-    } else if (aExp < -14
+-          && STATUS(float_detect_tininess) == float_tininess_before_rounding) {
+-        float_raise( float_flag_underflow STATUS_VAR);
+-    }
+ 
+-    if (ieee) {
+-        if (aExp > 15) {
+-            float_raise( float_flag_overflow | float_flag_inexact STATUS_VAR);
++    roundingMode = STATUS(float_rounding_mode);
++    switch (roundingMode) {
++    case float_round_nearest_even:
++        increment = (mask + 1) >> 1;
++        if ((aSig & mask) == increment) {
++            increment = aSig & (increment << 1);
++        }
++        break;
++    case float_round_up:
++        increment = aSign ? 0 : mask;
++        break;
++    case float_round_down:
++        increment = aSign ? mask : 0;
++        break;
++    default: /* round_to_zero */
++        increment = 0;
++        break;
++    }
++
++    rounding_bumps_exp = (aSig + increment >= 0x01000000);
++
++    if (aExp > maxexp || (aExp == maxexp && rounding_bumps_exp)) {
++        if (ieee) {
++            float_raise(float_flag_overflow | float_flag_inexact STATUS_VAR);
+             return packFloat16(aSign, 0x1f, 0);
+-        }
+-    } else {
+-        if (aExp > 16) {
+-            float_raise(float_flag_invalid | float_flag_inexact STATUS_VAR);
++        } else {
++            float_raise(float_flag_invalid STATUS_VAR);
+             return packFloat16(aSign, 0x1f, 0x3ff);
+         }
+     }
++
++    if (aExp < -14) {
++        /* Note that flush-to-zero does not affect half-precision results */
++        is_tiny =
++            (STATUS(float_detect_tininess) == float_tininess_before_rounding)
++            || (aExp < -15)
++            || (!rounding_bumps_exp);
++    }
++    if (aSig & mask) {
++        float_raise(float_flag_inexact STATUS_VAR);
++        if (is_tiny) {
++            float_raise(float_flag_underflow STATUS_VAR);
++        }
++    }
++
++    aSig += increment;
++    if (rounding_bumps_exp) {
++        aSig >>= 1;
++        aExp++;
++    }
++
+     if (aExp < -24) {
+         return packFloat16(aSign, 0, 0);
+     }
+-- 
+1.9.rc1
+

@@ -69,7 +69,14 @@ unsigned long reserved_va;
 static void usage(void);
 
 static const char *interp_prefix = CONFIG_QEMU_INTERP_PREFIX;
-const char *qemu_uname_release = CONFIG_UNAME_RELEASE;
+
+#ifdef TARGET_AARCH64
+# define UNAME_RELEASE "3.7.0"
+#else
+# define UNAME_RELEASE CONFIG_UNAME_RELEASE
+#endif
+
+const char *qemu_uname_release = UNAME_RELEASE;
 
 /* XXX: on x86 MAP_GROWSDOWN only works if ESP <= address + 32, so
    we allocate a bigger stack. Need a better solution, for example
@@ -566,7 +573,7 @@ do_kernel_trap(CPUARMState *env)
         end_exclusive();
         break;
     case 0xffff0fe0: /* __kernel_get_tls */
-        env->regs[0] = env->cp15.c13_tls2;
+        env->regs[0] = env->cp15.tpidrro_el0;
         break;
     case 0xffff0f60: /* __kernel_cmpxchg64 */
         arm_kernel_cmpxchg64_helper(env);
@@ -585,20 +592,25 @@ do_kernel_trap(CPUARMState *env)
 
     return 0;
 }
-#endif
 
+/* Store exclusive handling for AArch32 */
 static int do_strex(CPUARMState *env)
 {
-    uint32_t val;
+    uint64_t val;
     int size;
     int rc = 1;
     int segv = 0;
     uint32_t addr;
     start_exclusive();
-    addr = env->exclusive_addr;
-    if (addr != env->exclusive_test) {
+    if (env->exclusive_addr != env->exclusive_test) {
         goto fail;
     }
+    /* We know we're always AArch32 so the address is in uint32_t range
+     * unless it was the -1 exclusive-monitor-lost value (which won't
+     * match exclusive_test above).
+     */
+    assert(extract64(env->exclusive_addr, 32, 32) == 0);
+    addr = env->exclusive_addr;
     size = env->exclusive_info & 0xf;
     switch (size) {
     case 0:
@@ -618,19 +630,19 @@ static int do_strex(CPUARMState *env)
         env->cp15.c6_data = addr;
         goto done;
     }
-    if (val != env->exclusive_val) {
-        goto fail;
-    }
     if (size == 3) {
-        segv = get_user_u32(val, addr + 4);
+        uint32_t valhi;
+        segv = get_user_u32(valhi, addr + 4);
         if (segv) {
             env->cp15.c6_data = addr + 4;
             goto done;
         }
-        if (val != env->exclusive_high) {
-            goto fail;
-        }
+        val = deposit64(val, 32, 32, valhi);
     }
+    if (val != env->exclusive_val) {
+        goto fail;
+    }
+
     val = env->regs[(env->exclusive_info >> 8) & 0xf];
     switch (size) {
     case 0:
@@ -665,7 +677,6 @@ done:
     return segv;
 }
 
-#ifdef TARGET_ABI32
 void cpu_loop(CPUARMState *env)
 {
     CPUState *cs = CPU(arm_env_get_cpu(env));
@@ -880,6 +891,122 @@ void cpu_loop(CPUARMState *env)
 
 #else
 
+/*
+ * Handle AArch64 store-release exclusive
+ *
+ * rs = gets the status result of store exclusive
+ * rt = is the register that is stored
+ * rt2 = is the second register store (in STP)
+ *
+ */
+static int do_strex_a64(CPUARMState *env)
+{
+    uint64_t val;
+    int size;
+    bool is_pair;
+    int rc = 1;
+    int segv = 0;
+    uint64_t addr;
+    int rs, rt, rt2;
+
+    start_exclusive();
+    /* size | is_pair << 2 | (rs << 4) | (rt << 9) | (rt2 << 14)); */
+    size = extract32(env->exclusive_info, 0, 2);
+    is_pair = extract32(env->exclusive_info, 2, 1);
+    rs = extract32(env->exclusive_info, 4, 5);
+    rt = extract32(env->exclusive_info, 9, 5);
+    rt2 = extract32(env->exclusive_info, 14, 5);
+
+    addr = env->exclusive_addr;
+
+    if (addr != env->exclusive_test) {
+        goto finish;
+    }
+
+    switch (size) {
+    case 0:
+        segv = get_user_u8(val, addr);
+        break;
+    case 1:
+        segv = get_user_u16(val, addr);
+        break;
+    case 2:
+        segv = get_user_u32(val, addr);
+        break;
+    case 3:
+        segv = get_user_u64(val, addr);
+        break;
+    default:
+        abort();
+    }
+    if (segv) {
+        env->cp15.c6_data = addr;
+        goto error;
+    }
+    if (val != env->exclusive_val) {
+        goto finish;
+    }
+    if (is_pair) {
+        if (size == 2) {
+            segv = get_user_u32(val, addr + 4);
+        } else {
+            segv = get_user_u64(val, addr + 8);
+        }
+        if (segv) {
+            env->cp15.c6_data = addr + (size == 2 ? 4 : 8);
+            goto error;
+        }
+        if (val != env->exclusive_high) {
+            goto finish;
+        }
+    }
+    val = env->xregs[rt];
+    switch (size) {
+    case 0:
+        segv = put_user_u8(val, addr);
+        break;
+    case 1:
+        segv = put_user_u16(val, addr);
+        break;
+    case 2:
+        segv = put_user_u32(val, addr);
+        break;
+    case 3:
+        segv = put_user_u64(val, addr);
+        break;
+    }
+    if (segv) {
+        goto error;
+    }
+    if (is_pair) {
+        val = env->xregs[rt2];
+        if (size == 2) {
+            segv = put_user_u32(val, addr + 4);
+        } else {
+            segv = put_user_u64(val, addr + 8);
+        }
+        if (segv) {
+            env->cp15.c6_data = addr + (size == 2 ? 4 : 8);
+            goto error;
+        }
+    }
+    rc = 0;
+finish:
+    env->pc += 4;
+    /* rs == 31 encodes a write to the ZR, thus throwing away
+     * the status return. This is rather silly but valid.
+     */
+    if (rs < 31) {
+        env->xregs[rs] = rc;
+    }
+error:
+    /* instruction faulted, PC does not advance */
+    /* either way a strex releases any exclusive lock we have */
+    env->exclusive_addr = -1;
+    end_exclusive();
+    return segv;
+}
+
 /* AArch64 main loop */
 void cpu_loop(CPUARMState *env)
 {
@@ -939,7 +1066,7 @@ void cpu_loop(CPUARMState *env)
             }
             break;
         case EXCP_STREX:
-            if (do_strex(env)) {
+            if (do_strex_a64(env)) {
                 addr = env->cp15.c6_data;
                 goto do_segv;
             }
@@ -951,6 +1078,12 @@ void cpu_loop(CPUARMState *env)
             abort();
         }
         process_pending_signals(env);
+        /* Exception return on AArch64 always clears the exclusive monitor,
+         * so any return to running guest code implies this.
+         * A strex (successful or otherwise) also clears the monitor, so
+         * we don't need to specialcase EXCP_STREX.
+         */
+        env->exclusive_addr = -1;
     }
 }
 #endif /* ndef TARGET_ABI32 */

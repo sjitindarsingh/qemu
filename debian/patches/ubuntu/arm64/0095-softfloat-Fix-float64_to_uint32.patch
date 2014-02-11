@@ -1,0 +1,68 @@
+From 0f42c3554641a1b3cfffc71f5a5e6e6f56ac1bcb Mon Sep 17 00:00:00 2001
+From: Tom Musta <tommusta@gmail.com>
+Date: Tue, 7 Jan 2014 17:17:51 +0000
+Subject: [PATCH 095/158] softfloat: Fix float64_to_uint32
+
+The float64_to_uint32 has several flaws:
+
+ - for numbers between 2**32 and 2**64, the inexact exception flag
+   may get incorrectly set.  In this case, only the invalid flag
+   should be set.
+
+       test pattern: 425F81378DC0CD1F / 0x1.f81378dc0cd1fp+38
+
+ - for numbers between 2**63 and 2**64, incorrect results may
+   be produced:
+
+       test pattern: 43EAAF73F1F0B8BD / 0x1.aaf73f1f0b8bdp+63
+
+This patch re-implements float64_to_uint32 to re-use the
+float64_to_uint64 routine (instead of float64_to_int64).  For the
+saturation case, we ignore any flags which the conversion routine
+has set and raise only the invalid flag.
+
+This contribution can be licensed under either the softfloat-2a or -2b
+license.
+
+Signed-off-by: Tom Musta <tommusta@gmail.com>
+Message-id: 1387397961-4894-5-git-send-email-tommusta@gmail.com
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ fpu/softfloat.c | 15 +++++++--------
+ 1 file changed, 7 insertions(+), 8 deletions(-)
+
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index 141e7fd..ba476a8 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -6650,19 +6650,18 @@ uint_fast16_t float32_to_uint16_round_to_zero(float32 a STATUS_PARAM)
+ 
+ uint32 float64_to_uint32( float64 a STATUS_PARAM )
+ {
+-    int64_t v;
++    uint64_t v;
+     uint32 res;
++    int old_exc_flags = get_float_exception_flags(status);
+ 
+-    v = float64_to_int64(a STATUS_VAR);
+-    if (v < 0) {
+-        res = 0;
+-        float_raise( float_flag_invalid STATUS_VAR);
+-    } else if (v > 0xffffffff) {
++    v = float64_to_uint64(a STATUS_VAR);
++    if (v > 0xffffffff) {
+         res = 0xffffffff;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else {
+-        res = v;
++        return v;
+     }
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
+     return res;
+ }
+ 
+-- 
+1.9.rc1
+

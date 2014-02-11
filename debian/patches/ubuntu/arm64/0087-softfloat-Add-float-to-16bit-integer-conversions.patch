@@ -1,0 +1,140 @@
+From 61580b963061bcfe7f8ab3fdf06343740805f1a4 Mon Sep 17 00:00:00 2001
+From: Will Newton <will.newton@linaro.org>
+Date: Tue, 7 Jan 2014 17:17:48 +0000
+Subject: [PATCH 087/158] softfloat: Add float to 16bit integer conversions.
+
+ARMv8 requires support for converting 32 and 64bit floating point
+values to signed and unsigned 16bit integers.
+
+Signed-off-by: Will Newton <will.newton@linaro.org>
+[PMM: updated not to incorrectly set Inexact for Invalid inputs]
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ fpu/softfloat.c         | 80 +++++++++++++++++++++++++++++++++++++++++++++++++
+ include/fpu/softfloat.h |  4 +++
+ 2 files changed, 84 insertions(+)
+
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index b1fe490..1367886 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -6491,6 +6491,46 @@ uint32 float32_to_uint32_round_to_zero( float32 a STATUS_PARAM )
+     return res;
+ }
+ 
++int_fast16_t float32_to_int16(float32 a STATUS_PARAM)
++{
++    int32_t v;
++    int_fast16_t res;
++    int old_exc_flags = get_float_exception_flags(status);
++
++    v = float32_to_int32(a STATUS_VAR);
++    if (v < -0x8000) {
++        res = -0x8000;
++    } else if (v > 0x7fff) {
++        res = 0x7fff;
++    } else {
++        return v;
++    }
++
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
++    return res;
++}
++
++uint_fast16_t float32_to_uint16(float32 a STATUS_PARAM)
++{
++    int32_t v;
++    uint_fast16_t res;
++    int old_exc_flags = get_float_exception_flags(status);
++
++    v = float32_to_int32(a STATUS_VAR);
++    if (v < 0) {
++        res = 0;
++    } else if (v > 0xffff) {
++        res = 0xffff;
++    } else {
++        return v;
++    }
++
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
++    return res;
++}
++
+ uint_fast16_t float32_to_uint16_round_to_zero(float32 a STATUS_PARAM)
+ {
+     int64_t v;
+@@ -6545,6 +6585,46 @@ uint32 float64_to_uint32_round_to_zero( float64 a STATUS_PARAM )
+     return res;
+ }
+ 
++int_fast16_t float64_to_int16(float64 a STATUS_PARAM)
++{
++    int64_t v;
++    int_fast16_t res;
++    int old_exc_flags = get_float_exception_flags(status);
++
++    v = float64_to_int32(a STATUS_VAR);
++    if (v < -0x8000) {
++        res = -0x8000;
++    } else if (v > 0x7fff) {
++        res = 0x7fff;
++    } else {
++        return v;
++    }
++
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
++    return res;
++}
++
++uint_fast16_t float64_to_uint16(float64 a STATUS_PARAM)
++{
++    int64_t v;
++    uint_fast16_t res;
++    int old_exc_flags = get_float_exception_flags(status);
++
++    v = float64_to_int32(a STATUS_VAR);
++    if (v < 0) {
++        res = 0;
++    } else if (v > 0xffff) {
++        res = 0xffff;
++    } else {
++        return v;
++    }
++
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
++    return res;
++}
++
+ uint_fast16_t float64_to_uint16_round_to_zero(float64 a STATUS_PARAM)
+ {
+     int64_t v;
+diff --git a/include/fpu/softfloat.h b/include/fpu/softfloat.h
+index 2365274..a9b8cd9 100644
+--- a/include/fpu/softfloat.h
++++ b/include/fpu/softfloat.h
+@@ -265,6 +265,8 @@ extern const float16 float16_default_nan;
+ /*----------------------------------------------------------------------------
+ | Software IEC/IEEE single-precision conversion routines.
+ *----------------------------------------------------------------------------*/
++int_fast16_t float32_to_int16(float32 STATUS_PARAM);
++uint_fast16_t float32_to_uint16(float32 STATUS_PARAM);
+ int_fast16_t float32_to_int16_round_to_zero(float32 STATUS_PARAM);
+ uint_fast16_t float32_to_uint16_round_to_zero(float32 STATUS_PARAM);
+ int32 float32_to_int32( float32 STATUS_PARAM );
+@@ -371,6 +373,8 @@ extern const float32 float32_default_nan;
+ /*----------------------------------------------------------------------------
+ | Software IEC/IEEE double-precision conversion routines.
+ *----------------------------------------------------------------------------*/
++int_fast16_t float64_to_int16(float64 STATUS_PARAM);
++uint_fast16_t float64_to_uint16(float64 STATUS_PARAM);
+ int_fast16_t float64_to_int16_round_to_zero(float64 STATUS_PARAM);
+ uint_fast16_t float64_to_uint16_round_to_zero(float64 STATUS_PARAM);
+ int32 float64_to_int32( float64 STATUS_PARAM );
+-- 
+1.9.rc1
+

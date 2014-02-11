@@ -1,0 +1,129 @@
+From 03d182e8ce2e933553fe1c962ef94534f7388299 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 7 Jan 2014 17:17:49 +0000
+Subject: [PATCH 091/158] softfloat: Only raise Invalid when conversions to int
+ are out of range
+
+We implement a number of float-to-integer conversions using conversion
+to an integer type with a wider range and then a check against the
+narrower range we are actually converting to. If we find the result to
+be out of range we correctly raise the Invalid exception, but we must
+also suppress other exceptions which might have been raised by the
+conversion function we called.
+
+This won't throw away exceptions we should have preserved, because for
+the 'core' exception flags the IEEE spec mandates that the only valid
+combinations of exception that can be raised by a single operation are
+Inexact + Overflow and Inexact + Underflow. For the non-IEEE softfloat
+flag for input denormals, we can guarantee that that flag won't have
+been set for out of range float-to-int conversions because a squashed
+denormal by definition goes to plus or minus zero, which is always in
+range after conversion to integer zero.
+
+This bug has been fixed for some of the float-to-int conversion routines
+by previous patches; fix it for the remaining functions as well, so
+that they all restore the pre-conversion status flags prior to raising
+Invalid.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Aurelien Jarno <aurelien@aurel32.net>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ fpu/softfloat.c | 28 ++++++++++++++++------------
+ 1 file changed, 16 insertions(+), 12 deletions(-)
+
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index e72da1a..4f5e9d0 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -6509,17 +6509,18 @@ uint32 float32_to_uint32( float32 a STATUS_PARAM )
+ {
+     int64_t v;
+     uint32 res;
++    int old_exc_flags = get_float_exception_flags(status);
+ 
+     v = float32_to_int64(a STATUS_VAR);
+     if (v < 0) {
+         res = 0;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else if (v > 0xffffffff) {
+         res = 0xffffffff;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else {
+-        res = v;
++        return v;
+     }
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
+     return res;
+ }
+ 
+@@ -6527,17 +6528,18 @@ uint32 float32_to_uint32_round_to_zero( float32 a STATUS_PARAM )
+ {
+     int64_t v;
+     uint32 res;
++    int old_exc_flags = get_float_exception_flags(status);
+ 
+     v = float32_to_int64_round_to_zero(a STATUS_VAR);
+     if (v < 0) {
+         res = 0;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else if (v > 0xffffffff) {
+         res = 0xffffffff;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else {
+-        res = v;
++        return v;
+     }
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
+     return res;
+ }
+ 
+@@ -6585,17 +6587,18 @@ uint_fast16_t float32_to_uint16_round_to_zero(float32 a STATUS_PARAM)
+ {
+     int64_t v;
+     uint_fast16_t res;
++    int old_exc_flags = get_float_exception_flags(status);
+ 
+     v = float32_to_int64_round_to_zero(a STATUS_VAR);
+     if (v < 0) {
+         res = 0;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else if (v > 0xffff) {
+         res = 0xffff;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else {
+-        res = v;
++        return v;
+     }
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
+     return res;
+ }
+ 
+@@ -6679,17 +6682,18 @@ uint_fast16_t float64_to_uint16_round_to_zero(float64 a STATUS_PARAM)
+ {
+     int64_t v;
+     uint_fast16_t res;
++    int old_exc_flags = get_float_exception_flags(status);
+ 
+     v = float64_to_int64_round_to_zero(a STATUS_VAR);
+     if (v < 0) {
+         res = 0;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else if (v > 0xffff) {
+         res = 0xffff;
+-        float_raise( float_flag_invalid STATUS_VAR);
+     } else {
+-        res = v;
++        return v;
+     }
++    set_float_exception_flags(old_exc_flags, status);
++    float_raise(float_flag_invalid STATUS_VAR);
+     return res;
+ }
+ 
+-- 
+1.9.rc1
+

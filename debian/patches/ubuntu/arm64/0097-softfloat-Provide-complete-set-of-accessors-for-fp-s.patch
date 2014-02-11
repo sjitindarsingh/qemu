@@ -1,0 +1,111 @@
+From c22a9b278c30d76fef6ea385d0edce4c2e52746b Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 7 Jan 2014 17:19:11 +0000
+Subject: [PATCH 097/158] softfloat: Provide complete set of accessors for fp
+ state
+
+Tidy up the get/set accessors for the fp state to add missing ones
+and make them all inline in softfloat.h rather than some inline and
+some not.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ fpu/softfloat.c         | 15 ---------------
+ include/fpu/softfloat.h | 39 ++++++++++++++++++++++++++++++++++++---
+ 2 files changed, 36 insertions(+), 18 deletions(-)
+
+diff --git a/fpu/softfloat.c b/fpu/softfloat.c
+index 0ba4caa..84a928e 100644
+--- a/fpu/softfloat.c
++++ b/fpu/softfloat.c
+@@ -59,21 +59,6 @@ these four paragraphs for those parts of this code that are retained.
+ *----------------------------------------------------------------------------*/
+ #include "softfloat-specialize.h"
+ 
+-void set_float_rounding_mode(int val STATUS_PARAM)
+-{
+-    STATUS(float_rounding_mode) = val;
+-}
+-
+-void set_float_exception_flags(int val STATUS_PARAM)
+-{
+-    STATUS(float_exception_flags) = val;
+-}
+-
+-void set_floatx80_rounding_precision(int val STATUS_PARAM)
+-{
+-    STATUS(floatx80_rounding_precision) = val;
+-}
+-
+ /*----------------------------------------------------------------------------
+ | Returns the fraction bits of the half-precision floating-point value `a'.
+ *----------------------------------------------------------------------------*/
+diff --git a/include/fpu/softfloat.h b/include/fpu/softfloat.h
+index eb81c3b..a634a4e 100644
+--- a/include/fpu/softfloat.h
++++ b/include/fpu/softfloat.h
+@@ -180,12 +180,22 @@ typedef struct float_status {
+     flag default_nan_mode;
+ } float_status;
+ 
+-void set_float_rounding_mode(int val STATUS_PARAM);
+-void set_float_exception_flags(int val STATUS_PARAM);
+ INLINE void set_float_detect_tininess(int val STATUS_PARAM)
+ {
+     STATUS(float_detect_tininess) = val;
+ }
++INLINE void set_float_rounding_mode(int val STATUS_PARAM)
++{
++    STATUS(float_rounding_mode) = val;
++}
++INLINE void set_float_exception_flags(int val STATUS_PARAM)
++{
++    STATUS(float_exception_flags) = val;
++}
++INLINE void set_floatx80_rounding_precision(int val STATUS_PARAM)
++{
++    STATUS(floatx80_rounding_precision) = val;
++}
+ INLINE void set_flush_to_zero(flag val STATUS_PARAM)
+ {
+     STATUS(flush_to_zero) = val;
+@@ -198,11 +208,34 @@ INLINE void set_default_nan_mode(flag val STATUS_PARAM)
+ {
+     STATUS(default_nan_mode) = val;
+ }
++INLINE int get_float_detect_tininess(float_status *status)
++{
++    return STATUS(float_detect_tininess);
++}
++INLINE int get_float_rounding_mode(float_status *status)
++{
++    return STATUS(float_rounding_mode);
++}
+ INLINE int get_float_exception_flags(float_status *status)
+ {
+     return STATUS(float_exception_flags);
+ }
+-void set_floatx80_rounding_precision(int val STATUS_PARAM);
++INLINE int get_floatx80_rounding_precision(float_status *status)
++{
++    return STATUS(floatx80_rounding_precision);
++}
++INLINE flag get_flush_to_zero(float_status *status)
++{
++    return STATUS(flush_to_zero);
++}
++INLINE flag get_flush_inputs_to_zero(float_status *status)
++{
++    return STATUS(flush_inputs_to_zero);
++}
++INLINE flag get_default_nan_mode(float_status *status)
++{
++    return STATUS(default_nan_mode);
++}
+ 
+ /*----------------------------------------------------------------------------
+ | Routine to raise any or all of the software IEC/IEEE floating-point
+-- 
+1.9.rc1
+

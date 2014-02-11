@@ -1,0 +1,59 @@
+From c9d8dd79a494ad44cb8dde78fb23da1b58f53c31 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Tue, 7 Jan 2014 17:19:13 +0000
+Subject: [PATCH 104/158] target-arm: Ignore most exceptions from scalbn when
+ doing fixpoint conversion
+
+The VFP fixed point conversion helpers first call float_scalbn and
+then convert the result to an integer. This scalbn operation may
+set floating point exception flags for:
+ * overflow & inexact (if it overflows to infinity)
+ * input denormal squashed to zero
+ * output denormal squashed to zero
+Of these, we only care about the input-denormal flag, since
+the output of the whole scale-and-convert operation will be
+an integer (so squashed-output-denormal and overflow don't
+apply). Suppress the others by saving the pre-scalb exception
+flags and only copying across a potential input-denormal flag.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ target-arm/helper.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index 67d126b..f1a7f51 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -4021,18 +4021,27 @@ float##fsz HELPER(vfp_##name##to##p)(uint##isz##_t  x, uint32_t shift, \
+     return float##fsz##_scalbn(tmp, -(int)shift, fpst); \
+ }
+ 
++/* Notice that we want only input-denormal exception flags from the
++ * scalbn operation: the other possible flags (overflow+inexact if
++ * we overflow to infinity, output-denormal) aren't correct for the
++ * complete scale-and-convert operation.
++ */
+ #define VFP_CONV_FLOAT_FIX_ROUND(name, p, fsz, isz, itype, round) \
+ uint##isz##_t HELPER(vfp_to##name##p##round)(float##fsz x, \
+                                              uint32_t shift, \
+                                              void *fpstp) \
+ { \
+     float_status *fpst = fpstp; \
++    int old_exc_flags = get_float_exception_flags(fpst); \
+     float##fsz tmp; \
+     if (float##fsz##_is_any_nan(x)) { \
+         float_raise(float_flag_invalid, fpst); \
+         return 0; \
+     } \
+     tmp = float##fsz##_scalbn(x, shift, fpst); \
++    old_exc_flags |= get_float_exception_flags(fpst) \
++        & float_flag_input_denormal; \
++    set_float_exception_flags(old_exc_flags, fpst); \
+     return float##fsz##_to_##itype##round(tmp, fpst); \
+ }
+ 
+-- 
+1.9.rc1
+

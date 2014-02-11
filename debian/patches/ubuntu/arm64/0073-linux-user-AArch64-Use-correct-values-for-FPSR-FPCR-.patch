@@ -1,0 +1,54 @@
+From 0f41976636693c12e28a3bb97b84d6ec07ba2330 Mon Sep 17 00:00:00 2001
+From: Will Newton <will.newton@linaro.org>
+Date: Sat, 4 Jan 2014 22:15:48 +0000
+Subject: [PATCH 073/158] linux-user: AArch64: Use correct values for FPSR/FPCR
+ in sigcontext
+
+Use the helpers provided for getting the correct FPSR and FPCR
+values for the signal context.
+
+Signed-off-by: Will Newton <will.newton@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ linux-user/signal.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/linux-user/signal.c b/linux-user/signal.c
+index 4e7148a..6c74b18 100644
+--- a/linux-user/signal.c
++++ b/linux-user/signal.c
+@@ -1189,8 +1189,8 @@ static int target_setup_sigframe(struct target_rt_sigframe *sf,
+         __put_user(env->vfp.regs[i * 2 + 1], &aux->fpsimd.vregs[i * 2 + 1]);
+ #endif
+     }
+-    __put_user(/*env->fpsr*/0, &aux->fpsimd.fpsr);
+-    __put_user(/*env->fpcr*/0, &aux->fpsimd.fpcr);
++    __put_user(vfp_get_fpsr(env), &aux->fpsimd.fpsr);
++    __put_user(vfp_get_fpcr(env), &aux->fpsimd.fpcr);
+     __put_user(TARGET_FPSIMD_MAGIC, &aux->fpsimd.head.magic);
+     __put_user(sizeof(struct target_fpsimd_context),
+             &aux->fpsimd.head.size);
+@@ -1209,7 +1209,7 @@ static int target_restore_sigframe(CPUARMState *env,
+     int i;
+     struct target_aux_context *aux =
+         (struct target_aux_context *)sf->uc.tuc_mcontext.__reserved;
+-    uint32_t magic, size;
++    uint32_t magic, size, fpsr, fpcr;
+     uint64_t pstate;
+ 
+     target_to_host_sigset(&set, &sf->uc.tuc_sigmask);
+@@ -1235,6 +1235,10 @@ static int target_restore_sigframe(CPUARMState *env,
+     for (i = 0; i < 32 * 2; i++) {
+         __get_user(env->vfp.regs[i], &aux->fpsimd.vregs[i]);
+     }
++    __get_user(fpsr, &aux->fpsimd.fpsr);
++    vfp_set_fpsr(env, fpsr);
++    __get_user(fpcr, &aux->fpsimd.fpcr);
++    vfp_set_fpcr(env, fpcr);
+ 
+     return 0;
+ }
+-- 
+1.9.rc1
+

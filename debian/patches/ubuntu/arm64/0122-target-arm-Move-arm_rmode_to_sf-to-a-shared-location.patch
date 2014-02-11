@@ -1,0 +1,111 @@
+From 7fb5e584a4df607a32756ccccd0e97c9631a1670 Mon Sep 17 00:00:00 2001
+From: Will Newton <will.newton@linaro.org>
+Date: Fri, 31 Jan 2014 14:47:33 +0000
+Subject: [PATCH 122/158] target-arm: Move arm_rmode_to_sf to a shared
+ location.
+
+This function will be needed for AArch32 ARMv8 support, so move it to
+helper.c where it can be used by both targets. Also moves the code out
+of line, but as it is quite a large function I don't believe this
+should be a significant performance impact.
+
+Signed-off-by: Will Newton <will.newton@linaro.org>
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+---
+ target-arm/cpu.h           |  2 ++
+ target-arm/helper.c        | 28 ++++++++++++++++++++++++++++
+ target-arm/translate-a64.c | 28 ----------------------------
+ 3 files changed, 30 insertions(+), 28 deletions(-)
+
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index 484728f..4d0b2d7 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -500,6 +500,8 @@ enum arm_fprounding {
+     FPROUNDING_ODD
+ };
+ 
++int arm_rmode_to_sf(int rmode);
++
+ enum arm_cpu_mode {
+   ARM_CPU_MODE_USR = 0x10,
+   ARM_CPU_MODE_FIQ = 0x11,
+diff --git a/target-arm/helper.c b/target-arm/helper.c
+index 6b763e9..9c50f9e 100644
+--- a/target-arm/helper.c
++++ b/target-arm/helper.c
+@@ -4445,3 +4445,31 @@ float64 HELPER(rintd)(float64 x, void *fp_status)
+ 
+     return ret;
+ }
++
++/* Convert ARM rounding mode to softfloat */
++int arm_rmode_to_sf(int rmode)
++{
++    switch (rmode) {
++    case FPROUNDING_TIEAWAY:
++        rmode = float_round_ties_away;
++        break;
++    case FPROUNDING_ODD:
++        /* FIXME: add support for TIEAWAY and ODD */
++        qemu_log_mask(LOG_UNIMP, "arm: unimplemented rounding mode: %d\n",
++                      rmode);
++    case FPROUNDING_TIEEVEN:
++    default:
++        rmode = float_round_nearest_even;
++        break;
++    case FPROUNDING_POSINF:
++        rmode = float_round_up;
++        break;
++    case FPROUNDING_NEGINF:
++        rmode = float_round_down;
++        break;
++    case FPROUNDING_ZERO:
++        rmode = float_round_to_zero;
++        break;
++    }
++    return rmode;
++}
+diff --git a/target-arm/translate-a64.c b/target-arm/translate-a64.c
+index 7cfb55b..c22bbb5 100644
+--- a/target-arm/translate-a64.c
++++ b/target-arm/translate-a64.c
+@@ -3608,34 +3608,6 @@ static void disas_data_proc_reg(DisasContext *s, uint32_t insn)
+     }
+ }
+ 
+-/* Convert ARM rounding mode to softfloat */
+-static inline int arm_rmode_to_sf(int rmode)
+-{
+-    switch (rmode) {
+-    case FPROUNDING_TIEAWAY:
+-        rmode = float_round_ties_away;
+-        break;
+-    case FPROUNDING_ODD:
+-        /* FIXME: add support for TIEAWAY and ODD */
+-        qemu_log_mask(LOG_UNIMP, "arm: unimplemented rounding mode: %d\n",
+-                      rmode);
+-    case FPROUNDING_TIEEVEN:
+-    default:
+-        rmode = float_round_nearest_even;
+-        break;
+-    case FPROUNDING_POSINF:
+-        rmode = float_round_up;
+-        break;
+-    case FPROUNDING_NEGINF:
+-        rmode = float_round_down;
+-        break;
+-    case FPROUNDING_ZERO:
+-        rmode = float_round_to_zero;
+-        break;
+-    }
+-    return rmode;
+-}
+-
+ static void handle_fp_compare(DisasContext *s, bool is_double,
+                               unsigned int rn, unsigned int rm,
+                               bool cmp_with_zero, bool signal_all_nans)
+-- 
+1.9.rc1
+

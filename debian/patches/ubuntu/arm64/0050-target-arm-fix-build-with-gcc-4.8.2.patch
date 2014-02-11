@@ -1,0 +1,70 @@
+From 023a4ba162ac466ac1be898f3cb680534a0b672e Mon Sep 17 00:00:00 2001
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 23 Dec 2013 13:33:11 +0200
+Subject: [PATCH 050/158] target-arm: fix build with gcc 4.8.2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+commit 5ce4f35781028ce1aee3341e6002f925fdc7aaf3
+    "target-arm: A64: add set_pc cpu method"
+
+introduces an array aarch64_cpus which is zero
+size if this code is built without CONFIG_USER_ONLY.
+In particular an attempt to iterate over this array produces a warning
+under gcc 4.8.2:
+
+ CC    aarch64-softmmu/target-arm/cpu64.o
+/scm/qemu/target-arm/cpu64.c: In function ‘aarch64_cpu_register_types’:
+/scm/qemu/target-arm/cpu64.c:124:5: error: comparison of unsigned
+expression < 0 is always false [-Werror=type-limits]
+     for (i = 0; i < ARRAY_SIZE(aarch64_cpus); i++) {
+     ^
+cc1: all warnings being treated as errors
+
+This is the result of ARRAY_SIZE being an unsigned type,
+causing "i" to be promoted to unsigned int as well.
+
+As zero size arrays are a gcc extension, it seems
+cleanest to add a dummy element with NULL name,
+and test for it during registration.
+
+We'll be able to drop this when we add more CPUs.
+
+Cc: Alexander Graf <agraf@suse.de>
+Cc: Peter Maydell <peter.maydell@linaro.org>
+Cc: Richard Henderson <rth@twiddle.net>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Reviewed-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Stefan Weil <sw@weilnetz.de>
+---
+ target-arm/cpu64.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/target-arm/cpu64.c b/target-arm/cpu64.c
+index 04ce879..60acd24 100644
+--- a/target-arm/cpu64.c
++++ b/target-arm/cpu64.c
+@@ -58,6 +58,7 @@ static const ARMCPUInfo aarch64_cpus[] = {
+ #ifdef CONFIG_USER_ONLY
+     { .name = "any",         .initfn = aarch64_any_initfn },
+ #endif
++    { .name = NULL } /* TODO: drop when we support more CPUs */
+ };
+ 
+ static void aarch64_cpu_initfn(Object *obj)
+@@ -100,6 +101,11 @@ static void aarch64_cpu_register(const ARMCPUInfo *info)
+         .class_init = info->class_init,
+     };
+ 
++    /* TODO: drop when we support more CPUs - all entries will have name set */
++    if (!info->name) {
++        return;
++    }
++
+     type_info.name = g_strdup_printf("%s-" TYPE_ARM_CPU, info->name);
+     type_register(&type_info);
+     g_free((void *)type_info.name);
+-- 
+1.9.rc1
+

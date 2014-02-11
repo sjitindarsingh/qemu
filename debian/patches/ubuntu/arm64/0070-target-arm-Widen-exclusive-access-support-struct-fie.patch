@@ -1,0 +1,292 @@
+From beb2138b53442ea44544b9661d159bd40e97be90 Mon Sep 17 00:00:00 2001
+From: Peter Maydell <peter.maydell@linaro.org>
+Date: Sat, 4 Jan 2014 22:15:47 +0000
+Subject: [PATCH 070/158] target-arm: Widen exclusive-access support struct
+ fields to 64 bits
+
+In preparation for adding support for A64 load/store exclusive instructions,
+widen the fields in the CPU state struct that deal with address and data values
+for exclusives from 32 to 64 bits. Although in practice AArch64 and AArch32
+exclusive accesses will be generally separate there are some odd theoretical
+corner cases (eg you should be able to do the exclusive load in AArch32, take
+an exception to AArch64 and successfully do the store exclusive there), and it's
+also easier to reason about.
+
+The changes in semantics for the variables are:
+ exclusive_addr  -> extended to 64 bits; -1ULL for "monitor lost",
+   otherwise always < 2^32 for AArch32
+ exclusive_val   -> extended to 64 bits. 64 bit exclusives in AArch32 now
+   use the high half of exclusive_val instead of a separate exclusive_high
+ exclusive_high  -> is no longer used in AArch32; extended to 64 bits as
+   it will be needed for AArch64's pair-of-64-bit-values exclusives.
+ exclusive_test  -> extended to 64 bits, as it is an address. Since this is
+   a linux-user-only field, in arm-linux-user it will always have the top
+   32 bits zero.
+ exclusive_info  -> stays 32 bits, as it is neither data nor address, but
+   simply holds register indexes etc. AArch64 will be able to fit all its
+   information into 32 bits as well.
+
+Note that the refactoring of gen_store_exclusive() coincidentally fixes
+a minor bug where ldrexd would incorrectly update the first CPU register
+even if the load for the second register faulted.
+
+Signed-off-by: Peter Maydell <peter.maydell@linaro.org>
+Reviewed-by: Richard Henderson <rth@twiddle.net>
+---
+ linux-user/main.c      | 25 +++++++++++--------
+ target-arm/cpu.h       |  8 +++----
+ target-arm/machine.c   | 12 +++++-----
+ target-arm/translate.c | 65 ++++++++++++++++++++++++++++++--------------------
+ 4 files changed, 64 insertions(+), 46 deletions(-)
+
+diff --git a/linux-user/main.c b/linux-user/main.c
+index a7c181a..13ebca4 100644
+--- a/linux-user/main.c
++++ b/linux-user/main.c
+@@ -589,16 +589,21 @@ do_kernel_trap(CPUARMState *env)
+ 
+ static int do_strex(CPUARMState *env)
+ {
+-    uint32_t val;
++    uint64_t val;
+     int size;
+     int rc = 1;
+     int segv = 0;
+     uint32_t addr;
+     start_exclusive();
+-    addr = env->exclusive_addr;
+-    if (addr != env->exclusive_test) {
++    if (env->exclusive_addr != env->exclusive_test) {
+         goto fail;
+     }
++    /* We know we're always AArch32 so the address is in uint32_t range
++     * unless it was the -1 exclusive-monitor-lost value (which won't
++     * match exclusive_test above).
++     */
++    assert(extract64(env->exclusive_addr, 32, 32) == 0);
++    addr = env->exclusive_addr;
+     size = env->exclusive_info & 0xf;
+     switch (size) {
+     case 0:
+@@ -618,19 +623,19 @@ static int do_strex(CPUARMState *env)
+         env->cp15.c6_data = addr;
+         goto done;
+     }
+-    if (val != env->exclusive_val) {
+-        goto fail;
+-    }
+     if (size == 3) {
+-        segv = get_user_u32(val, addr + 4);
++        uint32_t valhi;
++        segv = get_user_u32(valhi, addr + 4);
+         if (segv) {
+             env->cp15.c6_data = addr + 4;
+             goto done;
+         }
+-        if (val != env->exclusive_high) {
+-            goto fail;
+-        }
++        val = deposit64(val, 32, 32, valhi);
++    }
++    if (val != env->exclusive_val) {
++        goto fail;
+     }
++
+     val = env->regs[(env->exclusive_info >> 8) & 0xf];
+     switch (size) {
+     case 0:
+diff --git a/target-arm/cpu.h b/target-arm/cpu.h
+index 2cde961..ec865ef 100644
+--- a/target-arm/cpu.h
++++ b/target-arm/cpu.h
+@@ -282,11 +282,11 @@ typedef struct CPUARMState {
+         float_status fp_status;
+         float_status standard_fp_status;
+     } vfp;
+-    uint32_t exclusive_addr;
+-    uint32_t exclusive_val;
+-    uint32_t exclusive_high;
++    uint64_t exclusive_addr;
++    uint64_t exclusive_val;
++    uint64_t exclusive_high;
+ #if defined(CONFIG_USER_ONLY)
+-    uint32_t exclusive_test;
++    uint64_t exclusive_test;
+     uint32_t exclusive_info;
+ #endif
+ 
+diff --git a/target-arm/machine.c b/target-arm/machine.c
+index 3a41dd0..08ec32c 100644
+--- a/target-arm/machine.c
++++ b/target-arm/machine.c
+@@ -222,9 +222,9 @@ static int cpu_post_load(void *opaque, int version_id)
+ 
+ const VMStateDescription vmstate_arm_cpu = {
+     .name = "cpu",
+-    .version_id = 13,
+-    .minimum_version_id = 13,
+-    .minimum_version_id_old = 13,
++    .version_id = 14,
++    .minimum_version_id = 14,
++    .minimum_version_id_old = 14,
+     .pre_save = cpu_pre_save,
+     .post_load = cpu_post_load,
+     .fields = (VMStateField[]) {
+@@ -253,9 +253,9 @@ const VMStateDescription vmstate_arm_cpu = {
+         VMSTATE_VARRAY_INT32(cpreg_vmstate_values, ARMCPU,
+                              cpreg_vmstate_array_len,
+                              0, vmstate_info_uint64, uint64_t),
+-        VMSTATE_UINT32(env.exclusive_addr, ARMCPU),
+-        VMSTATE_UINT32(env.exclusive_val, ARMCPU),
+-        VMSTATE_UINT32(env.exclusive_high, ARMCPU),
++        VMSTATE_UINT64(env.exclusive_addr, ARMCPU),
++        VMSTATE_UINT64(env.exclusive_val, ARMCPU),
++        VMSTATE_UINT64(env.exclusive_high, ARMCPU),
+         VMSTATE_UINT64(env.features, ARMCPU),
+         VMSTATE_TIMER(gt_timer[GTIMER_PHYS], ARMCPU),
+         VMSTATE_TIMER(gt_timer[GTIMER_VIRT], ARMCPU),
+diff --git a/target-arm/translate.c b/target-arm/translate.c
+index e00c650..dfc3fe8 100644
+--- a/target-arm/translate.c
++++ b/target-arm/translate.c
+@@ -67,11 +67,10 @@ TCGv_ptr cpu_env;
+ static TCGv_i64 cpu_V0, cpu_V1, cpu_M0;
+ static TCGv_i32 cpu_R[16];
+ static TCGv_i32 cpu_CF, cpu_NF, cpu_VF, cpu_ZF;
+-static TCGv_i32 cpu_exclusive_addr;
+-static TCGv_i32 cpu_exclusive_val;
+-static TCGv_i32 cpu_exclusive_high;
++static TCGv_i64 cpu_exclusive_addr;
++static TCGv_i64 cpu_exclusive_val;
+ #ifdef CONFIG_USER_ONLY
+-static TCGv_i32 cpu_exclusive_test;
++static TCGv_i64 cpu_exclusive_test;
+ static TCGv_i32 cpu_exclusive_info;
+ #endif
+ 
+@@ -102,14 +101,12 @@ void arm_translate_init(void)
+     cpu_VF = tcg_global_mem_new_i32(TCG_AREG0, offsetof(CPUARMState, VF), "VF");
+     cpu_ZF = tcg_global_mem_new_i32(TCG_AREG0, offsetof(CPUARMState, ZF), "ZF");
+ 
+-    cpu_exclusive_addr = tcg_global_mem_new_i32(TCG_AREG0,
++    cpu_exclusive_addr = tcg_global_mem_new_i64(TCG_AREG0,
+         offsetof(CPUARMState, exclusive_addr), "exclusive_addr");
+-    cpu_exclusive_val = tcg_global_mem_new_i32(TCG_AREG0,
++    cpu_exclusive_val = tcg_global_mem_new_i64(TCG_AREG0,
+         offsetof(CPUARMState, exclusive_val), "exclusive_val");
+-    cpu_exclusive_high = tcg_global_mem_new_i32(TCG_AREG0,
+-        offsetof(CPUARMState, exclusive_high), "exclusive_high");
+ #ifdef CONFIG_USER_ONLY
+-    cpu_exclusive_test = tcg_global_mem_new_i32(TCG_AREG0,
++    cpu_exclusive_test = tcg_global_mem_new_i64(TCG_AREG0,
+         offsetof(CPUARMState, exclusive_test), "exclusive_test");
+     cpu_exclusive_info = tcg_global_mem_new_i32(TCG_AREG0,
+         offsetof(CPUARMState, exclusive_info), "exclusive_info");
+@@ -6744,30 +6741,34 @@ static void gen_load_exclusive(DisasContext *s, int rt, int rt2,
+     default:
+         abort();
+     }
+-    tcg_gen_mov_i32(cpu_exclusive_val, tmp);
+-    store_reg(s, rt, tmp);
++
+     if (size == 3) {
+         TCGv_i32 tmp2 = tcg_temp_new_i32();
++        TCGv_i32 tmp3 = tcg_temp_new_i32();
++
+         tcg_gen_addi_i32(tmp2, addr, 4);
+-        tmp = tcg_temp_new_i32();
+-        gen_aa32_ld32u(tmp, tmp2, IS_USER(s));
++        gen_aa32_ld32u(tmp3, tmp2, IS_USER(s));
+         tcg_temp_free_i32(tmp2);
+-        tcg_gen_mov_i32(cpu_exclusive_high, tmp);
+-        store_reg(s, rt2, tmp);
++        tcg_gen_concat_i32_i64(cpu_exclusive_val, tmp, tmp3);
++        store_reg(s, rt2, tmp3);
++    } else {
++        tcg_gen_extu_i32_i64(cpu_exclusive_val, tmp);
+     }
+-    tcg_gen_mov_i32(cpu_exclusive_addr, addr);
++
++    store_reg(s, rt, tmp);
++    tcg_gen_extu_i32_i64(cpu_exclusive_addr, addr);
+ }
+ 
+ static void gen_clrex(DisasContext *s)
+ {
+-    tcg_gen_movi_i32(cpu_exclusive_addr, -1);
++    tcg_gen_movi_i64(cpu_exclusive_addr, -1);
+ }
+ 
+ #ifdef CONFIG_USER_ONLY
+ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
+                                 TCGv_i32 addr, int size)
+ {
+-    tcg_gen_mov_i32(cpu_exclusive_test, addr);
++    tcg_gen_extu_i32_i64(cpu_exclusive_test, addr);
+     tcg_gen_movi_i32(cpu_exclusive_info,
+                      size | (rd << 4) | (rt << 8) | (rt2 << 12));
+     gen_exception_insn(s, 4, EXCP_STREX);
+@@ -6777,6 +6778,7 @@ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
+                                 TCGv_i32 addr, int size)
+ {
+     TCGv_i32 tmp;
++    TCGv_i64 val64, extaddr;
+     int done_label;
+     int fail_label;
+ 
+@@ -6788,7 +6790,11 @@ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
+        } */
+     fail_label = gen_new_label();
+     done_label = gen_new_label();
+-    tcg_gen_brcond_i32(TCG_COND_NE, addr, cpu_exclusive_addr, fail_label);
++    extaddr = tcg_temp_new_i64();
++    tcg_gen_extu_i32_i64(extaddr, addr);
++    tcg_gen_brcond_i64(TCG_COND_NE, extaddr, cpu_exclusive_addr, fail_label);
++    tcg_temp_free_i64(extaddr);
++
+     tmp = tcg_temp_new_i32();
+     switch (size) {
+     case 0:
+@@ -6804,17 +6810,24 @@ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
+     default:
+         abort();
+     }
+-    tcg_gen_brcond_i32(TCG_COND_NE, tmp, cpu_exclusive_val, fail_label);
+-    tcg_temp_free_i32(tmp);
++
++    val64 = tcg_temp_new_i64();
+     if (size == 3) {
+         TCGv_i32 tmp2 = tcg_temp_new_i32();
++        TCGv_i32 tmp3 = tcg_temp_new_i32();
+         tcg_gen_addi_i32(tmp2, addr, 4);
+-        tmp = tcg_temp_new_i32();
+-        gen_aa32_ld32u(tmp, tmp2, IS_USER(s));
++        gen_aa32_ld32u(tmp3, tmp2, IS_USER(s));
+         tcg_temp_free_i32(tmp2);
+-        tcg_gen_brcond_i32(TCG_COND_NE, tmp, cpu_exclusive_high, fail_label);
+-        tcg_temp_free_i32(tmp);
++        tcg_gen_concat_i32_i64(val64, tmp, tmp3);
++        tcg_temp_free_i32(tmp3);
++    } else {
++        tcg_gen_extu_i32_i64(val64, tmp);
+     }
++    tcg_temp_free_i32(tmp);
++
++    tcg_gen_brcond_i64(TCG_COND_NE, val64, cpu_exclusive_val, fail_label);
++    tcg_temp_free_i64(val64);
++
+     tmp = load_reg(s, rt);
+     switch (size) {
+     case 0:
+@@ -6842,7 +6855,7 @@ static void gen_store_exclusive(DisasContext *s, int rd, int rt, int rt2,
+     gen_set_label(fail_label);
+     tcg_gen_movi_i32(cpu_R[rd], 1);
+     gen_set_label(done_label);
+-    tcg_gen_movi_i32(cpu_exclusive_addr, -1);
++    tcg_gen_movi_i64(cpu_exclusive_addr, -1);
+ }
+ #endif
+ 
+-- 
+1.9.rc1
+
