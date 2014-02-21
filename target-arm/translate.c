@@ -2737,9 +2737,9 @@ static int handle_vminmaxnm(uint32_t insn, uint32_t rd, uint32_t rn,
         tcg_gen_ld_f64(frn, cpu_env, vfp_reg_offset(dp, rn));
         tcg_gen_ld_f64(frm, cpu_env, vfp_reg_offset(dp, rm));
         if (vmin) {
-            gen_helper_vfp_minnmd(dest, frn, frm, fpst);
+            gen_helper_vfp_minnumd(dest, frn, frm, fpst);
         } else {
-            gen_helper_vfp_maxnmd(dest, frn, frm, fpst);
+            gen_helper_vfp_maxnumd(dest, frn, frm, fpst);
         }
         tcg_gen_st_f64(dest, cpu_env, vfp_reg_offset(dp, rd));
         tcg_temp_free_i64(frn);
@@ -2755,9 +2755,9 @@ static int handle_vminmaxnm(uint32_t insn, uint32_t rd, uint32_t rn,
         tcg_gen_ld_f32(frn, cpu_env, vfp_reg_offset(dp, rn));
         tcg_gen_ld_f32(frm, cpu_env, vfp_reg_offset(dp, rm));
         if (vmin) {
-            gen_helper_vfp_minnms(dest, frn, frm, fpst);
+            gen_helper_vfp_minnums(dest, frn, frm, fpst);
         } else {
-            gen_helper_vfp_maxnms(dest, frn, frm, fpst);
+            gen_helper_vfp_maxnums(dest, frn, frm, fpst);
         }
         tcg_gen_st_f32(dest, cpu_env, vfp_reg_offset(dp, rd));
         tcg_temp_free_i32(frn);
@@ -5129,9 +5129,9 @@ static int disas_neon_data_insn(CPUARMState * env, DisasContext *s, uint32_t ins
         {
             TCGv_ptr fpstatus = get_fpstatus_ptr(1);
             if (size == 0) {
-                gen_helper_neon_max_f32(tmp, tmp, tmp2, fpstatus);
+                gen_helper_vfp_maxs(tmp, tmp, tmp2, fpstatus);
             } else {
-                gen_helper_neon_min_f32(tmp, tmp, tmp2, fpstatus);
+                gen_helper_vfp_mins(tmp, tmp, tmp2, fpstatus);
             }
             tcg_temp_free_ptr(fpstatus);
             break;
@@ -5141,9 +5141,9 @@ static int disas_neon_data_insn(CPUARMState * env, DisasContext *s, uint32_t ins
                 /* VMAXNM/VMINNM */
                 TCGv_ptr fpstatus = get_fpstatus_ptr(1);
                 if (size == 0) {
-                    gen_helper_vfp_maxnms(tmp, tmp, tmp2, fpstatus);
+                    gen_helper_vfp_maxnums(tmp, tmp, tmp2, fpstatus);
                 } else {
-                    gen_helper_vfp_minnms(tmp, tmp, tmp2, fpstatus);
+                    gen_helper_vfp_minnums(tmp, tmp, tmp2, fpstatus);
                 }
                 tcg_temp_free_ptr(fpstatus);
             } else {
