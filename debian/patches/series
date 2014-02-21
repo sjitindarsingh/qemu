@@ -231,3 +231,4 @@ ubuntu/arm64/0158-disas-Implement-disassembly-output-for-A64.patch
 ubuntu/arm64/force-aarch64-uname-to-3.7.0-to-appease-glibc
 ubuntu/target-ppc-add-stubs-for-kvm-breakpoints
 ubuntu/CVE-2013-4377.patch
+ubuntu/linux-user-Implement-sendmmsg-syscall.patch

@@ -1,3 +1,18 @@
+qemu (1.7.0+dfsg-3ubuntu4) trusty; urgency=medium
+
+  [ Steve Langasek ]
+  * Merge debian/control with unreleased Debian branch: our architecture
+    lists should now be in sync.
+
+  [ Dann Frazier ]
+  * ubuntu/linux-user-Implement-sendmmsg-syscall.patch: Fix user mode DNS
+    on arm64 and maybe others. (LP: #1284344)
+
+  [ Serge Hallyn ]
+  * Move the OVMF.fd link to the ovmf package.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 21 Feb 2014 12:14:53 -0800
+
 qemu (1.7.0+dfsg-3ubuntu3) trusty; urgency=medium
 
   * Add ppc64el to the architecture list (supposedly added in the previous
