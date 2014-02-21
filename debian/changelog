@@ -1,3 +1,10 @@
+qemu (1.7.0+dfsg-3ubuntu3) trusty; urgency=medium
+
+  * Add ppc64el to the architecture list (supposedly added in the previous
+    upload, but really wasn't).
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Thu, 20 Feb 2014 23:40:07 -0800
+
 qemu (1.7.0+dfsg-3ubuntu2) trusty; urgency=medium
 
   * Backport changes to enable qemu-user-static support for aarch64
