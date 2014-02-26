@@ -1,3 +1,32 @@
+qemu (2.0.0~rc1+dfsg-0ubuntu1) trusty; urgency=medium
+
+  * Merge 2.0.0-rc1
+  * debian/rules: consolidate ppc filter entries.
+  * Move qemu-system-arch64 into qemu-system-arm
+  * debian/patches/define-trusty-machine-type.patch: define a trusty machine
+    type, currently the same as pc-i440fx-2.0, to put is in a better position
+    to enable live migrations from trusty onward.  (LP: #1294823)
+  * debian/control: build-dep on libfdt >= 1.4.0  (LP: #1295072)
+  * Merge latest upstream git to commit dc9528f
+  * Debian/rules:
+    - remove -enable-uname-release=2.6.32
+    - don't make the aarch64 target Ubuntu-specific.
+  * Remove patches which are now upstream:
+    - fix-smb-security-share.patch
+    - slirp-smb-redirect-port-445-too.patch 
+    - linux-user-Implement-sendmmsg-syscall.patch (better version is upstream)
+    - signal-added-a-wrapper-for-sigprocmask-function.patch
+    - ubuntu/signal-sigsegv-protection-on-do_sigprocmask.patch
+    - ubuntu/Don-t-block-SIGSEGV-at-more-places.patch
+    - ubuntu/ppc-force-cpu-threads-count-to-be-power-of-2.patch
+  * add link for /usr/share/qemu/bios-256k.bin
+  * Remove all linaro patches.
+  * Remove all arm64/ patches.  Many but not all are upstream.
+  * Remove CVE-2013-4377.patch which is upstream.
+  * debian/control-in: don't make qemu-system-aarch64 ubuntu-specific
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Tue, 25 Feb 2014 22:31:43 -0600
+
 qemu (1.7.0+dfsg-3ubuntu7) trusty; urgency=low
 
   * No-change rebuild to build with libxen-4.4.

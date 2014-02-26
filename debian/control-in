@@ -36,7 +36,7 @@ Build-Depends: debhelper (>= 9),
 # --enable-curl
  libcurl4-gnutls-dev,
 # --enable-fdt
- libfdt-dev,
+ libfdt-dev (>= 1.4.0),
 # --enable-vnc-tls
 # --enable-vnc-ws
  libgnutls-dev,
@@ -222,15 +222,17 @@ Multi-Arch: foreign
 Depends: ${shlibs:Depends}, ${misc:Depends}, qemu-system-common, qemu-keymaps,
 Recommends: qemu-utils
 Suggests: samba, vde2
-Provides: ${sysprovides:arm}
+Provides: ${sysprovides:arm}, ${sysprovides:arm64}
 Breaks: qemu-system (<< 1.3.0+dfsg-5),
 :ubuntu: qemu-common (<< 1.3.0+dfsg-5),
 :ubuntu: qemu-kvm (<< 1.2.0.dfsg-1),
 :ubuntu: kvm (<< 1.3.0+dfsg-5),
+:ubuntu: qemu-system-aarch64 (<< 2.0.0~rc1+dfsg-0ubuntu1)
 Replaces: qemu-system (<< 1.3.0+dfsg-5),
 :ubuntu: qemu-common (<< 1.3.0+dfsg-5),
 :ubuntu: qemu-kvm (<< 1.2.0.dfsg-1),
 :ubuntu: kvm (<< 1.3.0+dfsg-5),
+:ubuntu: qemu-system-aarch64 (<< 2.0.0~rc1+dfsg-0ubuntu1)
 Description: QEMU full system emulation binaries (arm)
  QEMU is a fast processor emulator: currently the package supports
  ARM emulation. By using dynamic translation it achieves
@@ -470,33 +472,14 @@ Description: QEMU Full virtualization on x86 hardware (transitional package)
 :ubuntu: to the qemu-keymaps package.  Once this package and its dependencies are
 :ubuntu: installed you can safely remove it.
 
-:ubuntu:Package: qemu-system-aarch64
-:ubuntu:Architecture: arm64
-:ubuntu:Multi-Arch: foreign
-:ubuntu:Depends: ${shlibs:Depends}, ${misc:Depends},
-:ubuntu: qemu-system-common (>= ${source:Version}), qemu-keymaps (>= ${source:Upstream-Version}),
-:ubuntu:Provides: ${sysprovides:arm64}
-:ubuntu:Breaks:
-:ubuntu:  qemu-common (<< 1.3.0+dfsg-5),
-:ubuntu:  qemu-system (<< 1.3.0+dfsg-5),
-:ubuntu:  qemu-kvm (<< 1.2.0.dfsg-1),
-:ubuntu:  kvm (<< 1.3.0+dfsg-5)
-:ubuntu:Replaces:
-:ubuntu:  qemu-common (<< 1.3.0+dfsg-5),
-:ubuntu:  qemu-system (<< 1.3.0+dfsg-5),
-:ubuntu:  qemu-kvm (<< 1.2.0.dfsg-1),
-:ubuntu:  kvm (<< 1.3.0+dfsg-5)
-:ubuntu:Recommends: qemu-utils
-:ubuntu:Suggests: samba, vde2
-:ubuntu:Description: QEMU full system emulation binaries (aarch64)
-:ubuntu: QEMU is a fast processor emulator: currently the package supports
-:ubuntu: ARM emulation. By using dynamic translation it achieves
-:ubuntu: reasonable speed while being easy to port on new host CPUs.
-:ubuntu: .
-:ubuntu: This package provides the full system emulation binaries to emulate
-:ubuntu: the following aarch64 hardware: ${sysarch:aarch64}.
-:ubuntu: .
-:ubuntu: In system emulation mode QEMU emulates a full system, including a processor
-:ubuntu: and various peripherals.  It enables easier testing and debugging of system
-:ubuntu: code.  It can also be used to provide virtual hosting of several virtual
-:ubuntu: machines on a single server.
+Package: qemu-system-aarch64
+Architecture: arm64
+Multi-Arch: foreign
+Depends: ${misc:Depends}, qemu-system-arm (>= 2.0~git-20140403.de03c31-0ubuntu2)
+Description: QEMU full system emulation binaries (aarch64)
+ QEMU is a fast processor emulator: currently the package supports
+ ARM emulation. By using dynamic translation it achieves
+ reasonable speed while being easy to port on new host CPUs.
+ .
+ This is a transition package as qemu-system-aarch64 has been moved into
+ qemu-system-arm.
