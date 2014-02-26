@@ -390,9 +390,7 @@ static void pc_xen_hvm_init(QEMUMachineInitArgs *args)
 static QEMUMachine pc_i440fx_machine_v2_0 = {
     PC_I440FX_2_0_MACHINE_OPTIONS,
     .name = "pc-i440fx-2.0",
-    .alias = "pc",
     .init = pc_init_pci,
-    .is_default = 1,
 };
 
 #define PC_I440FX_1_7_MACHINE_OPTIONS PC_I440FX_MACHINE_OPTIONS
@@ -839,3 +837,23 @@ static void pc_machine_init(void)
 }
 
 machine_init(pc_machine_init);
+
+/* Ubuntu machine types */
+
+static QEMUMachine pc_machine_trusty = {
+	PC_DEFAULT_MACHINE_OPTIONS,
+	.default_machine_opts = "firmware=bios-256k.bin",
+	.hot_add_cpu = pc_hot_add_cpu,
+	.name = "trusty",
+	.alias = "pc",
+	.desc = "Ubuntu 14.04 PC (i440FX + PIIX, 1996)", 
+	.init = pc_init_pci,
+	.is_default = 1,
+};
+
+static void ubuntu_machine_init(void)
+{
+	qemu_register_machine(&pc_machine_trusty);
+}
+
+machine_init(ubuntu_machine_init);
