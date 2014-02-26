@@ -392,6 +392,8 @@ static void omap_intc_class_init(ObjectClass *klass, void *data)
     k->init = omap_intc_init;
     dc->reset = omap_inth_reset;
     dc->props = omap_intc_properties;
+    /* Reason: pointer property "clk" */
+    dc->cannot_instantiate_with_device_add_yet = true;
 }
 
 static const TypeInfo omap_intc_info = {
@@ -414,11 +416,7 @@ static uint64_t omap2_inth_read(void *opaque, hwaddr addr,
             offset &= ~0x60;
             bank = &s->bank[bank_no];
         } else {
-            /* Linux reads the nonexistent interrupt status register at 0xf8
-             * every time through its interrupt handler, so don't actually
-             * warn about it because it swamps the console with output.
-             */
-            /* OMAP_BAD_REG(addr); */
+            OMAP_BAD_REG(addr);
             return 0;
         }
     }
@@ -641,6 +639,8 @@ static void omap2_intc_class_init(ObjectClass *klass, void *data)
     k->init = omap2_intc_init;
     dc->reset = omap_inth_reset;
     dc->props = omap2_intc_properties;
+    /* Reason: pointer property "iclk", "fclk" */
+    dc->cannot_instantiate_with_device_add_yet = true;
 }
 
 static const TypeInfo omap2_intc_info = {

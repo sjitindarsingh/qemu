@@ -75,12 +75,6 @@ struct omap_gp_timer_s {
 #define GPT_OVF_IT	(1 << 1)
 #define GPT_MAT_IT	(1 << 0)
 
-/*if the clock source of gptimer changes, rate must be regenerated*/
-void omap_gp_timer_change_clk(struct omap_gp_timer_s *timer)
-{
-    timer->rate = omap_clk_getrate(timer->clk);
-}
-
 static inline void omap_gp_timer_intr(struct omap_gp_timer_s *timer, int it)
 {
     if (timer->it_ena & it) {
@@ -106,18 +100,11 @@ static inline void omap_gp_timer_out(struct omap_gp_timer_s *timer, int level)
 
 static inline uint32_t omap_gp_timer_read(struct omap_gp_timer_s *timer)
 {
-    uint64_t distance, rate;
+    uint64_t distance;
 
     if (timer->st && timer->rate) {
         distance = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) - timer->time;
-        /*if ticks_per_sec is bigger than 32bit we cannot use muldiv64*/
-        if (timer->ticks_per_sec > 0xffffffff) {
-            distance /= get_ticks_per_sec() / 1000; /*distance ms*/
-            rate = timer->rate >> (timer->pre ? timer->ptv + 1 : 0);
-            distance = muldiv64(distance, rate, 1000);
-        } else {
-            distance = muldiv64(distance, timer->rate, timer->ticks_per_sec);
-        }
+        distance = muldiv64(distance, timer->rate, timer->ticks_per_sec);
 
         if (distance >= 0xffffffff - timer->val)
             return 0xffffffff;
@@ -137,32 +124,19 @@ static inline void omap_gp_timer_sync(struct omap_gp_timer_s *timer)
 
 static inline void omap_gp_timer_update(struct omap_gp_timer_s *timer)
 {
-    int64_t expires, matches, rate;
+    int64_t expires, matches;
 
     if (timer->st && timer->rate) {
-        if (timer->ticks_per_sec > 0xffffffff) {
-            rate = timer->rate >> (timer->pre ? timer->ptv + 1 : 0);
-            expires = muldiv64(0x100000000ll - timer->val,
-                               get_ticks_per_sec(), rate);
-        } else {
-            expires = muldiv64(0x100000000ll - timer->val,
-                               timer->ticks_per_sec, timer->rate);
-        }
+        expires = muldiv64(0x100000000ll - timer->val,
+                        timer->ticks_per_sec, timer->rate);
         timer_mod(timer->timer, timer->time + expires);
 
         if (timer->ce && timer->match_val >= timer->val) {
-            if (timer->ticks_per_sec > 0xffffffff) {
-                rate = timer->rate >> (timer->pre ? timer->ptv + 1 : 0);
-                matches = muldiv64(timer->match_val - timer->val,
-                                   get_ticks_per_sec(), rate);
-            } else {
-                matches = muldiv64(timer->match_val - timer->val,
-                                   timer->ticks_per_sec, timer->rate);
-            }
+            matches = muldiv64(timer->match_val - timer->val,
+                            timer->ticks_per_sec, timer->rate);
             timer_mod(timer->match, timer->time + matches);
-        } else {
+        } else
             timer_del(timer->match);
-        }
     } else {
         timer_del(timer->timer);
         timer_del(timer->match);

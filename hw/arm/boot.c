@@ -16,6 +16,7 @@
 #include "elf.h"
 #include "sysemu/device_tree.h"
 #include "qemu/config-file.h"
+#include "exec/address-spaces.h"
 
 /* Kernel boot protocol is specified in the kernel docs
  * Documentation/arm/Booting and Documentation/arm64/booting.txt
@@ -169,12 +170,17 @@ static void default_reset_secondary(ARMCPU *cpu,
 {
     CPUARMState *env = &cpu->env;
 
-    stl_phys_notdirty(info->smp_bootreg_addr, 0);
+    stl_phys_notdirty(&address_space_memory, info->smp_bootreg_addr, 0);
     env->regs[15] = info->smp_loader_start;
 }
 
+static inline bool have_dtb(const struct arm_boot_info *info)
+{
+    return info->dtb_filename || info->get_dtb;
+}
+
 #define WRITE_WORD(p, value) do { \
-    stl_phys_notdirty(p, value);  \
+    stl_phys_notdirty(&address_space_memory, p, value);  \
     p += 4;                       \
 } while (0)
 
@@ -335,8 +341,8 @@ static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
         }
     }
 
-    acells = qemu_devtree_getprop_cell(fdt, "/", "#address-cells");
-    scells = qemu_devtree_getprop_cell(fdt, "/", "#size-cells");
+    acells = qemu_fdt_getprop_cell(fdt, "/", "#address-cells");
+    scells = qemu_fdt_getprop_cell(fdt, "/", "#size-cells");
     if (acells == 0 || scells == 0) {
         fprintf(stderr, "dtb file invalid (#address-cells or #size-cells 0)\n");
         goto fail;
@@ -351,17 +357,17 @@ static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
         goto fail;
     }
 
-    rc = qemu_devtree_setprop_sized_cells(fdt, "/memory", "reg",
-                                          acells, binfo->loader_start,
-                                          scells, binfo->ram_size);
+    rc = qemu_fdt_setprop_sized_cells(fdt, "/memory", "reg",
+                                      acells, binfo->loader_start,
+                                      scells, binfo->ram_size);
     if (rc < 0) {
         fprintf(stderr, "couldn't set /memory/reg\n");
         goto fail;
     }
 
     if (binfo->kernel_cmdline && *binfo->kernel_cmdline) {
-        rc = qemu_devtree_setprop_string(fdt, "/chosen", "bootargs",
-                                          binfo->kernel_cmdline);
+        rc = qemu_fdt_setprop_string(fdt, "/chosen", "bootargs",
+                                     binfo->kernel_cmdline);
         if (rc < 0) {
             fprintf(stderr, "couldn't set /chosen/bootargs\n");
             goto fail;
@@ -369,15 +375,15 @@ static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
     }
 
     if (binfo->initrd_size) {
-        rc = qemu_devtree_setprop_cell(fdt, "/chosen", "linux,initrd-start",
-                binfo->initrd_start);
+        rc = qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-start",
+                                   binfo->initrd_start);
         if (rc < 0) {
             fprintf(stderr, "couldn't set /chosen/linux,initrd-start\n");
             goto fail;
         }
 
-        rc = qemu_devtree_setprop_cell(fdt, "/chosen", "linux,initrd-end",
-                    binfo->initrd_start + binfo->initrd_size);
+        rc = qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-end",
+                                   binfo->initrd_start + binfo->initrd_size);
         if (rc < 0) {
             fprintf(stderr, "couldn't set /chosen/linux,initrd-end\n");
             goto fail;
@@ -388,7 +394,7 @@ static int load_dtb(hwaddr addr, const struct arm_boot_info *binfo)
         binfo->modify_dtb(binfo, fdt);
     }
 
-    qemu_devtree_dumpdtb(fdt, size);
+    qemu_fdt_dumpdtb(fdt, size);
 
     cpu_physical_memory_write(addr, fdt, size);
 
@@ -421,7 +427,7 @@ static void do_cpu_reset(void *opaque)
                     env->regs[15] = info->loader_start;
                 }
 
-                if (!info->dtb_filename) {
+                if (!have_dtb(info)) {
                     if (old_param) {
                         set_kernel_args_old(info);
                     } else {
@@ -442,6 +448,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     int initrd_size;
     int is_linux = 0;
     uint64_t elf_entry;
+    int elf_machine;
     hwaddr entry, kernel_load_offset;
     int big_endian;
     static const ARMInsnFixup *primary_loader;
@@ -457,9 +464,11 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
         primary_loader = bootloader_aarch64;
         kernel_load_offset = KERNEL64_LOAD_ADDR;
+        elf_machine = EM_AARCH64;
     } else {
         primary_loader = bootloader;
         kernel_load_offset = KERNEL_LOAD_ADDR;
+        elf_machine = EM_ARM;
     }
 
     info->dtb_filename = qemu_opt_get(qemu_get_machine_opts(), "dtb");
@@ -495,7 +504,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
 
     /* Assume that raw images are linux kernels, and ELF images are not.  */
     kernel_size = load_elf(info->kernel_filename, NULL, NULL, &elf_entry,
-                           NULL, NULL, big_endian, ELF_MACHINE, 1);
+                           NULL, NULL, big_endian, elf_machine, 1);
     entry = elf_entry;
     if (kernel_size < 0) {
         kernel_size = load_uimage(info->kernel_filename, &entry, NULL,
@@ -542,7 +551,7 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
         /* for device tree boot, we pass the DTB directly in r2. Otherwise
          * we point to the kernel args.
          */
-        if (info->dtb_filename || info->get_dtb) {
+        if (have_dtb(info)) {
             /* Place the DTB after the initrd in memory. Note that some
              * kernels will trash anything in the 4K page the initrd
              * ends in, so make sure the DTB isn't caught up in that.

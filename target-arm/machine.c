@@ -88,7 +88,7 @@ static bool m_needed(void *opaque)
     return arm_feature(env, ARM_FEATURE_M);
 }
 
-const VMStateDescription vmstate_m = {
+static const VMStateDescription vmstate_m = {
     .name = "cpu/m",
     .version_id = 1,
     .minimum_version_id = 1,
@@ -238,9 +238,9 @@ const VMStateDescription vmstate_arm_cpu = {
             .offset = 0,
         },
         VMSTATE_UINT32(env.spsr, ARMCPU),
-        VMSTATE_UINT32_ARRAY(env.banked_spsr, ARMCPU, 7),
-        VMSTATE_UINT32_ARRAY(env.banked_r13, ARMCPU, 7),
-        VMSTATE_UINT32_ARRAY(env.banked_r14, ARMCPU, 7),
+        VMSTATE_UINT32_ARRAY(env.banked_spsr, ARMCPU, 6),
+        VMSTATE_UINT32_ARRAY(env.banked_r13, ARMCPU, 6),
+        VMSTATE_UINT32_ARRAY(env.banked_r14, ARMCPU, 6),
         VMSTATE_UINT32_ARRAY(env.usr_regs, ARMCPU, 5),
         VMSTATE_UINT32_ARRAY(env.fiq_regs, ARMCPU, 5),
         /* The length-check must come before the arrays to avoid
