@@ -232,3 +232,6 @@ ubuntu/arm64/force-aarch64-uname-to-3.7.0-to-appease-glibc
 ubuntu/target-ppc-add-stubs-for-kvm-breakpoints
 ubuntu/CVE-2013-4377.patch
 ubuntu/linux-user-Implement-sendmmsg-syscall.patch
+ubuntu/signal-added-a-wrapper-for-sigprocmask-function.patch
+ubuntu/signal-sigsegv-protection-on-do_sigprocmask.patch
+ubuntu/Don-t-block-SIGSEGV-at-more-places.patch

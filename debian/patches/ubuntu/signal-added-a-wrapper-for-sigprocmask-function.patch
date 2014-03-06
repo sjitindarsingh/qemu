@@ -1,0 +1,108 @@
+Description: signal: added a wrapper for sigprocmask function
+ Create a wrapper for signal mask changes initiated by the guest;
+ (this includes syscalls and also the sigreturns from signal.c)
+ this will give us a place to put code which prevents the guest
+ from changing the handling of signals used by QEMU itself
+ internally.
+ .
+ The wrapper is called from all the guest-initiated sigprocmask, but
+ is not called from internal qemu sigprocmask calls.
+Author: Alex Barcelo <abarcelo@ac.upc.edu>
+Origin: https://github.com/susematz/qemu/commit/4e5e1607758841c760cda4652b0ee7a6bc6eb79d
+Last-Update: 2014-02-26
+
+Index: qemu-1.7.0+dfsg/linux-user/qemu.h
+===================================================================
+--- qemu-1.7.0+dfsg.orig/linux-user/qemu.h	2014-02-26 20:19:29.496319000 +0000
++++ qemu-1.7.0+dfsg/linux-user/qemu.h	2014-02-26 20:19:29.488319000 +0000
+@@ -237,6 +237,7 @@
+ long do_sigreturn(CPUArchState *env);
+ long do_rt_sigreturn(CPUArchState *env);
+ abi_long do_sigaltstack(abi_ulong uss_addr, abi_ulong uoss_addr, abi_ulong sp);
++int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+ 
+ #ifdef TARGET_I386
+ /* vm86.c */
+Index: qemu-1.7.0+dfsg/linux-user/signal.c
+===================================================================
+--- qemu-1.7.0+dfsg.orig/linux-user/signal.c	2014-02-26 20:19:29.496319000 +0000
++++ qemu-1.7.0+dfsg/linux-user/signal.c	2014-02-26 20:19:29.488319000 +0000
+@@ -5654,6 +5654,16 @@
+ 
+ #endif
+ 
++/* Wrapper for sigprocmask function
++ * Emulates a sigprocmask in a safe way for the guest. Note that set and oldset
++ * are host signal set, not guest ones. This wraps the sigprocmask host calls
++ * that should be protected (calls originated from guest)
++ */
++int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
++{
++    return sigprocmask(how, set, oldset);
++}
++
+ void process_pending_signals(CPUArchState *cpu_env)
+ {
+     CPUState *cpu = ENV_GET_CPU(cpu_env);
+Index: qemu-1.7.0+dfsg/linux-user/syscall.c
+===================================================================
+--- qemu-1.7.0+dfsg.orig/linux-user/syscall.c	2014-02-26 20:19:29.496319000 +0000
++++ qemu-1.7.0+dfsg/linux-user/syscall.c	2014-02-26 20:19:29.492319000 +0000
+@@ -6075,7 +6075,7 @@
+         {
+             sigset_t cur_set;
+             abi_ulong target_set;
+-            sigprocmask(0, NULL, &cur_set);
++            do_sigprocmask(0, NULL, &cur_set);
+             host_to_target_old_sigset(&target_set, &cur_set);
+             ret = target_set;
+         }
+@@ -6086,10 +6086,10 @@
+         {
+             sigset_t set, oset, cur_set;
+             abi_ulong target_set = arg1;
+-            sigprocmask(0, NULL, &cur_set);
++            do_sigprocmask(0, NULL, &cur_set);
+             target_to_host_old_sigset(&set, &target_set);
+             sigorset(&set, &set, &cur_set);
+-            sigprocmask(SIG_SETMASK, &set, &oset);
++            do_sigprocmask(SIG_SETMASK, &set, &oset);
+             host_to_target_old_sigset(&target_set, &oset);
+             ret = target_set;
+         }
+@@ -6120,7 +6120,7 @@
+             mask = arg2;
+             target_to_host_old_sigset(&set, &mask);
+ 
+-            ret = get_errno(sigprocmask(how, &set, &oldset));
++            ret = get_errno(do_sigprocmask(how, &set, &oldset));
+             if (!is_error(ret)) {
+                 host_to_target_old_sigset(&mask, &oldset);
+                 ret = mask;
+@@ -6154,7 +6154,7 @@
+                 how = 0;
+                 set_ptr = NULL;
+             }
+-            ret = get_errno(sigprocmask(how, set_ptr, &oldset));
++            ret = get_errno(do_sigprocmask(how, set_ptr, &oldset));
+             if (!is_error(ret) && arg3) {
+                 if (!(p = lock_user(VERIFY_WRITE, arg3, sizeof(target_sigset_t), 0)))
+                     goto efault;
+@@ -6194,7 +6194,7 @@
+                 how = 0;
+                 set_ptr = NULL;
+             }
+-            ret = get_errno(sigprocmask(how, set_ptr, &oldset));
++            ret = get_errno(do_sigprocmask(how, set_ptr, &oldset));
+             if (!is_error(ret) && arg3) {
+                 if (!(p = lock_user(VERIFY_WRITE, arg3, sizeof(target_sigset_t), 0)))
+                     goto efault;
+@@ -8198,7 +8198,7 @@
+             }
+             mask = arg2;
+             target_to_host_old_sigset(&set, &mask);
+-            sigprocmask(how, &set, &oldset);
++            do_sigprocmask(how, &set, &oldset);
+             host_to_target_old_sigset(&mask, &oldset);
+             ret = mask;
+         }
