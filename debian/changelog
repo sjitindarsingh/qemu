@@ -1,3 +1,17 @@
+qemu (1.7.0+dfsg-3ubuntu5) trusty; urgency=medium
+
+  [ dann frazier ]
+  * Add patches from the susematz tree to avoid intermittent segfaults:
+     - ubuntu/signal-added-a-wrapper-for-sigprocmask-function.patch
+     - ubuntu/signal-sigsegv-protection-on-do_sigprocmask.patch
+     - ubuntu/Don-t-block-SIGSEGV-at-more-places.patch
+
+  [ Serge Hallyn ]
+  * Modify do_sigprocmask to only change behavior for aarch64.
+    (LP: #1285363)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 06 Mar 2014 16:15:50 -0600
+
 qemu (1.7.0+dfsg-3ubuntu4) trusty; urgency=medium
 
   [ Steve Langasek ]

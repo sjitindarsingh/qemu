@@ -1213,7 +1213,7 @@ static int target_restore_sigframe(CPUARMState *env,
     uint64_t pstate;
 
     target_to_host_sigset(&set, &sf->uc.tuc_sigmask);
-    sigprocmask(SIG_SETMASK, &set, NULL);
+    do_sigprocmask(SIG_SETMASK, &set, NULL);
 
     for (i = 0; i < 31; i++) {
         __get_user(env->xregs[i], &sf->uc.tuc_mcontext.regs[i]);
@@ -5654,6 +5654,37 @@ long do_rt_sigreturn(CPUArchState *env)
 
 #endif
 
+/* Wrapper for sigprocmask function
+ * Emulates a sigprocmask in a safe way for the guest. Note that set and oldset
+ * are host signal set, not guest ones. This wraps the sigprocmask host calls
+ * that should be protected (calls originated from guest)
+ */
+int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
+{
+#ifdef TARGET_AARCH64
+    int ret;
+    sigset_t val;
+    sigset_t *temp;
+    if (set) {
+        val = *set;
+        temp = &val;
+        sigdelset(temp, SIGSEGV);
+    } else {
+        temp = NULL;
+    }
+    ret = sigprocmask(how, temp, oldset);
+
+    /* Force set state of SIGSEGV, may be best for some apps, maybe not so good
+     * This is not required for qemu to work */
+    if (oldset) {
+        sigaddset(oldset, SIGSEGV);
+    }
+    return ret;
+#else
+    return sigprocmask(how, set, oldset);
+#endif
+}
+
 void process_pending_signals(CPUArchState *cpu_env)
 {
     CPUState *cpu = ENV_GET_CPU(cpu_env);
@@ -5722,6 +5753,7 @@ void process_pending_signals(CPUArchState *cpu_env)
             sigaddset(&set, target_to_host_signal(sig));
 
         /* block signals in the handler using Linux */
+        sigdelset(&set, SIGSEGV);
         sigprocmask(SIG_BLOCK, &set, &old_set);
         /* save the previous blocked signal state to restore it at the
            end of the signal execution (see do_sigreturn) */
