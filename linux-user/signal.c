@@ -5661,7 +5661,28 @@ long do_rt_sigreturn(CPUArchState *env)
  */
 int do_sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 {
+#ifdef TARGET_AARCH64
+    int ret;
+    sigset_t val;
+    sigset_t *temp;
+    if (set) {
+        val = *set;
+        temp = &val;
+        sigdelset(temp, SIGSEGV);
+    } else {
+        temp = NULL;
+    }
+    ret = sigprocmask(how, temp, oldset);
+
+    /* Force set state of SIGSEGV, may be best for some apps, maybe not so good
+     * This is not required for qemu to work */
+    if (oldset) {
+        sigaddset(oldset, SIGSEGV);
+    }
+    return ret;
+#else
     return sigprocmask(how, set, oldset);
+#endif
 }
 
 void process_pending_signals(CPUArchState *cpu_env)
