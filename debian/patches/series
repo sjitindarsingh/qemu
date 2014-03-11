@@ -235,3 +235,4 @@ ubuntu/linux-user-Implement-sendmmsg-syscall.patch
 ubuntu/signal-added-a-wrapper-for-sigprocmask-function.patch
 ubuntu/signal-sigsegv-protection-on-do_sigprocmask.patch
 ubuntu/Don-t-block-SIGSEGV-at-more-places.patch
+ubuntu/ppc-force-cpu-threads-count-to-be-power-of-2.patch
