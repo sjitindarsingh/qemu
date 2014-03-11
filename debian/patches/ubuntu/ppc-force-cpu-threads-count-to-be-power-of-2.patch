@@ -1,0 +1,104 @@
+From MAILER-DAEMON Wed Mar 05 03:31:20 2014
+Received: from list by lists.gnu.org with archive (Exim 4.71)
+	id 1WL7EW-0006nt-HG
+	for mharc-qemu-devel@gnu.org; Wed, 05 Mar 2014 03:31:20 -0500
+Received: from eggs.gnu.org ([2001:4830:134:3::10]:41819)
+	by lists.gnu.org with esmtp (Exim 4.71)
+	(envelope-from <bharata@linux.vnet.ibm.com>) id 1WL7EN-0006cV-6M
+	for qemu-devel@nongnu.org; Wed, 05 Mar 2014 03:31:18 -0500
+Received: from Debian-exim by eggs.gnu.org with spam-scanned (Exim 4.71)
+	(envelope-from <bharata@linux.vnet.ibm.com>) id 1WL7ED-0005IX-VM
+	for qemu-devel@nongnu.org; Wed, 05 Mar 2014 03:31:11 -0500
+Received: from e23smtp03.au.ibm.com ([202.81.31.145]:46058)
+	by eggs.gnu.org with esmtp (Exim 4.71)
+	(envelope-from <bharata@linux.vnet.ibm.com>) id 1WL7EC-0005HO-KI
+	for qemu-devel@nongnu.org; Wed, 05 Mar 2014 03:31:01 -0500
+Received: from /spool/local
+	by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use
+	Only! Violators will be prosecuted
+	for <qemu-devel@nongnu.org> from <bharata@linux.vnet.ibm.com>;
+	Wed, 5 Mar 2014 18:30:55 +1000
+Received: from d23dlp01.au.ibm.com (202.81.31.203)
+	by e23smtp03.au.ibm.com (202.81.31.209) with IBM ESMTP SMTP Gateway:
+	Authorized Use Only! Violators will be prosecuted; 
+	Wed, 5 Mar 2014 18:30:53 +1000
+Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
+	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 6398C2CE8056
+	for <qemu-devel@nongnu.org>; Wed,  5 Mar 2014 19:30:22 +1100 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id
+	s258AJ6a61997214
+	for <qemu-devel@nongnu.org>; Wed, 5 Mar 2014 19:10:20 +1100
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id
+	s258UL68025295
+	for <qemu-devel@nongnu.org>; Wed, 5 Mar 2014 19:30:21 +1100
+Received: from bharata.in.ibm.com ([9.124.35.41])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVin) with ESMTP id
+	s258UJv5025228; Wed, 5 Mar 2014 19:30:19 +1100
+From: Bharata B Rao <bharata@linux.vnet.ibm.com>
+To: qemu-devel@nongnu.org
+Date: Wed,  5 Mar 2014 14:02:36 +0530
+Message-Id: <1394008356-15320-1-git-send-email-bharata@linux.vnet.ibm.com>
+X-Mailer: git-send-email 1.7.11.7
+X-TM-AS-MML: disable
+X-Content-Scanned: Fidelis XPS MAILER
+x-cbid: 14030508-6102-0000-0000-00000510CE1B
+X-detected-operating-system: by eggs.gnu.org: GNU/Linux 2.4.x-2.6.x [generic]
+X-Received-From: 202.81.31.145
+Cc: aik@ozlabs.ru, stewart@linux.vnet.ibm.com, agraf@suse.de,
+	Bharata B Rao <bharata@linux.vnet.ibm.com>
+Subject: [Qemu-devel] [PATCH v2] ppc: Force CPU threads count to be a power
+	of 2.
+X-BeenThere: qemu-devel@nongnu.org
+X-Mailman-Version: 2.1.14
+Precedence: list
+List-Id: <qemu-devel.nongnu.org>
+List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
+List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
+List-Post: <mailto:qemu-devel@nongnu.org>
+List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
+List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
+	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
+X-List-Received-Date: Wed, 05 Mar 2014 08:31:18 -0000
+Status: RO
+Content-Length: 1316
+Lines: 38
+
+PowerPC kernel expects the number of SMT threads in a core to be a power
+of 2. Since QEMU doesn't enforce this, it leads to an early guest kernel
+crash if invalid threads count is specified.
+
+Prevent this crash and make it a graceful exit from QEMU itself by
+validating the user supplied threads count.
+
+Signed-off-by: Bharata B Rao <bharata@linux.vnet.ibm.com>
+Reviewed-by: Eric Blake <eblake@redhat.com>
+Reviewed-by: Stewart Smith <stewart@linux.vnet.ibm.com>
+---
+Changes in v2: Use is_power_of_2() from QEMU itself instead of depending
+on libm.
+v1: https://lists.gnu.org/archive/html/qemu-devel/2014-03/msg00660.html
+v0: https://lists.gnu.org/archive/html/qemu-devel/2014-03/msg00355.html
+
+ target-ppc/translate_init.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+Index: qemu/target-ppc/translate_init.c
+===================================================================
+--- qemu.orig/target-ppc/translate_init.c	2014-03-11 00:02:11.806449762 -0500
++++ qemu/target-ppc/translate_init.c	2014-03-11 00:02:11.798449762 -0500
+@@ -7931,6 +7931,12 @@ static void ppc_cpu_realizefn(DeviceStat
+                    max_smt, kvm_enabled() ? "KVM" : "TCG");
+         return;
+     }
++    if (!is_power_of_2(smp_threads)) {
++        error_setg(errp, "Cannot support %d threads on PPC with %s, "
++                   "threads count must be a power of 2.",
++                   smp_threads, kvm_enabled() ? "KVM" : "TCG");
++        return;
++    }
+ #endif
+ 
+     if (kvm_enabled()) {
