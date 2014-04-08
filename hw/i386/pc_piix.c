@@ -844,7 +844,7 @@ static QEMUMachine pc_machine_trusty = {
 	PC_DEFAULT_MACHINE_OPTIONS,
 	.default_machine_opts = "firmware=bios-256k.bin",
 	.hot_add_cpu = pc_hot_add_cpu,
-	.name = "trusty",
+	.name = "pc-i440fx-trusty",
 	.alias = "pc",
 	.desc = "Ubuntu 14.04 PC (i440FX + PIIX, 1996)", 
 	.init = pc_init_pci,

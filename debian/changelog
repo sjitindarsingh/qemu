@@ -1,3 +1,10 @@
+qemu (2.0.0~rc1+dfsg-0ubuntu2) trusty; urgency=medium
+
+  * define-trusty-machine-type.patch: update the trusty machine type name to
+    pc-i440fx-trusty (LP: #1304107)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Tue, 08 Apr 2014 11:49:04 -0500
+
 qemu (2.0.0~rc1+dfsg-0ubuntu1) trusty; urgency=medium
 
   * Merge 2.0.0-rc1
