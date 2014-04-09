@@ -4,3 +4,4 @@ use-fixed-data-path.patch
 move-ncalrpc-dir-to-tmp.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 define-trusty-machine-type.patch
+ubuntu/kvm_physical_sync_dirty_bitmap-ignore-ENOENT-from-kv.patch

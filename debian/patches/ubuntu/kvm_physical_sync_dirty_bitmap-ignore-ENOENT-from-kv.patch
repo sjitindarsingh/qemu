@@ -1,0 +1,36 @@
+From 0d818e334f6db88b2770e9a1076ae1e68c41e460 Mon Sep 17 00:00:00 2001
+From: Serge Hallyn <serge.hallyn@ubuntu.com>
+Date: Tue, 8 Apr 2014 22:14:20 -0500
+Subject: [PATCH 1/1] kvm_physical_sync_dirty_bitmap: ignore ENOENT from
+ kvm_vm_ioctl
+
+ENOENT (iiuc) means the kernel has an empty dirty bitmap for this
+slot.  Don't abort in that case.  This appears to solve the bug
+reported at
+
+https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1303926
+
+Signed-off-by: Serge Hallyn <serge.hallyn@ubuntu.com>
+---
+ kvm-all.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+Index: qemu-2.0.0~rc1+dfsg/kvm-all.c
+===================================================================
+--- qemu-2.0.0~rc1+dfsg.orig/kvm-all.c	2014-04-08 22:28:38.000722081 -0500
++++ qemu-2.0.0~rc1+dfsg/kvm-all.c	2014-04-08 22:29:14.644722904 -0500
+@@ -441,10 +441,13 @@ static int kvm_physical_sync_dirty_bitma
+ 
+         d.slot = mem->slot;
+ 
+-        if (kvm_vm_ioctl(s, KVM_GET_DIRTY_LOG, &d) < 0) {
++        ret = kvm_vm_ioctl(s, KVM_GET_DIRTY_LOG, &d);
++        if (ret < 0 && ret != -ENOENT) {
+             DPRINTF("ioctl failed %d\n", errno);
+             ret = -1;
+             break;
++        } else if (ret < 0) {
++            ret = 0;
+         }
+ 
+         kvm_get_dirty_pages_log_range(section, d.dirty_bitmap);
