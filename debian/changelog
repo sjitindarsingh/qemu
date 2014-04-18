@@ -1,3 +1,97 @@
+qemu (2.0.0+dfsg-2ubuntu1) trusty-proposed; urgency=medium
+
+  * Merge 2.0.0+dfsg-2
+  * Incorporates a fix for spice users (LP: #1309452)
+  * drop patch kvm_physical_sync_dirty_bitmap-ignore-ENOENT-from-kv.patch, as
+    the regression requiring it was reverted for 2.0 upstream.
+  * remove qemu-system-common depends on the qemu-system-aarch64 metapackage
+  * debian/qemu-debootstrap: add arm64
+  * Remaining changes from debian:
+    - keep qemu 'alternative' (not something to change in SRU)
+    - debian/control and debian/control-in:
+      * versioned libfdt-dev check, until libfdt is fixed in precise
+      * enable rbd
+      * remove ovmf Recommends, as it is in multiverse
+      * use libsdl1.2, not libsdl2, since libsdl2-dev is in universe
+      * add a qemu-system-aarch64 metapackage for transitions from trusty
+        development version.  This can be removed after trusty.
+    - qemu-system-common.install: add debian/tmp/usr/lib to install the
+      qemu-bridge-helper
+    - qemu-system-common.postinst: fix /dev/kvm acls
+    - qemu-system-common.preinst: add kvm group if needed
+    - qemu-system-x86.links: add eepro100.rom link, drop links which we
+      have in ipxe-qemu package.
+    - qemu-system-x86.modprobe: set module options for older releases
+    - qemu-system-x86.qemu-kvm.default: defaults for the upstart job
+    - qemu-system-x86.qemu-kvm.upstart: qemu-kvm upstart job
+    - qemu-user-static.postinst-in: remove qemu-arm64-static on arm64
+    - debian/rules
+      * add legacy kvm-spice link
+      * fix ppc and arm slections
+      * add aarch64 to user_targets
+    - debian/patches/ubuntu/define-trusty-machine-type.patch: define a
+      pc-i440fx-trusty machine type as the default.
+    - debian/patches/ubuntu/expose-vmx_qemu64cpu.patch: support nesting by
+      default in qemu64 cpu time.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 18 Apr 2014 09:23:27 -0500
+
+qemu (2.0.0+dfsg-2) unstable; urgency=medium
+
+  * resurrect 02_kfreebsd.patch, -- without it qemu FTBFS on current
+    Debian kFreeBSD system still.
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 17 Apr 2014 22:04:38 +0400
+
+qemu (2.0.0+dfsg-1) unstable; urgency=low
+
+  * 2.0 actually does not close #739589,
+    remove it from from last changelog entry
+  * mention closing of #707629 by 2.0
+  * mention a list of CVE IDs closed by #742730
+  * mention closing of CVE-2013-4377 by 1.7.0-6
+  * do not set --enable-uname-release=2.6.32 for qemu-user anymore
+    (was needed for old ubuntu builders)
+  * removed 02_kfreebsd.patch: it adds configure check for futimens() and
+    futimesat() syscalls on FreeBSD, however futimens() appeared in FreeBSD
+    5.0, and futimesat() in 8.0, and 8.0 is the earliest supported version
+  * kmod dependency is linux-any
+  * doc-grammify-allows-to.patch: fix some lintian warnings
+  * remove alternatives for qemu: different architectures
+    aren't really alternatives and never had been 
+  * update Standards-Version to 3.9.5 (no changes needed)
+  * exec-limit-translation-limiting-in-address_space_translate-to-xen.diff -
+    fixes windows BSOD with virtio-scsi when upgrading from 1.7.0 to 1.7.1
+    or 2.0, among other things
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 17 Apr 2014 18:27:15 +0400
+
+qemu (2.0.0~rc1+dfsg-1exp) experimental; urgency=low
+
+  * new upstream release candidate (2.0-rc1)
+    Closes: #742730 -- image format processing issues:
+     CVE-2014-0142 CVE-2014-0143 CVE-2014-0144 CVE-2014-0145
+     CVE-2014-0146 CVE-2014-0147 CVE-2014-0148
+    Closes: #743235, #707629
+  * refreshed patches:
+    02_kfreebsd.patch
+    retry-pxe-after-efi.patch
+    use-fixed-data-path.patch
+  * removed patches applied upstream:
+    qemu-1.7.1.diff
+    address_space_translate-do-not-cross-page-boundaries.diff
+    fix-smb-security-share.patch
+    slirp-smb-redirect-port-445-too.patch
+    implement-posix-timers.diff
+    linux-user-fixed-s390x-clone-argument-order.patch
+  * added bios-256k.bin symlink and bump seabios dependency to >= 1.7.4-2
+  * recommend ovmf package for qemu-system-x86 to support UEFI boot
+    (Closes: #714249)
+  * switch from sdl1 to sdl2 (build-depend on libsdl2-dev)
+  * output last 50 lines of config.log in case configure failed
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 05 Apr 2014 16:23:48 +0400
+
 qemu (2.0.0~rc1+dfsg-0ubuntu3) trusty; urgency=medium
 
   * d/p/ubuntu/kvm_physical_sync_dirty_bitmap-ignore-ENOENT-from-kv.patch

@@ -14,10 +14,8 @@ in the source tarball and so always uses the right ROMs.
 
 /mjt
 
-Index: qemu-2.0~git-20140327.3768d50/vl.c
-===================================================================
---- qemu-2.0~git-20140327.3768d50.orig/vl.c	2014-03-27 12:55:45.438902973 -0500
-+++ qemu-2.0~git-20140327.3768d50/vl.c	2014-03-27 12:56:08.000000000 -0500
+--- a/vl.c
++++ b/vl.c
 @@ -2365,6 +2365,7 @@ char *qemu_find_file(int type, const cha
          abort();
      }

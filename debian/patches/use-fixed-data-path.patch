@@ -7,10 +7,8 @@ instead of deriving it at runtime from executable path.
 This way it is possible to move qemu binary to another directory
 and it will still work.
 
-Index: qemu-2.0~git-20140327.3768d50/os-posix.c
-===================================================================
---- qemu-2.0~git-20140327.3768d50.orig/os-posix.c	2014-03-27 12:55:45.478902972 -0500
-+++ qemu-2.0~git-20140327.3768d50/os-posix.c	2014-03-27 12:55:45.470902972 -0500
+--- a/os-posix.c
++++ b/os-posix.c
 @@ -75,6 +75,7 @@ void os_setup_signal_handling(void)
      sigaction(SIGTERM, &act, NULL);
  }
@@ -27,10 +25,8 @@ Index: qemu-2.0~git-20140327.3768d50/os-posix.c
  
  void os_set_proc_name(const char *s)
  {
-Index: qemu-2.0~git-20140327.3768d50/vl.c
-===================================================================
---- qemu-2.0~git-20140327.3768d50.orig/vl.c	2014-03-27 12:55:45.478902972 -0500
-+++ qemu-2.0~git-20140327.3768d50/vl.c	2014-03-27 12:55:45.470902972 -0500
+--- a/vl.c
++++ b/vl.c
 @@ -3997,14 +3997,6 @@ int main(int argc, char **argv, char **e
          }
      }

@@ -441,13 +441,10 @@ static int kvm_physical_sync_dirty_bitmap(MemoryRegionSection *section)
 
         d.slot = mem->slot;
 
-        ret = kvm_vm_ioctl(s, KVM_GET_DIRTY_LOG, &d);
-        if (ret < 0 && ret != -ENOENT) {
+        if (kvm_vm_ioctl(s, KVM_GET_DIRTY_LOG, &d) == -1) {
             DPRINTF("ioctl failed %d\n", errno);
             ret = -1;
             break;
-        } else if (ret < 0) {
-            ret = 0;
         }
 
         kvm_get_dirty_pages_log_range(section, d.dirty_bitmap);

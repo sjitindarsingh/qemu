@@ -2,6 +2,7 @@
 retry-pxe-after-efi.patch
 use-fixed-data-path.patch
 move-ncalrpc-dir-to-tmp.patch
+doc-grammify-allows-to.patch
+exec-limit-translation-limiting-in-address_space_translate-to-xen.diff
 ubuntu/expose-vmx_qemu64cpu.patch
-define-trusty-machine-type.patch
-ubuntu/kvm_physical_sync_dirty_bitmap-ignore-ENOENT-from-kv.patch
+ubuntu/define-trusty-machine-type.patch

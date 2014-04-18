@@ -18,10 +18,10 @@ Signed-off-by: Michael Buesch <m@bues.ch>
 
 ---
 
-Index: qemu-2.0~git-20140327.3768d50/net/slirp.c
+Index: qemu-1.6.0+dfsg/net/slirp.c
 ===================================================================
---- qemu-2.0~git-20140327.3768d50.orig/net/slirp.c	2014-03-27 12:55:45.514902971 -0500
-+++ qemu-2.0~git-20140327.3768d50/net/slirp.c	2014-03-27 12:55:45.506902971 -0500
+--- qemu-1.6.0+dfsg.orig/net/slirp.c
++++ qemu-1.6.0+dfsg/net/slirp.c
 @@ -527,6 +527,7 @@ static int slirp_smb(SlirpState* s, cons
              "pid directory=%s\n"
              "lock directory=%s\n"
