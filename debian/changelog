@@ -1,3 +1,11 @@
+qemu (2.0.0+dfsg-2ubuntu2) utopic; urgency=medium
+
+  * debian/rules: install the proper /etc/init/qemu-kvm.conf (LP: #1315402)
+  * debian/control: drop the versioning requirement from libfdt-dev
+    build-dependency, as it is longer needed (LP: #1295072)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 02 May 2014 11:43:44 -0500
+
 qemu (2.0.0+dfsg-2ubuntu1) trusty-proposed; urgency=medium
 
   * Merge 2.0.0+dfsg-2
