@@ -1,3 +1,10 @@
+qemu (2.0.0+dfsg-2ubuntu3) utopic; urgency=medium
+
+  * remove alternatives for qemu: different architectures
+    aren't really alternatives and never had been  (LP: #1316829)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 07 May 2014 15:12:33 +0000
+
 qemu (2.0.0+dfsg-2ubuntu2) utopic; urgency=medium
 
   * debian/rules: install the proper /etc/init/qemu-kvm.conf (LP: #1315402)
