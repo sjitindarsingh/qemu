@@ -10,3 +10,5 @@ block-fmt-validation/qcow1-check-maximum-cluster-size.patch
 block-fmt-validation/qcow1-validate-L2-table-size-CVE-2014-0222.patch
 block-fmt-validation/qcow1-validate-image-size-CVE-2014-0223.patch
 block-fmt-validation/qcow1-stricter-backing-file-length-check.patch
+ubuntu/expose-vmx_qemu64cpu.patch
+ubuntu/define-trusty-machine-type.patch
