@@ -1,3 +1,76 @@
+qemu (2.0.0+dfsg-6ubuntu1) utopic; urgency=medium
+
+  * Merge 2.0.0+dfsg-6.  Remaining changes:
+    - qemu-system-x86.links: add eepro100.rom link, drop links which we
+      have in ipxe-qemu package.
+    - control-in: stick to libgnutls-dev and libsdl1.2-dev.
+    - qemu-system-common.install: add debian/tmp/usr/lib to install the
+      qemu-bridge-helper
+    - qemu-system-common.postinst: remove acl placed by udev,
+      and add udevadm trigger.
+    - qemu-system-common.preinst: add kvm group if needed
+    - add qemu-kvm upstart job and defaults file (rules,
+      qemu-system-x86.qemu-kvm.default, qemu-system-x86.qemu-kvm.upstart)
+    - debian/rules: add qemu-kvm-spice
+    - rules,qemu-system-x86.modprobe: support use under older udevs which
+      do not auto-load the kvm kernel module.  Enable nesting by default
+      on intel.
+    - binfmt-update-in: make sure to filter out compat arches.
+    - debian/qemu-system-alternatives.in: use a later version as ubuntu
+      removed the alternatives bit later.
+    - d/p/ubuntu/expose-vmx_qemu64cpu.patch: enable nested kvm by default
+      in qemu64 cpu type.
+    - d/p/ubuntu/define-trusty-machine-type.patch: define a default trusty
+      machine type to ease future live vm migration.
+    - re-introduce apport hook for qemu source package:
+      d/source_qemu-kvm.py, d/qemu-system-common.install
+  * enable-build-dep on libjpeg8-dev - which is now in main
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 23 Jun 2014 14:52:54 -0500
+
+qemu (2.0.0+dfsg-6) unstable; urgency=medium
+
+  * build-depend on libgnutls28-dev not libgnutls-dev
+  * added qcow1 block format validation patches from upstream:
+   block-fmt-validation/qcow1-check-maximum-cluster-size.patch
+   block-fmt-validation/qcow1-stricter-backing-file-length-check.patch
+   block-fmt-validation/qcow1-validate-image-size-CVE-2014-0223.patch
+   block-fmt-validation/qcow1-validate-L2-table-size-CVE-2014-0222.patch
+    (Finally closes: #742730, CVE-2014-0222, CVE-2014-0223)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 23 May 2014 12:12:38 +0400
+
+qemu (2.0.0+dfsg-5) unstable; urgency=medium
+
+  * re-re-enable rbd (ceph) support again (Closes: #689239)
+    Should watch for breakage and for runtime dependencies closely from now on.
+  * fix qemu-kvm package description (stop mentioning it is transitional)
+  * move all binfmt handling from many files to d/binfmt-update-in
+  * introduce qemu-user-binfmt (dummy) package to support binfmt
+    registration of qemu-user binaries (Closes: #677529)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 13 May 2014 21:15:48 +0400
+
+qemu (2.0.0+dfsg-4) unstable; urgency=medium
+
+  * suggests ovmf, not recommends it as it is not in -main (Closes: #745698)
+  * cputlb-fix-regression-with-TCG-interpreter.patch (Closes: #744342)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 30 Apr 2014 10:03:55 +0400
+
+qemu (2.0.0+dfsg-3) unstable; urgency=low
+
+  * 2.0.0 closed #744213 (CVE-2013-4544) and #745157 (CVE-2014-2894)
+  * mjt-set-oem-in-rsdt-like-slic.diff: apply a (hackish) patch to simplify
+    running OEM versions of windows vista and 7 in qemu using SLIC table
+    from current hardware.
+  * set VENDOR in d/rules
+  * added forgotten qemu-kvm Pre-Depends field
+  * switch back from sdl2 to sdl1, as the former apparently isn't ready yet
+    (Closes: #745269)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Mon, 21 Apr 2014 12:34:03 +0400
+
 qemu (2.0.0+dfsg-2ubuntu3) utopic; urgency=medium
 
   * remove alternatives for qemu: different architectures
