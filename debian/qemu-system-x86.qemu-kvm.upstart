@@ -7,7 +7,7 @@ start on runlevel [2345]
 
 pre-start script
 	# Silently exit if the package isn't installed anymore
-	if [ ! -e /usr/bin/kvm ]; then
+	if [ ! -e /usr/bin/qemu-system-x86_64 ]; then
 		exit 0
 	fi
 	[ -r /etc/default/qemu-kvm ] && . /etc/default/qemu-kvm
