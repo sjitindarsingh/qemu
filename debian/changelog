@@ -1,3 +1,10 @@
+qemu (2.0.0+dfsg-6ubuntu2) utopic; urgency=medium
+
+  * d/qemu-system-x86.qemu-kvm.upstart: change the early-exit check from
+    /usr/bin/kvm to qemu-system-x86_64. (LP: #1348551)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 25 Jul 2014 08:35:02 -0500
+
 qemu (2.0.0+dfsg-6ubuntu1) utopic; urgency=medium
 
   * Merge 2.0.0+dfsg-6.  Remaining changes:
