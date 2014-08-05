@@ -1,3 +1,76 @@
+qemu (2.1+dfsg-2ubuntu1) utopic; urgency=medium
+
+  * Merge new debian release
+  * Remaining changes:
+    - qemu-system-x86.links: add eepro100.rom link, drop links which we
+      have in ipxe-qemu package.
+    - control-in: stick to libsdl1.2-dev.
+    - qemu-system-common.install: add debian/tmp/usr/lib to install the
+      qemu-bridge-helper
+    - qemu-system-common.postinst: remove acl placed by udev,
+      and add udevadm trigger.
+    - qemu-system-common.preinst: add kvm group if needed
+    - add qemu-kvm upstart job and defaults file (rules,
+      qemu-system-x86.qemu-kvm.default, qemu-system-x86.qemu-kvm.upstart)
+    - debian/rules: add qemu-kvm-spice
+    - rules,qemu-system-x86.modprobe: support use under older udevs which
+      do not auto-load the kvm kernel module.  Enable nesting by default
+      on intel.
+    - binfmt-update-in: make sure to filter out compat arches.
+    - debian/qemu-system-alternatives.in: use a later version as ubuntu
+      removed the alternatives bit later.
+    - d/p/ubuntu/expose-vmx_qemu64cpu.patch: enable nested kvm by default
+      in qemu64 cpu type.
+    - d/p/ubuntu/define-trusty-machine-type.patch: define a default trusty
+      machine type to ease future live vm migration.
+    - apport hook for qemu source package: d/source_qemu-kvm.py,
+      d/qemu-system-common.install
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Tue, 05 Aug 2014 13:53:06 -0500
+
+qemu (2.1+dfsg-2) unstable; urgency=medium
+
+  * l2tp-linux-only.patch: fix FTBFS on kfreebsd
+  * imx_timer_TIMER_MAX_clash.diff: fix ITIMER_MAX definition clash
+  * remove kfreebsd hack which disabled usb support on this platform
+    since qemu-1.3: it isn't needed anymore
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Sat, 02 Aug 2014 00:51:04 +0400
+
+qemu (2.1+dfsg-1) unstable; urgency=medium
+
+  * new upstream release
+    Closes: #739589 CVE-2014-3461
+    Closes: #735618
+  * versioned build-depend on libiscsi-dev (>>1.9.0~)
+  * added ppc64le user target
+  * fix description of qemu-user-binfmt wrt "empty" (Closes: #755988)
+  * use /usr/share/dpkg/pkg-info.mk instead of inventing the same locally
+  * added debian/get-orig-source.sh (and a d/rules target)
+  * set ubuntu vcs branch to ubuntu-utopic
+  * binfmt-update-in: make sure to filter out compat arches
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 01 Aug 2014 20:06:22 +0400
+
+qemu (2.0.0+dfsg-7) unstable; urgency=medium
+
+  * clarify description of qemu-user-binfmt a bit 
+  * build-depend on acpica-tools (iasl) in order to rebuild .dsl files
+  * remove qemu-keymaps package, since it is not used by other tools
+    anymore, and ship keymaps in qemu-system-common.
+  * remove (and break by qemu-system-common) old qemu-common for
+    ubuntu too, since it was transitional-to-qemu-keymaps pkg
+  * reorganize docs (Closes: #751376):
+   - do not ship docs in qemu (meta)package, except of qemu-doc.html
+   - ship most of docs/* in qemu-system-common in /usr/share/doc/q-s-c/
+   - make symlinks from /usr/share/doc/qemu-system-foo/common to ../q-s-c/
+   - ship doc-base file for qemu-system-common too (for qemu-doc.html)
+   - rename qemu.1 manpage to qemu-system.1
+  * qemu-user-static & qemu-user-binfmt conflict with each other, not break.
+  * mention that qemu-user-binfmt is empty package (lintian)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 24 Jul 2014 16:51:16 +0400
+
 qemu (2.0.0+dfsg-6ubuntu2) utopic; urgency=medium
 
   * d/qemu-system-x86.qemu-kvm.upstart: change the early-exit check from
