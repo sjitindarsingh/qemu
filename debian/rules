@@ -178,6 +178,12 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 	dh_install -pqemu-kvm debian/kvm /usr/bin/
 	dh_install -pqemu-kvm debian/kvm.1 /usr/share/man/man1/
+ifeq ($(DEB_VENDOR),Ubuntu)
+	mkdir -p debian/qemu-kvm/usr/bin
+	ln -s kvm debian/qemu-kvm/usr/bin/kvm-spice
+	ln -s qemu-system-x86_64 debian/qemu-kvm/usr/bin/qemu-system-x86_64-spice
+	dh_installmodules -pqemu-system-x86
+endif
 endif
 
 # virtfs-proxy-helper is linux-specific
@@ -237,7 +243,7 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 # we load kvm module only on x86 (modern kernels don't need even that),
 # and we don't want to fail installation if module can't be loaded
 # remoe past jessie (and maybe for jessie too)
-	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=: -- start 20 S .
+	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 endif
 endif
 	dh_installinit -pqemu-guest-agent
