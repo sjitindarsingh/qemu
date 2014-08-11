@@ -1,3 +1,9 @@
+qemu (2.1+dfsg-2ubuntu2) utopic; urgency=medium
+
+  * reload kvm_intel if needed to set the nested=Y flag (LP: #1324174)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 11 Aug 2014 12:58:50 -0500
+
 qemu (2.1+dfsg-2ubuntu1) utopic; urgency=medium
 
   * Merge new debian release
