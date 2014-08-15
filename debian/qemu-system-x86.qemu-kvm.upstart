@@ -38,12 +38,11 @@ pre-start script
 			logger -t qemu-kvm "Error: hugepages not available in the kernel!"
 		elif grep -q /run/hugepages/kvm /proc/mounts; then
 			logger -t qemu-kvm "/run/hugepages/kvm already mounted"
-		elif ! grep -q kvm /etc/group; then
+		elif ! getent group kvm > /dev/null 2>&1; then
 			logger -t qemu-kvm "Error: group kvm does not exist!"
 		else
-			kvmgid=`grep kvm /etc/group | cut -d: -f 3`
 			mkdir -p /run/hugepages/kvm
-			mount -t hugetlbfs hugetlbfs-kvm -o mode=775,gid=$kvmgid /run/hugepages/kvm
+			mount -t hugetlbfs hugetlbfs-kvm -o mode=775,gid=kvm /run/hugepages/kvm
 		fi
 	fi
 end script

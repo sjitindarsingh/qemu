@@ -3161,6 +3161,10 @@ cat > $TMPC << EOF
 #include <unistd.h>
 #include <fcntl.h>
 
+#if defined __stub_pipe2 || defined __stub___pipe2
+choke me
+#endif
+
 int main(void)
 {
     int pipefd[2];

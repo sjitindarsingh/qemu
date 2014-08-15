@@ -124,7 +124,8 @@ int main(int argc, char **argv)
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
-static const char *data_dir[16];
+extern char qemu_datapath[]; /* arch-specific */
+static const char *data_dir[32];
 static int data_dir_idx;
 const char *bios_name = NULL;
 enum vga_retrace_method vga_retrace_method = VGA_RETRACE_DUMB;
@@ -2324,7 +2325,6 @@ char *qemu_find_file(int type, const char *name)
         abort();
     }
 
-retry:
     for (i = 0; i < data_dir_idx; i++) {
         buf = g_strdup_printf("%s/%s%s", data_dir[i], subdir, name);
         if (access(buf, R_OK) == 0) {
@@ -2333,16 +2333,6 @@ retry:
         }
         g_free(buf);
     }
-
-    if (memcmp(name, "efi-", 4) == 0 && type == QEMU_FILE_TYPE_BIOS) {
-        /* if not found but requested efi-*, retry with pxe-* */
-        buf = alloca(strlen(name) + 1);
-        strcpy(buf, "pxe");
-        strcpy(buf + 3, name + 3);
-        name = buf;
-        goto retry;
-    }
-
     return NULL;
 }
 
@@ -4062,9 +4052,12 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
-    /* If all else fails use the install path specified when building. */
-    if (data_dir_idx < ARRAY_SIZE(data_dir)) {
-        data_dir[data_dir_idx++] = CONFIG_QEMU_DATADIR;
+    /* add standard and arch-specific dirs to data path */
+    for(optarg = strtok(qemu_datapath, ":");
+        optarg && data_dir_idx < ARRAY_SIZE(data_dir);
+        optarg = strtok(NULL, ":"))
+    {
+        data_dir[data_dir_idx++] = optarg;
     }
 
     smp_parse(qemu_opts_find(qemu_find_opts("smp-opts"), NULL));

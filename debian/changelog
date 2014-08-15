@@ -1,3 +1,57 @@
+qemu (2.1+dfsg-3ubuntu1) utopic; urgency=medium
+
+  * Merge new debian release
+  * Remaining changes:
+    - control-in: stick to libsdl1.2-dev.
+    - qemu-system-common.install: add debian/tmp/usr/lib to install the
+      qemu-bridge-helper
+    - qemu-system-common.postinst: remove acl placed by udev,
+      and add udevadm trigger.
+    - qemu-system-common.preinst: add kvm group if needed
+    - add qemu-kvm upstart job and defaults file (rules,
+      qemu-system-x86.qemu-kvm.default, qemu-system-x86.qemu-kvm.upstart)
+    - rules,qemu-system-x86.modprobe: support use under older udevs which
+      do not auto-load the kvm kernel module.  Enable nesting by default
+      on intel.
+    - debian/qemu-system-alternatives.in: use a later version as ubuntu
+      removed the alternatives bit later.
+    - d/p/ubuntu/expose-vmx_qemu64cpu.patch: enable nested kvm by default
+      in qemu64 cpu type.
+    - d/p/ubuntu/define-trusty-machine-type.patch: define a default trusty
+      machine type to ease future live vm migration.
+    - apport hook for qemu source package: d/source_qemu-kvm.py,
+      d/qemu-system-common.install
+  * Upstart job: use getent group to check for kvm group
+  * apport: 'qemu' doesn't exist any more, so check for any qemu* tasks
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 15 Aug 2014 08:44:54 -0500
+
+qemu (2.1+dfsg-3) unstable; urgency=medium
+
+  * set SHELL = /bin/sh -e, so that more complex shell constructs
+    in d/rules will fail if any command fail inside
+  * check for pipe2() being a stub too, like utimensat() etc
+  * build-depend on gnutls-dev, not libgnutls*-dev, so the
+    buuld system will pick default gnutls impl (so it works for
+    backports and future versions)
+  * build-depend on libjpeg-dev not libjpeg8-dev
+  * minimum version of seabios is 1.7.5 (Closes: #757958)
+  * ide-only-constrain-read_write-requests-to-drive-size.diff
+    (Closes: #757927)
+  * added use-arch-data-path.patch, to be able to search for binary
+    blobs in several (arch-specific) data directories instead of just one.
+  * removed all blob/firmware symlinks from qemu-system-x86, using
+    arch-specific datapath instead (/usr/share/seabios:/usr/lib/ipxe/qemu)
+  * removed retry-pxe-after-efi.patch and depend on ipxe-qemu which
+    introduced efi boot roms.  qemu should not try to load "wrong"
+    ROM, or else migration will fail due to rom size mismatch.
+  * include /usr/lib/qemu-bridge-helper binary, but not make it setuid
+    due to security concerns outlined in #691138 (Closes: #691138)
+  * make vnc-jpeg not debian-specific
+  * install kvm-spice symlinks on ubuntu
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 14 Aug 2014 14:30:24 +0400
+
 qemu (2.1+dfsg-2ubuntu2) utopic; urgency=medium
 
   * reload kvm_intel if needed to set the nested=Y flag (LP: #1324174)
