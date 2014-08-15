@@ -1,3 +1,9 @@
+qemu (2.1+dfsg-3ubuntu2) utopic; urgency=medium
+
+  * revert-acpi-table-size-bump - get qemu -kernel working again.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 15 Aug 2014 15:33:24 -0500
+
 qemu (2.1+dfsg-3ubuntu1) utopic; urgency=medium
 
   * Merge new debian release
