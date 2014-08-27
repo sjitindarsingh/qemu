@@ -62,7 +62,7 @@
 #define ACPI_BUILD_LEGACY_CPU_AML_SIZE    97
 #define ACPI_BUILD_ALIGN_SIZE             0x1000
 
-#define ACPI_BUILD_TABLE_SIZE             0x10000
+#define ACPI_BUILD_TABLE_SIZE             0x20000
 
 typedef struct AcpiCpuInfo {
     DECLARE_BITMAP(found_cpus, ACPI_CPU_HOTPLUG_ID_LIMIT);

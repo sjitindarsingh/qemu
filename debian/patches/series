@@ -7,4 +7,5 @@ imx_timer_TIMER_MAX_clash.diff
 ide-only-constrain-read_write-requests-to-drive-size.diff
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-trusty-machine-type.patch
-revert-acpi-table-size-bump
+pc-reserve-more-memory-for-acpi.patch
+Support-ppcle.patch
