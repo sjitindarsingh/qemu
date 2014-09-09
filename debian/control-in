@@ -113,10 +113,10 @@ Build-Conflicts: oss4-dev
 Standards-Version: 3.9.5
 Homepage: http://www.qemu.org/
 :debian:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
-:ubuntu:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git;a=shortlog;h=refs/heads/ubuntu-utopic
+:ubuntu:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git;a=shortlog;h=refs/heads/ubuntu-dev
 :ubuntu:XS-Debian-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
 :debian:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
-:ubuntu:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git -b ubuntu-utopic
+:ubuntu:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git -b ubuntu-dev
 :ubuntu:XS-Debian-Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
 
 Package: qemu
@@ -170,7 +170,7 @@ Pre-Depends: adduser
 Provides: qemu-keymaps
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # to fix wrong acl for newly created device node on ubuntu:
-:ubuntu: udev, acl
+:ubuntu: acl
 Breaks:
 :ubuntu: qemu-common,
 # qemu-system before qemu-system-split
