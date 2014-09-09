@@ -53,6 +53,9 @@ Build-Depends: debhelper (>= 9),
 :debian: libiscsi-dev (>> 1.9.0~),
 # --enable-curses
  libncurses5-dev,
+# numa is not enabled: #682853
+## --enable-numa	i386|amd64|ia64|mips*|powerpc*|ppc64|x32
+# libnuma-dev,
 # --with-system-pixman
  libpixman-1-dev,
 # audio-drv-list += pa
@@ -61,11 +64,9 @@ Build-Depends: debhelper (>= 9),
  librados-dev [linux-any], librbd-dev [linux-any],
 # --enable-vnc-sasl
  libsasl2-dev,
-# --enable-sdl
-# libsdl2-dev is debian-only for now while ubuntu/libsdl2-dev is in universe
-:debian:# --with-sdlabi=2.0
-:debian: libsdl2-dev,
-:ubuntu: libsdl1.2-dev (>> 1.2.1),
+# note: libsdl2-dev is in universe on ubuntu
+# --enable-sdl --with-sdlabi=1.2
+ libsdl1.2-dev (>> 1.2.1),
 # --enable-seccomp	linux-amd64|linux-i386
  libseccomp-dev (>> 2.1.0) [linux-amd64 linux-i386],
 # --enable-spice	linux-amd64|linux-i386
@@ -112,10 +113,10 @@ Build-Conflicts: oss4-dev
 Standards-Version: 3.9.5
 Homepage: http://www.qemu.org/
 :debian:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
-:ubuntu:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git;a=shortlog;h=refs/heads/ubuntu-utopic
+:ubuntu:Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git;a=shortlog;h=refs/heads/ubuntu-dev
 :ubuntu:XS-Debian-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-qemu/qemu.git
 :debian:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
-:ubuntu:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git -b ubuntu-utopic
+:ubuntu:Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git -b ubuntu-dev
 :ubuntu:XS-Debian-Vcs-Git: git://anonscm.debian.org/pkg-qemu/qemu.git
 
 Package: qemu
@@ -169,7 +170,7 @@ Pre-Depends: adduser
 Provides: qemu-keymaps
 Depends: ${misc:Depends}, ${shlibs:Depends},
 # to fix wrong acl for newly created device node on ubuntu:
-:ubuntu: udev, acl
+:ubuntu: acl
 Breaks:
 :ubuntu: qemu-common,
 # qemu-system before qemu-system-split

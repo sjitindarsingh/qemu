@@ -43,6 +43,8 @@ if [ -c /dev/kvm -a ! -L /dev/kvm ]
  fi
 # udev rules for /dev/kvm have changed, so have udev
 # recalculate:
-udevadm trigger --subsystem-match=misc --action=change
+if [ -f /sbin/udevd ]; then
+  udevadm trigger --subsystem-match=misc --action=change
+fi
 
 exit 0
