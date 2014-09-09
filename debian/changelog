@@ -1,3 +1,11 @@
+qemu (2.1+dfsg-3ubuntu4) utopic; urgency=medium
+
+  * SECURITY UPDATE: memory disclosure via out-of-bounds array access
+    - debian/patches/CVE-2014-5388.patch: fix check in hw/acpi/pcihp.c.
+    - CVE-2014-5388
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 09 Sep 2014 08:26:24 -0400
+
 qemu (2.1+dfsg-3ubuntu3) utopic; urgency=medium
 
   * replace d/p/revert-acpi-table-size-bump with
