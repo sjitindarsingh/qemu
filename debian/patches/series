@@ -9,3 +9,4 @@ ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-trusty-machine-type.patch
 pc-reserve-more-memory-for-acpi.patch
 Support-ppcle.patch
+CVE-2014-5388.patch
