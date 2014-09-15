@@ -924,10 +924,23 @@ machine_init(pc_machine_init);
 static QEMUMachine pc_machine_trusty = {
 	PC_DEFAULT_MACHINE_OPTIONS,
 	.default_machine_opts = "firmware=bios-256k.bin",
-	.hot_add_cpu = pc_hot_add_cpu,
 	.name = "pc-i440fx-trusty",
-	.alias = "pc",
 	.desc = "Ubuntu 14.04 PC (i440FX + PIIX, 1996)",
+	.hot_add_cpu = pc_hot_add_cpu,
+	.init = pc_init_pci_2_0,
+	.compat_props = (GlobalProperty[]) {
+		PC_COMPAT_2_0,
+		{ /* end of list */ }
+	},
+};
+
+static QEMUMachine pc_machine_utopic = {
+	PC_DEFAULT_MACHINE_OPTIONS,
+	.default_machine_opts = "firmware=bios-256k.bin",
+	.name = "pc-i440fx-utopic",
+	.alias = "pc",
+	.desc = "Ubuntu 14.10 PC (i440FX + PIIX, 1996)",
+	.hot_add_cpu = pc_hot_add_cpu,
 	.init = pc_init_pci,
 	.is_default = 1,
 };
@@ -935,6 +948,7 @@ static QEMUMachine pc_machine_trusty = {
 static void ubuntu_machine_init(void)
 {
 	qemu_register_pc_machine(&pc_machine_trusty);
+	qemu_register_pc_machine(&pc_machine_utopic);
 }
 
 machine_init(ubuntu_machine_init);

@@ -1,9 +1,15 @@
+qemu (2.1+dfsg-4ubuntu3) utopic; urgency=medium
+
+  * Re-stick the trusty machine type to 2.0 (where it must always stay) and
+    define a new, default, pc-i440fx-utopic machine type (LP: #1369481)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 15 Sep 2014 14:04:57 -0500
+
 qemu (2.1+dfsg-4ubuntu2) utopic; urgency=medium
 
-  * move kvm_intel nested setting to qemu-system-x86.postinst, otherwise
-    bug #1324174 is not really fixed.
+  * move kvm_intel nested setting to qemu-system-x86.postinst.
 
- -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 12 Sep 2014 19:32:33 -0500
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 12 Sep 2014 23:12:52 +0000
 
 qemu (2.1+dfsg-4ubuntu1) utopic; urgency=medium
 
