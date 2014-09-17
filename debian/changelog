@@ -1,3 +1,18 @@
+qemu (2.1+dfsg-4ubuntu4) utopic; urgency=medium
+
+  * debian/qemu-system-x86.qemu-kvm.upstart: create /dev/kvm in a
+    container. (LP: #1370199)
+  * load kvm module on ppc64le at boot (LP: #1369785)
+    - debian/rules: install qemu-kvm on ppc64el
+    - add debian/qemu-system-ppc.qemu-kvm.{upstart,default} to autoload the
+      kvm-hv module if available
+  * qemu-system-x86.maintscript: remove accidentally installed
+    /etc/init.d/qemu-system-x86 (from 2.0.0+dfsg-6ubuntu1 and a few earlier)
+  * rename qemu-system-x86 init script to qemu-kvm so it gets installed in
+    ubuntu.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 17 Sep 2014 14:20:12 -0500
+
 qemu (2.1+dfsg-4ubuntu3) utopic; urgency=medium
 
   * Re-stick the trusty machine type to 2.0 (where it must always stay) and
