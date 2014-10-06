@@ -5,7 +5,7 @@ grep -zqs ^container= /proc/1/environ && exit 0
 # == binfmt registration/deregistration ==
 if [ -x /usr/sbin/update-binfmts ]; then
 
-fmts="aarch64 alpha arm armeb cris i386 m68k microblaze mips mipsel ppc ppc64 ppc64abi32 ppc64le ppcle s390x sh4 sh4eb sparc sparc32plus sparc64 x86_64"
+fmts="aarch64 alpha arm armeb cris i386 m68k microblaze mips mipsel ppc ppc64 ppc64abi32 ppc64le s390x sh4 sh4eb sparc sparc32plus sparc64 x86_64"
 aarch64_magic='\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7'
 aarch64_mask='\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff'
 alpha_magic='\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x26\x90'
@@ -48,8 +48,6 @@ x86_64_magic='\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x3
 x86_64_mask='\xff\xff\xff\xff\xff\xfe\xfe\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff'
 ppc64le_magic='\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x15\x00'
 ppc64le_mask='\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\x00'
-ppcle_magic='\x7fELF\x01\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x14\x00'
-ppcle_mask='\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\x00'
 
 # find which fmts needs to be filtered out, which is arch-dependent.
 # Drop support for emulating amd64 on i386, http://bugs.debian.org/604712
@@ -57,7 +55,9 @@ case "$DPKG_MAINTSCRIPT_ARCH" in
   amd64 | i386) omit="i386|x86_64" ;;
   arm | armel | armhf | arm64) omit="arm|aarch64" ;;
   mips | mipsel) omit="$DPKG_MAINTSCRIPT_ARCH" ;;
-  ppc64 | powerpc | ppc64el | powerpcel) omit="ppc|ppc64|ppc64abi32|ppc64le|ppcle" ;;
+  ppc64 | powerpc) omit="ppc|ppc64|ppc64abi32" ;;
+  ppc64el) omit="ppc64le" ;;
+
   s390x) omit="s390x" ;;
   sparc | sparc64) omit="sparc|sparc32plus|sparc64" ;;
   *) omit="$DPKG_MAINTSCRIPT_ARCH" ;;
