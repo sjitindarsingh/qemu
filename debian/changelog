@@ -1,3 +1,14 @@
+qemu (2.1+dfsg-4ubuntu5) utopic; urgency=medium
+
+  * debian/binfmt-update-in: don't blacklist ppc64le on ppc64 and vice
+    versa.
+  * Drop Support-ppc64le.pach, as that architecture appears to not exist yet.
+  * update d/p/ubuntu/define-ubuntu-machine-types.patch to keep -M pc pointing
+    to latest upstream machine type, rather than distro one.  Add 'ubuntu'
+    machine type for that.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 06 Oct 2014 13:41:31 -0500
+
 qemu (2.1+dfsg-4ubuntu4) utopic; urgency=medium
 
   * debian/qemu-system-x86.qemu-kvm.upstart: create /dev/kvm in a

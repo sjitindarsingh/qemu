@@ -10,5 +10,4 @@ qemu-options-add-missing--drive-discard-option-to-cmdline-help.diff
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
 pc-reserve-more-memory-for-acpi.patch
-Support-ppcle.patch
 CVE-2014-5388.patch

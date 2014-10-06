@@ -64,11 +64,7 @@ struct target_revectored_struct {
 #define UNAME_MACHINE "ppc64le"
 #endif
 #else
-#ifdef TARGET_WORDS_BIGENDIAN
 #define UNAME_MACHINE "ppc"
-#else
-#define UNAME_MACHINE "ppcle"
-#endif
 #endif
 #define UNAME_MINIMUM_RELEASE "2.6.32"
 

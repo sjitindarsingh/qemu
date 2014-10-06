@@ -458,6 +458,7 @@ static void pc_xen_hvm_init(MachineState *machine)
 static QEMUMachine pc_i440fx_machine_v2_1 = {
     PC_I440FX_2_1_MACHINE_OPTIONS,
     .name = "pc-i440fx-2.1",
+    .alias = "pc",
     .init = pc_init_pci,
 };
 
@@ -938,8 +939,8 @@ static QEMUMachine pc_machine_utopic = {
 	PC_DEFAULT_MACHINE_OPTIONS,
 	.default_machine_opts = "firmware=bios-256k.bin",
 	.name = "pc-i440fx-utopic",
-	.alias = "pc",
 	.desc = "Ubuntu 14.10 PC (i440FX + PIIX, 1996)",
+	.alias = "ubuntu",
 	.hot_add_cpu = pc_hot_add_cpu,
 	.init = pc_init_pci,
 	.is_default = 1,
