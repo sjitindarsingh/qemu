@@ -1,3 +1,10 @@
+qemu (2.1+dfsg-4ubuntu6) utopic; urgency=medium
+
+  * debian/control: slof is moving into main, so we can depend on qemu-slof as
+    debian does.
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 15 Oct 2014 22:01:27 +0200
+
 qemu (2.1+dfsg-4ubuntu5) utopic; urgency=medium
 
   * debian/binfmt-update-in: don't blacklist ppc64le on ppc64 and vice
