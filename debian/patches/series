@@ -11,3 +11,5 @@ ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
 pc-reserve-more-memory-for-acpi.patch
 CVE-2014-5388.patch
+501-block-raw-posix-fix-disk-corruption-in-try-fiemap
+502-block-raw-posic-use-seek-hole-ahead-of-fiemap

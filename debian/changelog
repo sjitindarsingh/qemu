@@ -1,3 +1,12 @@
+qemu (2.1+dfsg-4ubuntu7) vivid; urgency=medium
+
+  * Apply two patches to fix intermittent qemu-img corruption
+    (LP: #1368815)
+    - 501-block-raw-posix-fix-disk-corruption-in-try-fiemap
+    - 502-block-raw-posic-use-seek-hole-ahead-of-fiemap
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 29 Oct 2014 22:31:43 -0500
+
 qemu (2.1+dfsg-4ubuntu6) utopic; urgency=medium
 
   * debian/control: slof is moving into main, so we can depend on qemu-slof as
