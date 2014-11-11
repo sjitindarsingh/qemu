@@ -1,3 +1,10 @@
+qemu (2.1+dfsg-4ubuntu8) vivid; urgency=medium
+
+  * Support qemu-kvm on x32, arm64, ppc64 and pp64el architectures
+    (LP: #1389897)  (Patch thanks to mwhudson, BenC, and infinity)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Tue, 11 Nov 2014 15:51:47 -0600
+
 qemu (2.1+dfsg-4ubuntu7) vivid; urgency=medium
 
   * Apply two patches to fix intermittent qemu-img corruption
