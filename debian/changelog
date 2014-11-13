@@ -1,3 +1,26 @@
+qemu (2.1+dfsg-4ubuntu9) vivid; urgency=medium
+
+  * SECURITY UPDATE: information disclosure via vga driver
+    - debian/patches/CVE-2014-3615.patch: return the correct memory size,
+      sanity check register writes, and don't use fixed buffer sizes in
+      hw/display/qxl.c, hw/display/vga.c, hw/display/vga_int.h,
+      ui/spice-display.c.
+    - CVE-2014-3615
+  * SECURITY UPDATE: denial of service via slirp NULL pointer deref
+    - debian/patches/CVE-2014-3640.patch: make sure socket is not just a
+      stub in slirp/udp.c.
+    - CVE-2014-3640
+  * SECURITY UPDATE: possible privilege escalation via vmware-vga driver
+    - debian/patches/CVE-2014-3689.patch: verify rectangles in
+      hw/display/vmware_vga.c.
+    - CVE-2014-3689
+  * SECURITY UPDATE: denial of service via VNC console
+    - debian/patches/CVE-2014-7815.patch: validate bits_per_pixel in
+      ui/vnc.c.
+    - CVE-2014-7815
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 13 Nov 2014 07:31:03 -0500
+
 qemu (2.1+dfsg-4ubuntu8) vivid; urgency=medium
 
   * Support qemu-kvm on x32, arm64, ppc64 and pp64el architectures
