@@ -1349,6 +1349,8 @@ ACPI headers (possible overridden by other options).
 For data=, only data
 portion of the table is used, all header information is specified in the
 command line.
+If a SLIC table is supplied to qemu, then the oem_id from the SLIC table
+will be copied into the RSDT table (this is a Debian addition).
 ETEXI
 
 DEF("smbios", HAS_ARG, QEMU_OPTION_smbios,

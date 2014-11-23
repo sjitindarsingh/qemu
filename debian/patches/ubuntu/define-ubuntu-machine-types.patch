@@ -2,7 +2,7 @@ Index: qemu/hw/i386/pc_piix.c
 ===================================================================
 --- qemu.orig/hw/i386/pc_piix.c
 +++ qemu/hw/i386/pc_piix.c
-@@ -459,7 +459,6 @@ static QEMUMachine pc_i440fx_machine_v2_
+@@ -460,7 +460,6 @@ static QEMUMachine pc_i440fx_machine_v2_
      .name = "pc-i440fx-2.1",
      .alias = "pc",
      .init = pc_init_pci,
@@ -10,7 +10,7 @@ Index: qemu/hw/i386/pc_piix.c
  };
  
  #define PC_I440FX_2_0_MACHINE_OPTIONS PC_I440FX_2_1_MACHINE_OPTIONS
-@@ -919,3 +918,37 @@ static void pc_machine_init(void)
+@@ -920,3 +919,37 @@ static void pc_machine_init(void)
  }
  
  machine_init(pc_machine_init);
