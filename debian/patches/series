@@ -23,3 +23,5 @@ slirp-smbd-modify-set-several-parameters-in-generated-smb-conf.patch
 
 block-raw-posix-Fix-disk-corruption-in-try_fiemap.patch
 block-raw-posix-use-seek_hole-ahead-of-fiemap.patch
+ubuntu/expose-vmx_qemu64cpu.patch
+ubuntu/define-ubuntu-machine-types.patch
