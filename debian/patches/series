@@ -25,3 +25,4 @@ block-raw-posix-Fix-disk-corruption-in-try_fiemap.patch
 block-raw-posix-use-seek_hole-ahead-of-fiemap.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
+upstream-xen_disk-fix-unmapping-of-persistent-grants.patch

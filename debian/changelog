@@ -1,3 +1,11 @@
+qemu (2.1+dfsg-7ubuntu2) vivid; urgency=low
+
+  * d/p/upstream-xen_disk-fix-unmapping-of-persistent-grants.patch:
+    Cherry-pick of qemu-upstream patch to fix issues with persistent
+    grants and the PV backend (Qdisk) (LP: #1394327).
+
+ -- Stefan Bader <stefan.bader@canonical.com>  Fri, 28 Nov 2014 13:14:37 +0100
+
 qemu (2.1+dfsg-7ubuntu1) vivid; urgency=medium
 
   * Merge 2.1+dfsg-7.  Remaining changes:
