@@ -26,3 +26,6 @@ block-raw-posix-use-seek_hole-ahead-of-fiemap.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
 upstream-xen_disk-fix-unmapping-of-persistent-grants.patch
+target-arm-A64-Break-out-aarch64_save-restore_sp.patch
+target-arm-A64-Respect-SPSEL-in-ERET-SP-restore.patch
+target-arm-A64-Respect-SPSEL-when-taking-exceptions.patch
