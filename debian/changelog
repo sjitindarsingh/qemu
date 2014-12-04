@@ -1,3 +1,13 @@
+qemu (2.1+dfsg-7ubuntu3) vivid; urgency=medium
+
+  * d/p/target-arm-A64-Break-out-aarch64_save-restore_sp.patch
+    d/p/target-arm-A64-Respect-SPSEL-in-ERET-SP-restore.patch
+    d/p/target-arm-A64-Respect-SPSEL-when-taking-exceptions.patch:
+    Cherry-pick of upstream patches in order to fix AArch64 emulation ignoring
+    SPSel=0 in certain conditions. (LP: #1349277)
+
+ -- Chris J Arges <chris.j.arges@canonical.com>  Thu, 04 Dec 2014 14:17:01 -0600
+
 qemu (2.1+dfsg-7ubuntu2) vivid; urgency=low
 
   * d/p/upstream-xen_disk-fix-unmapping-of-persistent-grants.patch:
