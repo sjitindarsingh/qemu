@@ -181,7 +181,7 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386 x32),)
 	install -D -m755 debian/kvm.x86 debian/qemu-kvm/usr/bin/kvm
 	install -D -m644 debian/kvm.1 debian/qemu-kvm/usr/share/man/man1/kvm.1
-ifeq ($(DEB_VENDOR),Ubuntu)
+ifeq ($(VENDOR),UBUNTU)
 # on ubuntu there was kvm-spice package/binary which was used in libvirt xml
 	dh_link -pqemu-kvm usr/bin/kvm usr/bin/kvm-spice \
 		usr/bin/qemu-system-x86_64 usr/bin/qemu-system-x86_64-spice

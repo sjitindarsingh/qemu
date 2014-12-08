@@ -1,3 +1,10 @@
+qemu (2.1+dfsg-7ubuntu4) vivid; urgency=low
+
+  * d/rules: Fix vendor check to make kvm-spice symlinks (DEB_VENDOR got
+    dropped and VENDOR now will be all capital UBUNTU).
+
+ -- Stefan Bader <stefan.bader@canonical.com>  Mon, 08 Dec 2014 14:45:31 +0100
+
 qemu (2.1+dfsg-7ubuntu3) vivid; urgency=medium
 
   * d/p/target-arm-A64-Break-out-aarch64_save-restore_sp.patch
