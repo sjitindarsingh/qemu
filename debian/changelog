@@ -1,3 +1,17 @@
+qemu (2.1+dfsg-7ubuntu5) vivid; urgency=medium
+
+  * SECURITY UPDATE: code execution via savevm data
+    - debian/patches/CVE-2014-7840.patch: validate parameters in
+      arch_init.c.
+    - CVE-2014-7840
+  * SECURITY UPDATE: code execution via cirrus vga blit regions
+    (LP: #1400775)
+    - debian/patches/CVE-2014-8106.patch: properly validate blit regions in
+      hw/display/cirrus_vga.c.
+    - CVE-2014-8106
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 11 Dec 2014 14:11:52 -0500
+
 qemu (2.1+dfsg-7ubuntu4) vivid; urgency=low
 
   * d/rules: Fix vendor check to make kvm-spice symlinks (DEB_VENDOR got
