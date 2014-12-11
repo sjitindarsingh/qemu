@@ -29,3 +29,5 @@ upstream-xen_disk-fix-unmapping-of-persistent-grants.patch
 target-arm-A64-Break-out-aarch64_save-restore_sp.patch
 target-arm-A64-Respect-SPSEL-in-ERET-SP-restore.patch
 target-arm-A64-Respect-SPSEL-when-taking-exceptions.patch
+CVE-2014-7840.patch
+CVE-2014-8106.patch
