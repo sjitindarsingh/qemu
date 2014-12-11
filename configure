@@ -3136,6 +3136,14 @@ cat > $TMPC << EOF
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#if defined __stub_futimens || defined __stub___futimens
+choke me
+#endif
+
+#if defined __stub_utimensat || defined __stub___utimensat
+choke me
+#endif
+
 int main(void)
 {
     utimensat(AT_FDCWD, "foo", NULL, 0);
@@ -3152,6 +3160,10 @@ pipe2=no
 cat > $TMPC << EOF
 #include <unistd.h>
 #include <fcntl.h>
+
+#if defined __stub_pipe2 || defined __stub___pipe2
+choke me
+#endif
 
 int main(void)
 {
