@@ -1,0 +1,16 @@
+#!/bin/sh
+case "$(awk '/^cpu/ {print $3}' /proc/cpuinfo  | head -n1)" in
+  e500*|e6500*)
+    exec qemu-system-ppcemb -enable-kvm "$@"
+    ;;
+  *)
+    case "$(uname -m)" in
+      ppc64*)
+        exec qemu-system-ppc64 -enable-kvm "$@"
+        ;;
+      *)
+        exec qemu-system-ppc -enable-kvm "$@"
+        ;;
+    esac
+    ;;
+esac
