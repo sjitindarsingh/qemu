@@ -53,6 +53,7 @@ static const char unsigned dfl_hdr[ACPI_TABLE_HDR_SIZE - ACPI_TABLE_PFX_SIZE] =
 
 char unsigned *acpi_tables;
 size_t acpi_tables_len;
+size_t slic_table_offset;
 
 static QemuOptsList qemu_acpi_opts = {
     .name = "acpi",
@@ -226,6 +227,10 @@ static void acpi_table_install(const char unsigned *blob, size_t bloblen,
     /* recalculate checksum */
     ext_hdr->checksum = acpi_checksum((const char unsigned *)ext_hdr +
                                       ACPI_TABLE_PFX_SIZE, acpi_payload_size);
+
+    if (memcmp(ext_hdr->sig, "SLIC", 4) == 0) {
+       slic_table_offset = acpi_tables_len - acpi_payload_size;
+    }
 }
 
 void acpi_table_add(const QemuOpts *opts, Error **errp)
