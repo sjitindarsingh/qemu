@@ -71,13 +71,6 @@ int graphic_height = 600;
 int graphic_depth = 32;
 #endif
 
-/* list of (arch-specific) directories to search for data files */
-char qemu_datapath[] =
-  CONFIG_QEMU_DATADIR
-#if (defined(TARGET_I386) || defined(TARGET_X86_64)) && defined(CONFIG_QEMU_X86_DATAPATH)
-  ":" CONFIG_QEMU_X86_DATAPATH
-#endif
-;
 
 #if defined(TARGET_ALPHA)
 #define QEMU_ARCH QEMU_ARCH_ALPHA

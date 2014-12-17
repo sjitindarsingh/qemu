@@ -1,7 +1,8 @@
-From 0be839a2701369f669532ea5884c15bead1c6e08 Mon Sep 17 00:00:00 2001
-From: Michael S. Tsirkin <mst@redhat.com>
+Subject: migration: fix parameter validation on ram load
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Message-Id: <1415785203-26938-2-git-send-email-mst@redhat.com>
 Date: Wed, 12 Nov 2014 11:44:39 +0200
-Subject: [PATCH] migration: fix parameter validation on ram load
+Bug-Debian: http://bugs.debian.org/769451
 
 During migration, the values read from migration stream during ram load
 are not validated. Especially offset in host_from_stream_offset() and
@@ -19,17 +20,15 @@ Note: follow-up patches add extra checks on each block->host access.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
-Reviewed-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
-Signed-off-by: Amit Shah <amit.shah@redhat.com>
 ---
- arch_init.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ arch_init.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Index: qemu-2.1+dfsg/arch_init.c
-===================================================================
---- qemu-2.1+dfsg.orig/arch_init.c	2014-12-10 15:53:10.481190092 -0500
-+++ qemu-2.1+dfsg/arch_init.c	2014-12-10 15:53:10.481190092 -0500
-@@ -1011,7 +1011,7 @@
+diff --git a/arch_init.c b/arch_init.c
+index 88a5ba0..593a990 100644
+--- a/arch_init.c
++++ b/arch_init.c
+@@ -1006,7 +1006,7 @@ static inline void *host_from_stream_offset(QEMUFile *f,
      uint8_t len;
  
      if (flags & RAM_SAVE_FLAG_CONTINUE) {
@@ -38,7 +37,7 @@ Index: qemu-2.1+dfsg/arch_init.c
              error_report("Ack, bad migration stream!");
              return NULL;
          }
-@@ -1024,8 +1024,9 @@
+@@ -1019,8 +1019,9 @@ static inline void *host_from_stream_offset(QEMUFile *f,
      id[len] = 0;
  
      QTAILQ_FOREACH(block, &ram_list.blocks, next) {

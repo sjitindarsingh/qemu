@@ -1,10 +1,11 @@
 From 2f01dfacb56bc7a0d4639adc9dff9aae131e6216 Mon Sep 17 00:00:00 2001
 From: Roger Pau Monne <roger.pau@citrix.com>
 Date: Thu, 13 Nov 2014 18:42:09 +0100
-Subject: [PATCH] xen_disk: fix unmapping of persistent grants
+Subject: xen_disk: fix unmapping of persistent grants
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
+Bug-Debian: http://bugs.debian.org/770468
 
 This patch fixes two issues with persistent grants and the disk PV backend
 (Qdisk):
@@ -24,18 +25,15 @@ Cc: Kevin Wolf <kwolf@redhat.com>
 Cc: Stefan Hajnoczi <stefanha@redhat.com>
 Cc: George Dunlap <george.dunlap@eu.citrix.com>
 Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-
-(cherry-picked from 2f01dfacb56bc7a0d4639adc9dff9aae131e6216 qemu-upstream)
-Signed-off-by: Stefan Bader <stefan.bader@canonical.com>
 ---
- hw/block/xen_disk.c | 72 ++++++++++++++++++++++++++++++++++++++++++++++++-----
+ hw/block/xen_disk.c |   72 ++++++++++++++++++++++++++++++++++++++++++++++-----
  1 file changed, 66 insertions(+), 6 deletions(-)
 
-Index: qemu-2.1+dfsg/hw/block/xen_disk.c
-===================================================================
---- qemu-2.1+dfsg.orig/hw/block/xen_disk.c	2014-11-28 13:13:37.933837780 +0100
-+++ qemu-2.1+dfsg/hw/block/xen_disk.c	2014-11-28 13:13:37.929837780 +0100
-@@ -58,6 +58,13 @@ struct PersistentGrant {
+diff --git a/hw/block/xen_disk.c b/hw/block/xen_disk.c
+index 231e9a7..21842a0 100644
+--- a/hw/block/xen_disk.c
++++ b/hw/block/xen_disk.c
+@@ -59,6 +59,13 @@ struct PersistentGrant {
  
  typedef struct PersistentGrant PersistentGrant;
  
@@ -49,7 +47,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
  struct ioreq {
      blkif_request_t     req;
      int16_t             status;
-@@ -117,6 +124,7 @@ struct XenBlkDev {
+@@ -118,6 +125,7 @@ struct XenBlkDev {
      gboolean            feature_discard;
      gboolean            feature_persistent;
      GTree               *persistent_gnts;
@@ -57,7 +55,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
      unsigned int        persistent_gnt_count;
      unsigned int        max_grants;
  
-@@ -176,6 +184,23 @@ static void destroy_grant(gpointer pgnt)
+@@ -177,6 +185,23 @@ static void destroy_grant(gpointer pgnt)
      g_free(grant);
  }
  
@@ -81,7 +79,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
  static struct ioreq *ioreq_start(struct XenBlkDev *blkdev)
  {
      struct ioreq *ioreq = NULL;
-@@ -342,6 +367,7 @@ static int ioreq_map(struct ioreq *ioreq
+@@ -343,6 +368,7 @@ static int ioreq_map(struct ioreq *ioreq)
      void *page[BLKIF_MAX_SEGMENTS_PER_REQUEST];
      int i, j, new_maps = 0;
      PersistentGrant *grant;
@@ -89,7 +87,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
      /* domids and refs variables will contain the information necessary
       * to map the grants that are needed to fulfill this request.
       *
-@@ -420,7 +446,22 @@ static int ioreq_map(struct ioreq *ioreq
+@@ -421,7 +447,22 @@ static int ioreq_map(struct ioreq *ioreq)
              }
          }
      }
@@ -113,7 +111,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
          while ((ioreq->blkdev->persistent_gnt_count < ioreq->blkdev->max_grants)
                && new_maps) {
              /* Go through the list of newly mapped grants and add as many
-@@ -446,6 +487,7 @@ static int ioreq_map(struct ioreq *ioreq
+@@ -447,6 +488,7 @@ static int ioreq_map(struct ioreq *ioreq)
                            grant);
              ioreq->blkdev->persistent_gnt_count++;
          }
@@ -121,7 +119,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
      }
      for (i = 0; i < ioreq->v.niov; i++) {
          ioreq->v.iov[i].iov_base += (uintptr_t)page[i];
-@@ -965,7 +1007,10 @@ static int blk_connect(struct XenDevice
+@@ -971,7 +1013,10 @@ static int blk_connect(struct XenDevice *xendev)
          blkdev->max_grants = max_requests * BLKIF_MAX_SEGMENTS_PER_REQUEST;
          blkdev->persistent_gnts = g_tree_new_full((GCompareDataFunc)int_cmp,
                                               NULL, NULL,
@@ -132,7 +130,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
          blkdev->persistent_gnt_count = 0;
      }
  
-@@ -994,6 +1039,26 @@ static void blk_disconnect(struct XenDev
+@@ -1000,6 +1045,26 @@ static void blk_disconnect(struct XenDevice *xendev)
          blkdev->cnt_map--;
          blkdev->sring = NULL;
      }
@@ -159,7 +157,7 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
  }
  
  static int blk_free(struct XenDevice *xendev)
-@@ -1005,11 +1070,6 @@ static int blk_free(struct XenDevice *xe
+@@ -1011,11 +1076,6 @@ static int blk_free(struct XenDevice *xendev)
          blk_disconnect(xendev);
      }
  
@@ -171,3 +169,6 @@ Index: qemu-2.1+dfsg/hw/block/xen_disk.c
      while (!QLIST_EMPTY(&blkdev->freelist)) {
          ioreq = QLIST_FIRST(&blkdev->freelist);
          QLIST_REMOVE(ioreq, list);
+-- 
+1.7.10.4
+

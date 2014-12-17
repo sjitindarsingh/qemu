@@ -124,7 +124,10 @@ int main(int argc, char **argv)
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
-extern char qemu_datapath[]; /* arch-specific */
+#ifndef CONFIG_QEMU_DATAPATH
+# define CONFIG_QEMU_DATAPATH CONFIG_QEMU_DATADIR
+#endif
+static char qemu_datapath[] = CONFIG_QEMU_DATAPATH;
 static const char *data_dir[32];
 static int data_dir_idx;
 const char *bios_name = NULL;
@@ -4047,7 +4050,7 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
-    /* add standard and arch-specific dirs to data path */
+    /* add standard dirs to data path */
     for(optarg = strtok(qemu_datapath, ":");
         optarg && data_dir_idx < ARRAY_SIZE(data_dir);
         optarg = strtok(NULL, ":"))
