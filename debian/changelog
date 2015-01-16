@@ -1,3 +1,10 @@
+qemu (1:2.1+dfsg-11ubuntu2) vivid; urgency=medium
+
+  * Cherrypick upstream patch needed to allow ESx hosts to run under
+    kvm (LP: #1411575)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Fri, 16 Jan 2015 16:32:48 -0600
+
 qemu (1:2.1+dfsg-11ubuntu1) vivid; urgency=medium
 
   * Merge 2.1+dfsg-11.  Remaining changes:
