@@ -1,0 +1,140 @@
+commit 9b23cfb76b3a5e9eb5cc899eaf2f46bc46d33ba4
+Author: Dr. David Alan Gilbert <dgilbert@redhat.com>
+Date:   Fri Oct 3 17:33:37 2014 -0400
+
+    -machine vmport=off: Allow disabling of VMWare ioport emulation
+    
+    This is a pc & q35 only machine opt.
+    
+    VMWare apparently doesn't like running under QEMU due to our
+    incomplete emulation of it's special IO Port.  This adds a
+    pc & q35 property to allow it to be turned off.
+    
+    Signed-off-by: Dr. David Alan Gilbert <dgilbert@redhat.com>
+    Signed-off-by: Don Slutz <dslutz@verizon.com>
+    Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+    Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+    Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+    Reviewed-by: Eduardo Habkost <ehabkost@redhat.com>
+    Reviewed-by: Richard W.M. Jones <rjones@redhat.com>
+
+Index: qemu-2.1+dfsg/hw/i386/pc.c
+===================================================================
+--- qemu-2.1+dfsg.orig/hw/i386/pc.c
++++ qemu-2.1+dfsg/hw/i386/pc.c
+@@ -1691,6 +1691,20 @@ static void pc_machine_set_max_ram_below
+     pcms->max_ram_below_4g = value;
+ }
+ 
++static bool pc_machine_get_vmport(Object *obj, Error **errp)
++{
++    PCMachineState *pcms = PC_MACHINE(obj);
++
++    return pcms->vmport;
++}
++
++static void pc_machine_set_vmport(Object *obj, bool value, Error **errp)
++{
++    PCMachineState *pcms = PC_MACHINE(obj);
++
++    pcms->vmport = value;
++}
++
+ static void pc_machine_initfn(Object *obj)
+ {
+     PCMachineState *pcms = PC_MACHINE(obj);
+@@ -1703,6 +1717,11 @@ static void pc_machine_initfn(Object *ob
+                         pc_machine_get_max_ram_below_4g,
+                         pc_machine_set_max_ram_below_4g,
+                         NULL, NULL, NULL);
++    pcms->vmport = !xen_enabled();
++    object_property_add_bool(obj, PC_MACHINE_VMPORT,
++                             pc_machine_get_vmport,
++                             pc_machine_set_vmport,
++                             NULL);
+ }
+ 
+ static void pc_machine_class_init(ObjectClass *oc, void *data)
+Index: qemu-2.1+dfsg/hw/i386/pc_piix.c
+===================================================================
+--- qemu-2.1+dfsg.orig/hw/i386/pc_piix.c
++++ qemu-2.1+dfsg/hw/i386/pc_piix.c
+@@ -229,8 +229,8 @@ static void pc_init1(MachineState *machi
+     pc_vga_init(isa_bus, pci_enabled ? pci_bus : NULL);
+ 
+     /* init basic PC hardware */
+-    pc_basic_device_init(isa_bus, gsi, &rtc_state, &floppy, xen_enabled(),
+-        0x4);
++    pc_basic_device_init(isa_bus, gsi, &rtc_state, &floppy,
++                         !pc_machine->vmport, 0x4);
+ 
+     pc_nic_init(isa_bus, pci_bus);
+ 
+Index: qemu-2.1+dfsg/hw/i386/pc_q35.c
+===================================================================
+--- qemu-2.1+dfsg.orig/hw/i386/pc_q35.c
++++ qemu-2.1+dfsg/hw/i386/pc_q35.c
+@@ -243,7 +243,8 @@ static void pc_q35_init(MachineState *ma
+     pc_register_ferr_irq(gsi[13]);
+ 
+     /* init basic PC hardware */
+-    pc_basic_device_init(isa_bus, gsi, &rtc_state, &floppy, false, 0xff0104);
++    pc_basic_device_init(isa_bus, gsi, &rtc_state, &floppy,
++                         !pc_machine->vmport, 0xff0104);
+ 
+     /* connect pm stuff to lpc */
+     ich9_lpc_pm_init(lpc);
+Index: qemu-2.1+dfsg/include/hw/i386/pc.h
+===================================================================
+--- qemu-2.1+dfsg.orig/include/hw/i386/pc.h
++++ qemu-2.1+dfsg/include/hw/i386/pc.h
+@@ -35,11 +35,13 @@ struct PCMachineState {
+     HotplugHandler *acpi_dev;
+ 
+     uint64_t max_ram_below_4g;
++    bool vmport;
+ };
+ 
+ #define PC_MACHINE_ACPI_DEVICE_PROP "acpi-device"
+ #define PC_MACHINE_MEMHP_REGION_SIZE "hotplug-memory-region-size"
+ #define PC_MACHINE_MAX_RAM_BELOW_4G "max-ram-below-4g"
++#define PC_MACHINE_VMPORT           "vmport"
+ 
+ /**
+  * PCMachineClass:
+Index: qemu-2.1+dfsg/qemu-options.hx
+===================================================================
+--- qemu-2.1+dfsg.orig/qemu-options.hx
++++ qemu-2.1+dfsg/qemu-options.hx
+@@ -33,6 +33,7 @@ DEF("machine", HAS_ARG, QEMU_OPTION_mach
+     "                property accel=accel1[:accel2[:...]] selects accelerator\n"
+     "                supported accelerators are kvm, xen, tcg (default: tcg)\n"
+     "                kernel_irqchip=on|off controls accelerated irqchip support\n"
++    "                vmport=on|off controls emulation of vmport (default: on)\n"
+     "                kvm_shadow_mem=size of KVM shadow MMU\n"
+     "                dump-guest-core=on|off include guest memory in a core dump (default=on)\n"
+     "                mem-merge=on|off controls memory merge support (default: on)\n",
+@@ -50,6 +51,8 @@ than one accelerator specified, the next
+ to initialize.
+ @item kernel_irqchip=on|off
+ Enables in-kernel irqchip support for the chosen accelerator when available.
++@item vmport=on|off
++Enables emulation of VMWare IO port, for vmmouse etc. (enabled by default)
+ @item kvm_shadow_mem=size
+ Defines the size of the KVM shadow MMU.
+ @item dump-guest-core=on|off
+Index: qemu-2.1+dfsg/vl.c
+===================================================================
+--- qemu-2.1+dfsg.orig/vl.c
++++ qemu-2.1+dfsg/vl.c
+@@ -391,6 +391,10 @@ static QemuOptsList qemu_machine_opts =
+             .name = PC_MACHINE_MAX_RAM_BELOW_4G,
+             .type = QEMU_OPT_SIZE,
+             .help = "maximum ram below the 4G boundary (32bit boundary)",
++        },{
++            .name = PC_MACHINE_VMPORT,
++            .type = QEMU_OPT_BOOL,
++            .help = "Enable vmport (pc & q35)",
+         },
+         { /* End of list */ }
+     },

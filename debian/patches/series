@@ -37,3 +37,4 @@ ubuntu/define-ubuntu-machine-types.patch
 target-arm-A64-Break-out-aarch64_save-restore_sp.patch
 target-arm-A64-Respect-SPSEL-in-ERET-SP-restore.patch
 target-arm-A64-Respect-SPSEL-when-taking-exceptions.patch
+fix-vmware.patch
