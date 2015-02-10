@@ -399,8 +399,7 @@ again:
     ret = readdir_r(fs->dir, entry, result);
     if (ctx->export_flags & V9FS_SM_MAPPED) {
         entry->d_type = DT_UNKNOWN;
-    }
-    else if (ctx->export_flags & V9FS_SM_MAPPED_FILE) {
+    } else if (ctx->export_flags & V9FS_SM_MAPPED_FILE) {
         if (!ret && *result != NULL &&
             !strcmp(entry->d_name, VIRTFS_META_DIR)) {
             /* skp the meta data directory */

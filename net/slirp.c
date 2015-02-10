@@ -345,8 +345,7 @@ void net_slirp_hostfwd_remove(Monitor *mon, const QDict *qdict)
 
     host_port = atoi(p);
 
-    err = slirp_remove_hostfwd(QTAILQ_FIRST(&slirp_stacks)->slirp, is_udp,
-                               host_addr, host_port);
+    err = slirp_remove_hostfwd(s->slirp, is_udp, host_addr, host_port);
 
     monitor_printf(mon, "host forwarding rule for %s %s\n", src_str,
                    err ? "not found" : "removed");
@@ -644,17 +643,16 @@ static int slirp_guestfwd(SlirpState *s, const char *config_str,
         goto fail_syntax;
     }
 
-    fwd = g_malloc(sizeof(struct GuestFwd));
     snprintf(buf, sizeof(buf), "guestfwd.tcp.%d", port);
 
     if ((strlen(p) > 4) && !strncmp(p, "cmd:", 4)) {
         if (slirp_add_exec(s->slirp, 0, &p[4], &server, port) < 0) {
             error_report("conflicting/invalid host:port in guest forwarding "
                          "rule '%s'", config_str);
-            g_free(fwd);
             return -1;
         }
     } else {
+        fwd = g_malloc(sizeof(struct GuestFwd));
         fwd->hd = qemu_chr_new(buf, p, NULL);
         if (!fwd->hd) {
             error_report("could not open guest forwarding device '%s'", buf);

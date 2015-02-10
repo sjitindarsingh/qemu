@@ -1,3 +1,79 @@
+qemu (1:2.2+dfsg-5expubuntu1) vivid; urgency=medium
+
+  * Merge 1:2.2+dfsg-5exp from Debian.  (LP: #1409308)
+    - debian/rules: do not drop the init scripts loading kvm modules
+      (still needed in precise in cloud archive)
+  * Remaining changes:
+    - qemu-system-common.postinst:
+      * remove acl placed by udev, and add udevadm trigger.
+      * reload kvm_intel if needed to set nested=1
+    - qemu-system-common.preinst: add kvm group if needed
+    - add qemu-kvm upstart job and defaults file (rules,
+      qemu-system-x86.qemu-kvm.default, qemu-system-x86.qemu-kvm.upstart)
+    - rules,qemu-system-x86.modprobe: support use under older udevs which
+      do not auto-load the kvm kernel module.  Enable nesting by default
+      on intel.
+    - d/p/ubuntu/expose-vmx_qemu64cpu.patch: enable nested kvm by default
+      in qemu64 cpu type.
+    - d/p/ubuntu/define-trusty-machine-type.patch: define a default trusty
+      machine type to ease future live vm migration.
+    - apport hook for qemu source package: d/source_qemu-kvm.py,
+      d/qemu-system-common.install
+  * Dropped all patches which are applied upstream
+  * Update ubuntu-vivid machine type to default to std graphics (following
+    upstream's lead for pc-i440fx-2.2 machine type)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 09 Feb 2015 22:31:09 -0600
+
+qemu (1:2.2+dfsg-5exp) experimental; urgency=medium
+
+  * fix initscript removal once again
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Fri, 23 Jan 2015 15:05:46 +0300
+
+qemu (1:2.2+dfsg-4exp) experimental; urgency=medium
+
+  * fix a brown-paper bag bug removing the qemu-system-x86 initscript
+    (Closes: #776004)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 22 Jan 2015 20:33:38 +0300
+
+qemu (1:2.2+dfsg-3exp) experimental; urgency=medium
+
+  * mention closing of #753887 by 2.2
+  * install only specific bamboo.dtb for ppc, not *.dtb
+    (Closes: #773033)
+  * install qemu-system-misc firmware in d/*.install not d/rules,
+    as other firmware files
+  * exec-change-default-exception_index-value-for-migration-to--1.patch:
+    cherry-picked commit adee64249ee37e from upstream
+  * stop messing up with alternatives (qemu for qemu-system-*)
+  * stop shipping qemu-system-x86 initscript to load kvm modules
+    (kernel since 3.4 does that automatically) (Closes: #751754)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Thu, 22 Jan 2015 09:28:01 +0300
+
+qemu (1:2.2+dfsg-2exp) experimental; urgency=medium
+
+  * and finally uploading to experimental as it should be
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 10 Dec 2014 00:58:32 +0300
+
+qemu (2.2+dfsg-1exp) unstable; urgency=medium
+
+  * new upstream release 2.2.0 (Closes: #751078, #726629, #753887)
+  * removed all patches which was cherry-picked from upstream,
+    only keeping debian-specific changes
+  * refreshed mjt-set-oem-in-rsdt-like-slic.diff
+  * added tricore to qemu-system-misc package (new arch)
+  * restore upstream pc-bios/petalogix-*.dtb "blobs":
+    upstream says it is the canonical form, dtc is used
+    to convert from dts to dtb and back, the conversion
+    is reversible
+  * install petalogix firmware for microblaze (Closes: #769068)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Tue, 09 Dec 2014 23:09:26 +0300
+
 qemu (1:2.1+dfsg-11ubuntu2) vivid; urgency=medium
 
   * Cherrypick upstream patch needed to allow ESx hosts to run under

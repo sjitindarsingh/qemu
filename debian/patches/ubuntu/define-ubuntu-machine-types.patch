@@ -2,15 +2,15 @@ Index: qemu/hw/i386/pc_piix.c
 ===================================================================
 --- qemu.orig/hw/i386/pc_piix.c
 +++ qemu/hw/i386/pc_piix.c
-@@ -460,7 +460,6 @@ static QEMUMachine pc_i440fx_machine_v2_
-     .name = "pc-i440fx-2.1",
+@@ -488,7 +488,6 @@ static QEMUMachine pc_i440fx_machine_v2_
+     .name = "pc-i440fx-2.2",
      .alias = "pc",
      .init = pc_init_pci,
 -    .is_default = 1,
  };
  
- #define PC_I440FX_2_0_MACHINE_OPTIONS PC_I440FX_2_1_MACHINE_OPTIONS
-@@ -920,3 +919,37 @@ static void pc_machine_init(void)
+ #define PC_I440FX_2_1_MACHINE_OPTIONS                           \
+@@ -952,3 +951,40 @@ static void pc_machine_init(void)
  }
  
  machine_init(pc_machine_init);
@@ -19,6 +19,7 @@ Index: qemu/hw/i386/pc_piix.c
 +
 +static QEMUMachine pc_machine_trusty = {
 +	PC_DEFAULT_MACHINE_OPTIONS,
++        .family = "pc_piix", \
 +	.default_machine_opts = "firmware=bios-256k.bin",
 +	.name = "pc-i440fx-trusty",
 +	.desc = "Ubuntu 14.04 PC (i440FX + PIIX, 1996)",
@@ -32,12 +33,14 @@ Index: qemu/hw/i386/pc_piix.c
 +
 +static QEMUMachine pc_machine_utopic = {
 +	PC_DEFAULT_MACHINE_OPTIONS,
++        .family = "pc_piix", \
 +	.default_machine_opts = "firmware=bios-256k.bin",
 +	.name = "pc-i440fx-utopic",
 +	.desc = "Ubuntu 14.10 PC (i440FX + PIIX, 1996)",
 +	.alias = "ubuntu",
 +	.hot_add_cpu = pc_hot_add_cpu,
 +	.init = pc_init_pci,
++        .default_display = "std",
 +	.is_default = 1,
 +};
 +
