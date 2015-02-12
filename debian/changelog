@@ -1,3 +1,20 @@
+qemu (1:2.2+dfsg-5expubuntu4) vivid; urgency=medium
+
+  [Scott Moser]
+  * update d/kvm.powerpc to avoid use of awk, which isn't allowed by aa
+    profile when started by libvirt.
+  
+  [Serge Hallyn]
+  * add symlink qemu-system-ppc64le -> qemu-system-ppc64
+  * debian/rules: fix DEB_HOST_ARCh fix to ppc64el for installing qemu-kvm init script
+    (LP: #1419855)
+  
+  [Chris J Arges]
+  * Determine if we are running inside a virtual environment. If running inside
+    a virtualized enviornment do _not_ automatically enable KSM. (LP: #1418339) 
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 12 Feb 2015 13:04:21 -0600
+
 qemu (1:2.2+dfsg-5expubuntu1) vivid; urgency=medium
 
   * Merge 1:2.2+dfsg-5exp from Debian.  (LP: #1409308)

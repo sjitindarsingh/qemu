@@ -22,8 +22,24 @@ pre-start script
 		chown root:kvm /dev/kvm || true
 		chmod g+rw /dev/kvm || true
 	fi
-	# Enable KSM, respecting the default configuration file
-	if [ "$KSM_ENABLED" = "1" ]; then
+	# Determine if we are running inside a VM
+	IS_VM=0
+	if type systemd-detect-virt 2>1 >/dev/null; then
+		systemd-detect-virt -vq && IS_VM=1
+	else
+		VM_STRINGS="KVM QEMU VMware VirtualBox Xen"
+		VM_DETECT="$(dmesg | egrep -e '(Hypervisor detected|Booting paravirtualized kernel)' || true)"
+		VM_DMIDECODE="$(cat /sys/class/dmi/id/*_vendor || true)"
+		VM_SEARCH="${VM_DETECT}${VM_DMIDECODE} "
+		for vm_string in $VM_STRINGS; do
+			if [ -z "${VM_SEARCH##*$vm_string*}" ]; then
+				IS_VM=1; break;
+			fi
+		done
+	fi
+	# Enable KSM, respecting the default configuration file. If 'AUTO' is
+	# set, enable only if we aren't running inside a VM.
+	if [ "$KSM_ENABLED" = "1" -o \( "$KSM_ENABLED" = "AUTO" -a "$IS_VM" = "0" \) ]; then
 		[ -w /sys/kernel/mm/ksm/run ] && echo 1 > /sys/kernel/mm/ksm/run || true
 		if [ -w /sys/kernel/mm/ksm/sleep_millisecs ]; then
 			if [ -n "$SLEEP_MILLISECS" ]; then
