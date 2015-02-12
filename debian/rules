@@ -262,7 +262,7 @@ ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
 # remoe past jessie (and maybe for jessie too)
 	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 endif
-ifneq ($(filter $(DEB_HOST_ARCH),ppc64le),)
+ifneq ($(filter $(DEB_HOST_ARCH),ppc64el),)
 	dh_installinit -pqemu-system-ppc --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 endif
 endif
