@@ -1,3 +1,10 @@
+qemu (1:2.2+dfsg-5expubuntu5) vivid; urgency=medium
+
+  * debian/control-in: enable numa on architectures where numa is built
+    (LP: #1417937)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 12 Feb 2015 23:18:58 -0600
+
 qemu (1:2.2+dfsg-5expubuntu4) vivid; urgency=medium
 
   [Scott Moser]
