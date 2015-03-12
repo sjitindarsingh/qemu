@@ -1,3 +1,10 @@
+qemu (1:2.2+dfsg-5expubuntu8) vivid; urgency=medium
+
+  * debian/qemu-system-x86.qemu-kvm.upstart: fix redirection to not
+    accidentally create /1
+
+ -- Steve Beattie <sbeattie@ubuntu.com>  Thu, 12 Mar 2015 16:46:51 -0700
+
 qemu (1:2.2+dfsg-5expubuntu7) vivid; urgency=low
 
   * No-change rebuild to pull in libxl-4.5 (take 2: step to the right).

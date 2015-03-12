@@ -24,7 +24,7 @@ pre-start script
 	fi
 	# Determine if we are running inside a VM
 	IS_VM=0
-	if type systemd-detect-virt 2>1 >/dev/null; then
+	if type systemd-detect-virt 2>&1 >/dev/null; then
 		systemd-detect-virt -vq && IS_VM=1
 	else
 		VM_STRINGS="KVM QEMU VMware VirtualBox Xen"
