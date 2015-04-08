@@ -1,3 +1,10 @@
+qemu (1:2.2+dfsg-5expubuntu9) vivid; urgency=low
+
+  * CVE-2015-2756 / XSA-126
+    - xen: limit guest control of PCI command register
+
+ -- Stefan Bader <stefan.bader@canonical.com>  Wed, 08 Apr 2015 10:17:45 +0200
+
 qemu (1:2.2+dfsg-5expubuntu8) vivid; urgency=medium
 
   * debian/qemu-system-x86.qemu-kvm.upstart: fix redirection to not
