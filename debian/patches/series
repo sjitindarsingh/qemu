@@ -5,3 +5,4 @@ mjt-set-oem-in-rsdt-like-slic.diff
 exec-change-default-exception_index-value-for-migration-to--1.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
+xsa126-qemuu.patch
