@@ -6,3 +6,6 @@ exec-change-default-exception_index-value-for-migration-to--1.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
 xsa126-qemuu.patch
+CVE-2015-1779-1.patch
+CVE-2015-1779-2.patch
+CVE-2015-3456.patch
