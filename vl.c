@@ -3887,14 +3887,6 @@ int main(int argc, char **argv, char **envp)
         }
     }
 
-    /* If no data_dir is specified then try to find it relative to the
-       executable path.  */
-    if (data_dir_idx < ARRAY_SIZE(data_dir)) {
-        data_dir[data_dir_idx] = os_find_datadir();
-        if (data_dir[data_dir_idx] != NULL) {
-            data_dir_idx++;
-        }
-    }
     /* If all else fails use the install path specified when building. */
     if (data_dir_idx < ARRAY_SIZE(data_dir)) {
         data_dir[data_dir_idx++] = CONFIG_QEMU_DATADIR;
