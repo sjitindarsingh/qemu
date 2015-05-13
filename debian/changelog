@@ -1,3 +1,18 @@
+qemu (1:2.2+dfsg-5expubuntu10) wily; urgency=medium
+
+  * SECURITY UPDATE: denial of service in vnc web
+    - debian/patches/CVE-2015-1779-1.patch: incrementally decode websocket
+      frames in ui/vnc-ws.c, ui/vnc-ws.h, ui/vnc.h.
+    - debian/patches/CVE-2015-1779-2.patch: limit size of HTTP headers from
+      websockets clients in ui/vnc-ws.c.
+    - CVE-2015-1779
+  * SECURITY UPDATE: host code execution via floppy device (VEMON)
+    - debian/patches/CVE-2015-3456.patch: force the fifo access to be in
+      bounds of the allocated buffer in hw/block/fdc.c.
+    - CVE-2015-3456
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 13 May 2015 07:25:59 -0400
+
 qemu (1:2.2+dfsg-5expubuntu9) vivid; urgency=low
 
   * CVE-2015-2756 / XSA-126
