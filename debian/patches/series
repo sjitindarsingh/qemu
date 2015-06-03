@@ -2,10 +2,8 @@
 use-fixed-data-path.patch
 use-data-path.patch
 mjt-set-oem-in-rsdt-like-slic.diff
-exec-change-default-exception_index-value-for-migration-to--1.patch
+qemu-options-trivial-spelling-fix-messsage.patch
+fdc-force-the-fifo-access-to-be-in-bounds-CVE-2015-3456.patch
+rules.mak-force-CFLAGS-for-all-objects-in-DSO.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
-xsa126-qemuu.patch
-CVE-2015-1779-1.patch
-CVE-2015-1779-2.patch
-CVE-2015-3456.patch

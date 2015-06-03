@@ -3,7 +3,7 @@ SHELL = /bin/sh -e
 
 # get DEB_VERSION
 include /usr/share/dpkg/pkg-info.mk
-# get DEB_HOST_ARCH DEB_HOST_ARCH_OS DEB_HOST_GNU_TYPE DEB_BUILD_GNU_TYPE
+# get DEB_HOST_ARCH DEB_HOST_ARCH_OS DEB_HOST_GNU_TYPE DEB_HOST_MULTIARCH DEB_BUILD_GNU_TYPE
 include /usr/share/dpkg/architecture.mk
 # get CFLAGS LDFLAGS etc
 include /usr/share/dpkg/buildflags.mk
@@ -38,6 +38,7 @@ common_configure_opts = \
 	--extra-ldflags="$(LDFLAGS) -Wl,--as-needed" \
 	--prefix=/usr \
 	--sysconfdir=/etc \
+	--libdir=/usr/lib/$(DEB_HOST_MULTIARCH) \
 	--libexecdir=/usr/lib/qemu \
 	--localstatedir=/var \
 	--disable-blobs \
@@ -95,6 +96,7 @@ configure-stamp: configure
 	    ../configure ${common_configure_opts} --disable-user \
 		--${enable_system}-system \
 		--${enable_linux_user}-linux-user \
+		--enable-modules \
 		$(shell sh debian/extract-config-opts \
 		    $(DEB_HOST_ARCH_OS)-$(DEB_HOST_ARCH) debian/control) \
 		$(QEMU_CONFIGURE_OPTIONS) || \
@@ -243,11 +245,13 @@ ifeq ($(enable_linux_user),enable)
 
 endif	# enable_linux_user
 
+	rm -f debian/tmp/usr/lib/*/libcacard.la
+
 # install whole thing so --list-missing works right
 	dh_install --list-missing
 # install the rest for arch/indep as needed
 	dh_installdocs ${ai} -Nqemu-user-binfmt
-	dh_installchangelogs ${ai} -Nqemu-user-binfmt Changelog
+	dh_installchangelogs ${ai} -Nqemu-user-binfmt
 	dh_installdocs ${ai} -pqemu-user-binfmt --link-doc=qemu-user
 	dh_installman ${ai}
 	dh_installudev ${ai}
@@ -256,15 +260,10 @@ ifeq (${enable_system},enable)
 # qemu-ifup is arch-specific
 	install -D debian/qemu-ifup.$(DEB_HOST_ARCH_OS) \
 		debian/qemu-system-common/etc/qemu-ifup
-ifneq ($(filter $(DEB_HOST_ARCH),amd64 i386),)
-# we load kvm module only on x86 (modern kernels don't need even that),
-# and we don't want to fail installation if module can't be loaded
-# remoe past jessie (and maybe for jessie too)
-	dh_installinit -pqemu-system-x86 --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
-endif
-ifneq ($(filter $(DEB_HOST_ARCH),ppc64el),)
-	dh_installinit -pqemu-system-ppc --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
-endif
+	mkdir -p debian/qemu-system-common/usr/share/qemu/init
+	cp debian/qemu-kvm-init debian/qemu-system-common/usr/share/qemu/init/
+	chmod 755 debian/qemu-system-common/usr/share/qemu/init/qemu-kvm-init
+	dh_installinit -pqemu-system-common --no-restart-on-upgrade --error-handler=true --name=qemu-kvm
 endif
 	dh_installinit -pqemu-guest-agent
 endif
@@ -272,8 +271,9 @@ endif
 	dh_strip ${ai}
 	dh_compress ${ai}
 	dh_fixperms ${ai}
-	dh_installdeb ${ai}
+	dh_makeshlibs ${ai}
 	dh_shlibdeps ${ai}
+	dh_installdeb ${ai}
 ifeq ($(enable_linux_user),enable)
 # after shlibdeps finished, grab ${shlibs:Depends} from -user package
 # and transform it into Built-Using field for -user-static.
