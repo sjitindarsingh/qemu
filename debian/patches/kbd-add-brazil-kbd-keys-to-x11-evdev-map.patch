@@ -20,11 +20,11 @@ Reviewed-by: Michael Tokarev <mjt@tls.msk.ru>
  ui/x_keymap.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/ui/x_keymap.c b/ui/x_keymap.c
-index b9b0944..1a77317 100644
---- a/ui/x_keymap.c
-+++ b/ui/x_keymap.c
-@@ -94,7 +94,7 @@ static const uint8_t x_keycode_to_pc_keycode[115] = {
+Index: qemu/ui/x_keymap.c
+===================================================================
+--- qemu.orig/ui/x_keymap.c
++++ qemu/ui/x_keymap.c
+@@ -94,7 +94,7 @@ static const uint8_t x_keycode_to_pc_key
   */
  
  static const uint8_t evdev_keycode_to_pc_keycode[61] = {
@@ -33,7 +33,7 @@ index b9b0944..1a77317 100644
      0,         /*  98 EVDEV - KATA (Katakana) */
      0,         /*  99 EVDEV - HIRA (Hiragana) */
      0x79,      /* 100 EVDEV - HENK (Henkan) */
-@@ -126,7 +126,7 @@ static const uint8_t evdev_keycode_to_pc_keycode[61] = {
+@@ -126,7 +126,7 @@ static const uint8_t evdev_keycode_to_pc
      0,         /* 126 EVDEV - I126 ("Internet" Keyboards) */
      0,         /* 127 EVDEV - PAUS */
      0,         /* 128 EVDEV - ???? */
@@ -42,6 +42,3 @@ index b9b0944..1a77317 100644
      0xf1,      /* 130 EVDEV - HNGL (Korean Hangul Latin toggle) */
      0xf2,      /* 131 EVDEV - HJCV (Korean Hangul Hanja toggle) */
      0x7d,      /* 132 AE13 (Yen)*/
--- 
-2.1.4
-
