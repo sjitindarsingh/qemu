@@ -1,3 +1,41 @@
+qemu (1:2.3+dfsg-5ubuntu1) wily; urgency=medium
+
+  * Merge 1:2.3+dfsg-5 from Debian.
+  * Remaining changes:
+    - debian/rules: do not drop the init scripts loading kvm modules
+      (still needed in precise in cloud archive)
+    - qemu-system-common.postinst:
+      * remove acl placed by udev, and add udevadm trigger.
+      * reload kvm_intel if needed to set nested=1
+    - qemu-system-common.preinst: add kvm group if needed
+    - add qemu-kvm upstart job and defaults file (rules,
+      qemu-system-x86.qemu-kvm.default, qemu-system-x86.qemu-kvm.upstart)
+    - rules,qemu-system-x86.modprobe: support use under older udevs which
+      do not auto-load the kvm kernel module.  Enable nesting by default
+      on intel.
+    - d/p/ubuntu/expose-vmx_qemu64cpu.patch: enable nested kvm by default
+      in qemu64 cpu type.
+    - d/p/ubuntu/define-trusty-machine-type.patch: define a default trusty
+      machine type to ease future live vm migration.
+    - apport hook for qemu source package: d/source_qemu-kvm.py,
+      d/qemu-system-common.install
+  * Refreshed patches:
+    - ubuntu/expose-vmx_qemu64cpu.patch
+    - ubuntu/define-ubuntu-machine-types.patch
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 10 Jun 2015 14:28:39 -0500
+
+qemu (1:2.3+dfsg-5) unstable; urgency=high
+
+  * slirp-use-less-predictable-directory-name-in-tmp-CVE-2015-4037.patch
+    (Closes: CVE-2015-4037)
+  * 11 patches for XEN PCI pass-through issues
+    (Closes: #787547 CVE-2015-4103 CVE-2015-4104 CVE-2015-4105 CVE-2015-4106)
+  * kbd-add-brazil-kbd-keys-*.patch, adding two keys found on Brazilian
+    keyboards (Closes: #772422)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 03 Jun 2015 17:18:58 +0300
+
 qemu (1:2.3+dfsg-4ubuntu1) wily; urgency=medium
 
   * Merge 1:2.3+dfsg-4 from Debian.
