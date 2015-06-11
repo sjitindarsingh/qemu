@@ -22,3 +22,4 @@ kbd-add-brazil-kbd-keys-to-qemu.patch
 kbd-add-brazil-kbd-keys-to-x11-evdev-map.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
+CVE-2015-3209.patch
