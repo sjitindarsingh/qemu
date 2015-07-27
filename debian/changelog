@@ -1,3 +1,19 @@
+qemu (1:2.3+dfsg-5ubuntu3) wily; urgency=medium
+
+  * SECURITY UPDATE: out-of-bounds memory access in pit_ioport_read()
+    - debian/patches/CVE-2015-3214.patch: ignore read in hw/timer/i8254.c.
+    - CVE-2015-3214
+  * SECURITY UPDATE: heap overflow when processing ATAPI commands
+    - debian/patches/CVE-2015-5154.patch: check bounds and clear DRQ in
+      hw/ide/core.c, make sure command is completed in hw/ide/atapi.c.
+    - CVE-2015-5154
+  * SECURITY UPDATE: buffer overflow in scsi_req_parse_cdb
+    - debian/patches/CVE-2015-5158.patch: check length in
+      hw/scsi/scsi-bus.c.
+    - CVE-2015-5158
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Mon, 27 Jul 2015 10:07:05 -0400
+
 qemu (1:2.3+dfsg-5ubuntu2) wily; urgency=medium
 
   * SECURITY UPDATE: heap overflow in PCNET controller

@@ -23,3 +23,6 @@ kbd-add-brazil-kbd-keys-to-x11-evdev-map.patch
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
 CVE-2015-3209.patch
+CVE-2015-3214.patch
+CVE-2015-5154.patch
+CVE-2015-5158.patch
