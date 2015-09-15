@@ -1,3 +1,15 @@
+qemu (1:2.3+dfsg-5ubuntu6) wily; urgency=medium
+
+  * Make qemu-system-common and qemu-utils depend on qemu-block-extra
+    to fix errors with missing block backends. (LP: #1495895)
+  * Cherry pick fixes for vmdk stream-optimized subformat (LP: #1006655)
+  * Apply fix for memory corruption during live-migration in tcg mode
+    (LP: #1493049)
+  * Apply tracing patch to remove use of custom vtable in newer glibc
+    (LP: #1491972)
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Tue, 15 Sep 2015 09:37:23 -0500
+
 qemu (1:2.3+dfsg-5ubuntu5) wily; urgency=medium
 
   * Import qcow2-handle-eagain-from-update_refcount from upstream

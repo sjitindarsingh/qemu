@@ -31,3 +31,7 @@ CVE-2015-5166.patch
 CVE-2015-5745.patch
 CVE-2015-5225.patch
 qcow2-handle-eagain-from-update_refcount
+qemu-vmdk-fix-next-cluster-sector-for-compressed-write.diff
+qemu-vmdk-fix-next-cluster-sector-for-compressed-write-round-next-consecutive-sector.diff
+qemu-tcg-fix-mem-corruption-during-live-migration.diff
+qemu-tracing-vl-drop-g-mem-set-vtable-call.diff
