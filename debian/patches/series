@@ -35,3 +35,7 @@ qemu-vmdk-fix-next-cluster-sector-for-compressed-write.diff
 qemu-vmdk-fix-next-cluster-sector-for-compressed-write-round-next-consecutive-sector.diff
 qemu-tcg-fix-mem-corruption-during-live-migration.diff
 qemu-tracing-vl-drop-g-mem-set-vtable-call.diff
+CVE-2015-5278.patch
+CVE-2015-5279.patch
+CVE-2015-6815.patch
+CVE-2015-6855.patch
