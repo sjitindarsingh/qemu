@@ -1,3 +1,9 @@
+qemu (1:2.3+dfsg-5ubuntu8) wily; urgency=medium
+
+  * Build using libseccomp on all architectures.
+
+ -- Matthias Klose <doko@ubuntu.com>  Sat, 03 Oct 2015 21:12:15 +0200
+
 qemu (1:2.3+dfsg-5ubuntu7) wily; urgency=medium
 
   * SECURITY UPDATE: denial of service via NE2000 driver
