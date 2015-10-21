@@ -1,3 +1,9 @@
+qemu (1:2.3+dfsg-5ubuntu10) xenial; urgency=medium
+
+  * debian/patches/fix-curses-with-xterm-256.patch (LP: #1508466)
+
+ -- Ryan Harper <ryan.harper@canonical.com>  Wed, 21 Oct 2015 08:59:29 -0500
+
 qemu (1:2.3+dfsg-5ubuntu9) wily; urgency=low
 
   * debian/patches/upstream-fix-irq-route-entries.patch
