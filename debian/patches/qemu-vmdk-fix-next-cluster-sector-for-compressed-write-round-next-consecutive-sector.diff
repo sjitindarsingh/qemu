@@ -5,9 +5,11 @@ Bug: https://bugs.launchpad.net/ubuntu/+source/qemu-kvm/+bug/1006655
 Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/qemu-kvm/+bug/1006655
 Last-Update: 20150917
 
---- a/block/vmdk.c
-+++ b/block/vmdk.c
-@@ -1327,8 +1327,12 @@
+Index: qemu/block/vmdk.c
+===================================================================
+--- qemu.orig/block/vmdk.c
++++ qemu/block/vmdk.c
+@@ -1324,8 +1324,12 @@ static int vmdk_write_extent(VmdkExtent
  
      write_end_sector = DIV_ROUND_UP(write_offset + write_len, BDRV_SECTOR_SIZE);
  

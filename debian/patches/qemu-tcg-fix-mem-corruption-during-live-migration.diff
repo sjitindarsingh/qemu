@@ -5,9 +5,11 @@ Bug: https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1493049
 Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1493049
 Last-Update: 20150917
 
---- a/exec.c
-+++ b/exec.c
-@@ -526,6 +526,7 @@
+Index: qemu/exec.c
+===================================================================
+--- qemu.orig/exec.c
++++ qemu/exec.c
+@@ -522,6 +522,7 @@ void tcg_cpu_address_space_init(CPUState
          cpu->tcg_as_listener = g_new0(MemoryListener, 1);
      }
      cpu->tcg_as_listener->commit = tcg_commit;

@@ -33,6 +33,7 @@
 #include "clients.h"
 #include "hub.h"
 #include "monitor/monitor.h"
+#include "qemu/error-report.h"
 #include "qemu/sockets.h"
 #include "slirp/libslirp.h"
 #include "sysemu/char.h"
@@ -736,8 +737,9 @@ static const char **slirp_dnssearch(const StringList *dnsname)
 }
 
 int net_init_slirp(const NetClientOptions *opts, const char *name,
-                   NetClientState *peer)
+                   NetClientState *peer, Error **errp)
 {
+    /* FIXME error_setg(errp, ...) on failure */
     struct slirp_config_str *config;
     char *vnet;
     int ret;

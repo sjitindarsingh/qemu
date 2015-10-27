@@ -2191,7 +2191,12 @@ static int rtl8139_cplus_transmit_one(RTL8139State *s)
             }
 
             ip_protocol = ip->ip_p;
-            ip_data_len = be16_to_cpu(ip->ip_len) - hlen;
+
+            ip_data_len = be16_to_cpu(ip->ip_len);
+            if (ip_data_len < hlen || ip_data_len > eth_payload_len) {
+                goto skip_offload;
+            }
+            ip_data_len -= hlen;
 
             if (txdw0 & CP_TX_IPCS)
             {
@@ -3252,6 +3257,7 @@ static const VMStateDescription vmstate_rtl8139_hotplug_ready ={
     .name = "rtl8139/hotplug_ready",
     .version_id = 1,
     .minimum_version_id = 1,
+    .needed = rtl8139_hotplug_ready_needed,
     .fields = (VMStateField[]) {
         VMSTATE_END_OF_LIST()
     }
@@ -3347,13 +3353,9 @@ static const VMStateDescription vmstate_rtl8139 = {
         VMSTATE_UINT32_V(cplus_enabled, RTL8139State, 4),
         VMSTATE_END_OF_LIST()
     },
-    .subsections = (VMStateSubsection []) {
-        {
-            .vmsd = &vmstate_rtl8139_hotplug_ready,
-            .needed = rtl8139_hotplug_ready_needed,
-        }, {
-            /* empty */
-        }
+    .subsections = (const VMStateDescription*[]) {
+        &vmstate_rtl8139_hotplug_ready,
+        NULL
     }
 };
 
