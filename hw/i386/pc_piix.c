@@ -948,7 +948,7 @@ static void pc_utopic_machine_options(MachineClass *m)
     m->default_display = "std";
 }
 DEFINE_I440FX_MACHINE(utopic, "pc-i440fx-utopic", pc_compat_2_0,
-			pc_i440fx_2_0_machine_options)
+			pc_utopic_machine_options)
 
 static void pc_vivid_machine_options(MachineClass *m)
 {

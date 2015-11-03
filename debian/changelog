@@ -1,3 +1,9 @@
+qemu (1:2.4+dfsg-4ubuntu2) xenial; urgency=medium
+
+  * d/p/u/define-ubuntu-machine-type.patch: Fix typo in utopic definition.
+
+ -- dann frazier <dann.frazier@canonical.com>  Tue, 03 Nov 2015 08:05:46 -0700
+
 qemu (1:2.4+dfsg-4ubuntu1) xenial; urgency=medium
 
   * Merge 2.4 from unstable.  Remaining changes:
