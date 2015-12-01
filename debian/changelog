@@ -1,3 +1,20 @@
+qemu (1:2.4+dfsg-4ubuntu3) xenial; urgency=medium
+
+  * SECURITY UPDATE: loopback mode heap overflow vulnerability in pcnet
+    - debian/patches/CVE-2015-7504.patch: leave room for CRC code in
+      hw/net/pcnet.c.
+    - CVE-2015-7504
+  * SECURITY UPDATE: non-loopback mode buffer overflow in pcnet
+    - debian/patches/CVE-2015-7512.patch: check packet length in
+      hw/net/pcnet.c.
+    - CVE-2015-7512
+  * SECURITY UPDATE: infinite loop in eepro100
+    - debian/patches/CVE-2015-8345.patch: prevent endless loop in
+      hw/net/eepro100.c.
+    - CVE-2015-8345
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 01 Dec 2015 13:36:40 -0500
+
 qemu (1:2.4+dfsg-4ubuntu2) xenial; urgency=medium
 
   * d/p/u/define-ubuntu-machine-type.patch: Fix typo in utopic definition.
