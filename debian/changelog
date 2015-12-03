@@ -1,3 +1,12 @@
+qemu (1:2.4+dfsg-5ubuntu2) xenial; urgency=medium
+
+  * undo the libseccomp delta from debian.  libseccomp is indeed available
+    on other arches, but we need qemu's configure script to be fixed before
+    we can use it on anything other than amd64|i386.  Fixes FTBFS.
+    (LP: #1522531)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Thu, 03 Dec 2015 12:44:46 -0600
+
 qemu (1:2.4+dfsg-5ubuntu1) xenial; urgency=medium
 
   * Merge with Debian; remaining changes:
