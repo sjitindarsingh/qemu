@@ -91,6 +91,8 @@ Build-Depends: debhelper (>= 9),
  linux-libc-dev (>= 2.6.34) [linux-any],
 :ubuntu:# --enable-numa i386|amd64|ia64|mips|mipsel|powerpc|powerpcspe|x32|ppc64|ppc64el|arm64|sparc|hppa
 :ubuntu: libnuma-dev [i386 amd64 ia64 mips mipsel powerpc powerpcspe x32 ppc64 ppc64el arm64 sparc hppa],
+# on ubuntu, gcc is built with --enable-default-pie on s390x only
+:ubuntu:# --enable-pie	s390x
 # --enable-uuid
  uuid-dev,
 # --enable-xfsctl	linux-*

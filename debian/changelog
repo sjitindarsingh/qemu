@@ -1,3 +1,9 @@
+qemu (1:2.4+dfsg-5ubuntu3) xenial; urgency=high
+
+  * Enable pie by default, on ubuntu/s390x.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 07 Dec 2015 16:04:16 +0000
+
 qemu (1:2.4+dfsg-5ubuntu2) xenial; urgency=medium
 
   * undo the libseccomp delta from debian.  libseccomp is indeed available
