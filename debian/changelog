@@ -1,3 +1,57 @@
+qemu (1:2.5+dfsg-1ubuntu1) xenial; urgency=medium
+
+  * Merge with Debian; remaining changes:
+    - debian/rules: do not drop the init scripts loading kvm modules
+      (still needed in precise in cloud archive)
+    - qemu-system-common.postinst:
+      * remove acl placed by udev, and add udevadm trigger.
+      * reload kvm_intel if needed to set nested=1
+    - qemu-system-common.preinst: add kvm group if needed
+    - add qemu-kvm upstart job and defaults file (rules,
+      qemu-system-x86.qemu-kvm.default, qemu-system-x86.qemu-kvm.upstart)
+    - rules,qemu-system-x86.modprobe: support use under older udevs which
+      do not auto-load the kvm kernel module.  Enable nesting by default
+      on intel.
+    - d/p/ubuntu/expose-vmx_qemu64cpu.patch: enable nested kvm by default
+      in qemu64 cpu type.
+    - d/p/ubuntu/define-ubuntu-machine-types.patch: define distro machine
+      types to ease future live vm migration.
+    - apport hook for qemu source package: d/source_qemu-kvm.py,
+      d/qemu-system-common.install
+    - Make qemu-system-common and qemu-utils depend on qemu-block-extra
+      to fix errors with missing block backends. (LP: #1495895)
+    - Enable pie by default, on ubuntu/s390x.
+  * Drop vGICv3 support patches - all is now upstream
+  * debian/qemu-kvm-init: handle KVM_HUGEPAGES being unset (LP: #1531191)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Tue, 05 Jan 2016 15:42:50 -0800
+
+qemu (1:2.5+dfsg-1) unstable; urgency=medium
+
+  * new upstream release
+    (Closes: #801158)
+    Closes: #806373 CVE-2015-8345
+    Closes: #806742 CVE-2015-7504
+    Closes: #806741 CVE-2015-7512
+    Closes: #808131 CVE-2015-7549
+    Closes: #808130 CVE-2015-8504
+  * adopt for the new upstream:
+   - removed patches which are upstream now
+   - build-depend on libcacard-dev and stop requiring libtool
+   - removed libcacard refs from debian/qemu-system-common.docs
+   - moved qmp docs out of subdir following upstream
+   - removed pc-bios/vgabios-virtio.bin
+  * enable new linux-user target: tilegx
+  * install qemu-ga manpage
+  * install ivshmem-server and ivshmem-client to qemu-utils
+  * stop using cylinders/heads/sectors for sfdisk
+    in qemu-make-debian-root (Closes: #785470)
+  * modify qemu-make-debian-root to use some current tools
+    (this simplifies things, removes usage of uudecode)
+    (usefulness of this utility is questionable anyway)
+
+ -- Michael Tokarev <mjt@tls.msk.ru>  Wed, 16 Dec 2015 20:00:04 +0300
+
 qemu (1:2.4+dfsg-5ubuntu3) xenial; urgency=high
 
   * Enable pie by default, on ubuntu/s390x.

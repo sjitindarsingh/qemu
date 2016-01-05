@@ -79,7 +79,7 @@ start() {
     fi
 
     # mount hugepages if available and requested
-    if [ "$KVM_HUGEPAGES" -eq "1" ]; then
+    if [ "x$KVM_HUGEPAGES" -eq "x1" ]; then
         if ! grep -q hugetlbfs /proc/filesystems; then
             logger -t qemu-kvm "Error: hugepages not available in the kernel!"
         elif grep -q /run/hugepages/kvm /proc/mounts; then
