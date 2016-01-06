@@ -198,8 +198,8 @@ Breaks:
 # qemu-system before qemu-system-split
   qemu-system (<< 1.3.0+dfsg-5),
 :ubuntu:# init scripts were moved
-:ubuntu: qemu-system-x86 (<< 1:2.3+dfsg-4ubuntu1),
-:ubuntu: qemu-system-ppc (<< 1:2.3+dfsg-4ubuntu1),
+:ubuntu: qemu-system-x86 (<< 1:2.5+dfsg-1ubuntu2),
+:ubuntu: qemu-system-ppc (<< 1:2.5+dfsg-1ubuntu2),
 # qemu-utils had virtfs-proxy-helper
   qemu-utils (<< 1.3.0+dfsg-4),
 # we swallowed qemu-keymaps in 2.0.0+dfsg-7
@@ -211,8 +211,8 @@ Replaces:
 :ubuntu: qemu-common,
   qemu-system (<< 1.3.0+dfsg-5),
 :ubuntu:# init scripts were moved
-:ubuntu: qemu-system-x86 (<< 1:2.3+dfsg-4ubuntu1),
-:ubuntu: qemu-system-ppc (<< 1:2.3+dfsg-4ubuntu1),
+:ubuntu: qemu-system-x86 (<< 1:2.5+dfsg-1ubuntu2),
+:ubuntu: qemu-system-ppc (<< 1:2.5+dfsg-1ubuntu2),
   qemu-utils (<< 1.3.0+dfsg-4),
   qemu-keymaps,
 Description: QEMU full system emulation binaries (common files)
