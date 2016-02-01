@@ -1,3 +1,61 @@
+qemu (1:2.5+dfsg-1ubuntu5) xenial; urgency=medium
+
+  * SECURITY UPDATE: paravirtualized drivers incautious about shared memory
+    contents
+    - debian/patches/CVE-2015-8550-1.patch: avoid double access in
+      hw/block/xen_blkif.h.
+    - debian/patches/CVE-2015-8550-2.patch: avoid reading twice in
+      hw/display/xenfb.c.
+    - CVE-2015-8550
+  * SECURITY UPDATE: infinite loop in ehci_advance_state
+    - debian/patches/CVE-2015-8558.patch: make idt processing more robust
+      in hw/usb/hcd-ehci.c.
+    - CVE-2015-8558
+  * SECURITY UPDATE: host memory leakage in vmxnet3
+    - debian/patches/CVE-2015-856x.patch: avoid memory leakage in
+      hw/net/vmxnet3.c.
+    - CVE-2015-8567
+    - CVE-2015-8568
+  * SECURITY UPDATE: buffer overflow in megasas_ctrl_get_info
+    - debian/patches/CVE-2015-8613.patch: initialise info object with
+      appropriate size in hw/scsi/megasas.c.
+    - CVE-2015-8613
+  * SECURITY UPDATE: DoS via Human Monitor Interface
+    - debian/patches/CVE-2015-8619.patch: fix sendkey out of bounds write
+      in hmp.c, include/ui/console.h, ui/input-legacy.c.
+    - CVE-2015-8619
+  * SECURITY UPDATE: incorrect array bounds check in rocker
+    - debian/patches/CVE-2015-8701.patch: fix an incorrect array bounds
+      check in hw/net/rocker/rocker.c.
+    - CVE-2015-8701
+  * SECURITY UPDATE: ne2000 OOB r/w in ioport operations
+    - debian/patches/CVE-2015-8743.patch: fix bounds check in ioport
+      operations in hw/net/ne2000.c.
+    - CVE-2015-8743
+  * SECURITY UPDATE: ahci use-after-free vulnerability in aio port commands
+    - debian/patches/CVE-2016-1568.patch: reset ncq object to unused on
+      error in hw/ide/ahci.c.
+    - CVE-2016-1568
+  * SECURITY UPDATE: DoS via null pointer dereference in vapic_write()
+    - debian/patches/CVE-2016-1922.patch: avoid null pointer dereference in
+      hw/i386/kvmvapic.c.
+    - CVE-2016-1922
+  * SECURITY UPDATE: e1000 infinite loop
+    - debian/patches/CVE-2016-1981.patch: eliminate infinite loops on
+      out-of-bounds transfer start in hw/net/e1000.c
+    - CVE-2016-1981
+  * SECURITY UPDATE: AHCI NULL pointer dereference when using FIS CLB
+    engines
+    - debian/patches/CVE-2016-2197.patch: add check before calling
+      dma_memory_unmap in hw/ide/ahci.c.
+    - CVE-2016-2197
+  * SECURITY UPDATE: ehci null pointer dereference in ehci_caps_write
+    - debian/patches/CVE-2016-2198.patch: add capability mmio write
+      function in hw/usb/hcd-ehci.c.
+    - CVE-2016-2198
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Mon, 01 Feb 2016 09:39:01 -0500
+
 qemu (1:2.5+dfsg-1ubuntu4) xenial; urgency=medium
 
   * debian/qemu-kvm-init: Call systemd-detect-virt instead of the
