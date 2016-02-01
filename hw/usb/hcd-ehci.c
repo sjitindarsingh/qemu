@@ -893,6 +893,11 @@ static uint64_t ehci_caps_read(void *ptr, hwaddr addr,
     return s->caps[addr];
 }
 
+static void ehci_caps_write(void *ptr, hwaddr addr,
+                             uint64_t val, unsigned size)
+{
+}
+
 static uint64_t ehci_opreg_read(void *ptr, hwaddr addr,
                                 unsigned size)
 {
@@ -1389,7 +1394,7 @@ static int ehci_process_itd(EHCIState *ehci,
 {
     USBDevice *dev;
     USBEndpoint *ep;
-    uint32_t i, len, pid, dir, devaddr, endp;
+    uint32_t i, len, pid, dir, devaddr, endp, xfers = 0;
     uint32_t pg, off, ptr1, ptr2, max, mult;
 
     ehci->periodic_sched_active = PERIODIC_ACTIVE;
@@ -1479,9 +1484,10 @@ static int ehci_process_itd(EHCIState *ehci,
                 ehci_raise_irq(ehci, USBSTS_INT);
             }
             itd->transact[i] &= ~ITD_XACT_ACTIVE;
+            xfers++;
         }
     }
-    return 0;
+    return xfers ? 0 : -1;
 }
 
 
@@ -2310,6 +2316,7 @@ static void ehci_frame_timer(void *opaque)
 
 static const MemoryRegionOps ehci_mmio_caps_ops = {
     .read = ehci_caps_read,
+    .write = ehci_caps_write,
     .valid.min_access_size = 1,
     .valid.max_access_size = 4,
     .impl.min_access_size = 1,

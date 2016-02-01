@@ -7,3 +7,16 @@ mjt-set-oem-in-rsdt-like-slic.diff
 ubuntu/expose-vmx_qemu64cpu.patch
 ubuntu/define-ubuntu-machine-types.patch
 no-pie.patch
+CVE-2015-8550-1.patch
+CVE-2015-8550-2.patch
+CVE-2015-8558.patch
+CVE-2015-856x.patch
+CVE-2015-8613.patch
+CVE-2015-8619.patch
+CVE-2015-8701.patch
+CVE-2015-8743.patch
+CVE-2016-1568.patch
+CVE-2016-1922.patch
+CVE-2016-1981.patch
+CVE-2016-2197.patch
+CVE-2016-2198.patch
