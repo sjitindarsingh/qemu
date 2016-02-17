@@ -1,3 +1,9 @@
+qemu (1:2.5+dfsg-5ubuntu2) xenial; urgency=medium
+
+  * No-change rebuild for gnutls transition.
+
+ -- Matthias Klose <doko@ubuntu.com>  Wed, 17 Feb 2016 22:27:20 +0000
+
 qemu (1:2.5+dfsg-5ubuntu1) xenial; urgency=medium
 
   * Merge with Debian; remaining changes:
