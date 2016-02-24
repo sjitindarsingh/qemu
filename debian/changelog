@@ -1,3 +1,9 @@
+qemu (1:2.5+dfsg-5ubuntu3) xenial; urgency=medium
+
+  * Make -no-pie conditional, on $(CC) supporting -no-pie flag.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Wed, 24 Feb 2016 14:40:19 +0000
+
 qemu (1:2.5+dfsg-5ubuntu2) xenial; urgency=medium
 
   * No-change rebuild for gnutls transition.
