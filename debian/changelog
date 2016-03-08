@@ -1,3 +1,9 @@
+qemu (1:2.5+dfsg-5ubuntu5) xenial; urgency=medium
+
+  * Cherrypick upstream patch to fix snapshot regression (LP: #1533728)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 07 Mar 2016 18:53:34 -0800
+
 qemu (1:2.5+dfsg-5ubuntu4) xenial; urgency=medium
 
   * d/control{-in}: Re-generate and build with libiscsi-dev now
