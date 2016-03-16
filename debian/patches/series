@@ -26,3 +26,4 @@ no-pie.patch
 CVE-2016-2197.patch
 CVE-2016-2198.patch
 block-set-device-list-tqe-prev-to-NULL
+vhost-user-interrupt-management-fixes.patch

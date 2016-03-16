@@ -1,3 +1,10 @@
+qemu (1:2.5+dfsg-5ubuntu6) xenial; urgency=medium
+
+  * Cherrypick upstream patch vhost-user-interrupt-management-fixes.patch
+    (LP: #1556306)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Wed, 16 Mar 2016 16:35:22 -0700
+
 qemu (1:2.5+dfsg-5ubuntu5) xenial; urgency=medium
 
   * Cherrypick upstream patch to fix snapshot regression (LP: #1533728)
