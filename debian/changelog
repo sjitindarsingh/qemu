@@ -1,3 +1,9 @@
+qemu (1:2.5+dfsg-5ubuntu7) xenial; urgency=medium
+
+  * Cherrypick patch from mailing list to fix qemu in sandbox.  (LP: #1560149)
+
+ -- Serge Hallyn <serge.hallyn@ubuntu.com>  Mon, 11 Apr 2016 15:13:06 -0500
+
 qemu (1:2.5+dfsg-5ubuntu6) xenial; urgency=medium
 
   * Cherrypick upstream patch vhost-user-interrupt-management-fixes.patch
