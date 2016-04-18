@@ -1,3 +1,9 @@
+qemu (1:2.5+dfsg-5ubuntu8) xenial; urgency=medium
+
+  * Create qemu-system-s390x package on ubuntu only.
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Mon, 18 Apr 2016 10:16:19 +0100
+
 qemu (1:2.5+dfsg-5ubuntu7) xenial; urgency=medium
 
   * Cherrypick patch from mailing list to fix qemu in sandbox.  (LP: #1560149)
