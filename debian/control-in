@@ -156,7 +156,7 @@ Depends: ${misc:Depends},
  qemu-system-ppc, 
  qemu-system-sparc, 
  qemu-system-x86,
-:ubuntu: qemu-system-s390x,
+:ubuntu: qemu-system-s390x [s390x],
  qemu-system-misc
 Description: QEMU full system emulation binaries
  QEMU is a fast processor emulator: currently the package supports
@@ -554,6 +554,7 @@ Description: QEMU Full virtualization
 :ubuntu:Architecture: arm64
 :ubuntu:Multi-Arch: foreign
 :ubuntu:Depends: ${misc:Depends}, qemu-system-arm (>= 2.0~git-20140403.de03c31-0ubuntu2)
+:ubuntu:Suggests: qemu-efi
 :ubuntu:Description: QEMU full system emulation binaries (aarch64)
 :ubuntu: QEMU is a fast processor emulator: currently the package supports
 :ubuntu: ARM emulation. By using dynamic translation it achieves

@@ -1,3 +1,12 @@
+qemu (1:2.5+dfsg-5ubuntu10) xenial; urgency=medium
+
+  * qemu-system-s390x only available on s390x, so qemu-system should only
+    depend on it on this arch.
+  * have qemu-system-aarch64 Suggest: qemu-efi; this should be a stronger
+    relationship, but qemu-efi is still in universe right now.
+
+ -- Steve Langasek <steve.langasek@ubuntu.com>  Tue, 19 Apr 2016 13:41:37 -0700
+
 qemu (1:2.5+dfsg-5ubuntu9) xenial; urgency=medium
 
   * And actually ship the right things in qemu-system-s390x.
