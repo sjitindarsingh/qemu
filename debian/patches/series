@@ -28,3 +28,15 @@ CVE-2016-2198.patch
 block-set-device-list-tqe-prev-to-NULL
 vhost-user-interrupt-management-fixes.patch
 qemu-seccomp-sysinfo.patch
+CVE-2016-2391.patch
+CVE-2016-2392.patch
+CVE-2016-2538.patch
+CVE-2016-2841.patch
+CVE-2016-2857.patch
+CVE-2016-2858.patch
+CVE-2016-3710.patch
+CVE-2016-3712.patch
+CVE-2016-4001.patch
+CVE-2016-4002.patch
+CVE-2016-4020.patch
+CVE-2016-4037.patch
