@@ -1,3 +1,59 @@
+qemu (1:2.5+dfsg-5ubuntu10.1) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: denial of service via multiple eof_timers in ohci
+    - debian/patches/CVE-2016-2391.patch: allocate timer only once in
+      hw/usb/hcd-ohci.c.
+    - CVE-2016-2391
+  * SECURITY UPDATE: denial of service in in remote NDIS control message
+    handling
+    - debian/patches/CVE-2016-2392.patch: check USB configuration
+      descriptor object in hw/usb/dev-network.c.
+    - CVE-2016-2392
+  * SECURITY UPDATE: denial of service or host information leak in USB Net
+    device emulation support
+    - debian/patches/CVE-2016-2538.patch: check RNDIS buffer offsets and
+      length in hw/usb/dev-network.c.
+    - CVE-2016-2538
+  * SECURITY UPDATE: denial of service via infinite loop in ne2000
+    - debian/patches/CVE-2016-2841.patch: heck ring buffer control
+      registers in hw/net/ne2000.c.
+    - CVE-2016-2841
+  * SECURITY UPDATE: denial of service via payload length in crafted packet
+    - debian/patches/CVE-2016-2857.patch: check packet payload length in
+      net/checksum.c.
+    - CVE-2016-2857
+  * SECURITY UPDATE: denial of service in PRNG support
+    - debian/patches/CVE-2016-2858.patch: add request queue support to
+      rng-random in backends/rng-egd.c, backends/rng-random.c,
+      backends/rng.c, include/sysemu/rng.h.
+    - CVE-2016-2858
+  * SECURITY UPDATE: arbitrary host code execution via VGA module
+    - debian/patches/CVE-2016-3710.patch: fix banked access bounds checking
+      in hw/display/vga.c.
+    - CVE-2016-3710
+  * SECURITY UPDATE: denial of service via VGA module
+    - debian/patches/CVE-2016-3712.patch: make sure vga register setup for
+      vbe stays intact in hw/display/vga.c.
+    - CVE-2016-3712
+  * SECURITY UPDATE: denial of service in Luminary Micro Stellaris Ethernet
+    - debian/patches/CVE-2016-4001.patch: check packet length against
+      receive buffer in hw/net/stellaris_enet.c.
+    - CVE-2016-4001
+  * SECURITY UPDATE: denial of sevice and possible code execution in
+    MIPSnet
+    - debian/patches/CVE-2016-4002.patch: check size in hw/net/mipsnet.c.
+    - CVE-2016-4002
+  * SECURITY UPDATE: host information leak via TPR access
+    - debian/patches/CVE-2016-4020.patch: initialize variable in
+      hw/i386/kvmvapic.c.
+    - CVE-2016-4020
+  * SECURITY UPDATE: denial of service via infinite loop in in usb_ehci
+    - debian/patches/CVE-2016-4037.patch: apply limit to iTD/sidt
+      descriptors in hw/usb/hcd-ehci.c.
+    - CVE-2016-4037
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Tue, 10 May 2016 12:59:14 -0400
+
 qemu (1:2.5+dfsg-5ubuntu10) xenial; urgency=medium
 
   * qemu-system-s390x only available on s390x, so qemu-system should only
