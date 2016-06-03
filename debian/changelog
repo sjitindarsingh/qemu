@@ -1,3 +1,10 @@
+qemu (1:2.5+dfsg-5ubuntu10.2) xenial; urgency=medium
+
+  * Cherrypick upstream patches to support the query-gic-version QMP command
+    (LP: #1566564)
+
+ -- dann frazier <dannf@ubuntu.com>  Fri, 03 Jun 2016 14:24:25 -0600
+
 qemu (1:2.5+dfsg-5ubuntu10.1) xenial-security; urgency=medium
 
   * SECURITY UPDATE: denial of service via multiple eof_timers in ohci
