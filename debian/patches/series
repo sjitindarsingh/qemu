@@ -44,3 +44,17 @@ ubuntu/arm-qmp-add-query-gic-capabilities-interface.patch
 ubuntu/arm-enhance-kvm_arm_create_scratch_host_vcpu.patch
 ubuntu/kvm-add-kvm_device_supported-helper-function.patch
 ubuntu/arm-implement-query-gic-capabilities.patch
+CVE-2016-4439.patch
+CVE-2016-4441.patch
+CVE-2016-4454.patch
+CVE-2016-4453.patch
+CVE-2016-4952.patch
+CVE-2016-5105.patch
+CVE-2016-5106.patch
+CVE-2016-5107.patch
+CVE-2016-5126.patch
+CVE-2016-5238.patch
+CVE-2016-5337.patch
+CVE-2016-5338.patch
+CVE-2016-5403.patch
+CVE-2016-6351.patch

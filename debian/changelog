@@ -1,3 +1,65 @@
+qemu (1:2.5+dfsg-5ubuntu10.3) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: DoS and possible host code execution in 53C9X Fast
+    SCSI Controller
+    - debian/patches/CVE-2016-4439.patch: check length in hw/scsi/esp.c.
+    - CVE-2016-4439
+  * SECURITY UPDATE: DoS in 53C9X Fast SCSI Controller
+    - debian/patches/CVE-2016-4441.patch: check DMA length in
+      hw/scsi/esp.c.
+    - CVE-2016-4441
+  * SECURITY UPDATE: infinite loop in vmware_vga
+    - debian/patches/CVE-2016-4453.patch: limit fifo commands in
+      hw/display/vmware_vga.c.
+    - CVE-2016-4453
+  * SECURITY UPDATE: DoS or host memory leakage in vmware_vga
+    - debian/patches/CVE-2016-4454.patch: fix sanity checks in
+      hw/display/vmware_vga.c.
+    - CVE-2016-4454
+  * SECURITY UPDATE: DoS in VMWARE PVSCSI paravirtual SCSI bus
+    - debian/patches/CVE-2016-4952.patch: check command descriptor ring
+      buffer size in hw/scsi/vmw_pvscsi.c.
+    - CVE-2016-4952
+  * SECURITY UPDATE: MegaRAID SAS 8708EM2 host memory leakage
+    - debian/patches/CVE-2016-5105.patch: initialise local configuration
+      data buffer in hw/scsi/megasas.c.
+    - CVE-2016-5105
+  * SECURITY UPDATE: DoS in MegaRAID SAS 8708EM2
+    - debian/patches/CVE-2016-5106.patch: use appropriate property buffer
+      size in hw/scsi/megasas.c.
+    - CVE-2016-5106
+  * SECURITY UPDATE: DoS in MegaRAID SAS 8708EM2
+    - debian/patches/CVE-2016-5107.patch: check read_queue_head index
+      value in hw/scsi/megasas.c.
+    - CVE-2016-5107
+  * SECURITY UPDATE: DoS or code execution via crafted iSCSI asynchronous
+    I/O ioctl call
+    - debian/patches/CVE-2016-5126.patch: avoid potential overflow in
+      block/iscsi.c.
+    - CVE-2016-5126
+  * SECURITY UPDATE: DoS in 53C9X Fast SCSI Controller
+    - debian/patches/CVE-2016-5238.patch: check buffer length before
+      reading scsi command in hw/scsi/esp.c.
+    - CVE-2016-5238
+  * SECURITY UPDATE: MegaRAID SAS 8708EM2 host memory leakage
+    - debian/patches/CVE-2016-5337.patch: null terminate bios version
+      buffer in hw/scsi/megasas.c.
+    - CVE-2016-5337
+  * SECURITY UPDATE: DoS or code execution in 53C9X Fast SCSI Controller
+    - debian/patches/CVE-2016-5338.patch: check TI buffer index in
+      hw/scsi/esp.c.
+    - CVE-2016-5338
+  * SECURITY UPDATE: DoS via unbounded memory allocation
+    - debian/patches/CVE-2016-5403.patch: check size in hw/virtio/virtio.c.
+    - CVE-2016-5403
+  * SECURITY UPDATE: oob write access while reading ESP command
+    - debian/patches/CVE-2016-6351.patch: make cmdbuf big enough for
+      maximum CDB size and handle migration in hw/scsi/esp.c,
+      include/hw/scsi/esp.h, include/migration/vmstate.h.
+    - CVE-2016-6351
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 03 Aug 2016 12:40:51 -0400
+
 qemu (1:2.5+dfsg-5ubuntu10.2) xenial; urgency=medium
 
   * Cherrypick upstream patches to support the query-gic-version QMP command
