@@ -1,3 +1,12 @@
+qemu (1:2.5+dfsg-5ubuntu10.4) xenial-security; urgency=medium
+
+  * SECURITY REGRESSION: crash on migration with memory stats enabled
+    (LP: #1612089)
+    - debian/patches/CVE-2016-5403.patch: disable for now pending
+      investigation.
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Fri, 12 Aug 2016 08:46:19 -0400
+
 qemu (1:2.5+dfsg-5ubuntu10.3) xenial-security; urgency=medium
 
   * SECURITY UPDATE: DoS and possible host code execution in 53C9X Fast
