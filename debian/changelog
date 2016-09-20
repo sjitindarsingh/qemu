@@ -1,3 +1,14 @@
+qemu (1:2.5+dfsg-5ubuntu10.5) xenial; urgency=medium
+
+  * fix default machine types. (LP: #1621042)
+    - add dep3 header to d/p/ubuntu/define-ubuntu-machine-types.patch
+    - remove double default and double ubuntu alias
+    - add xenial machine type
+    - add q35 based ubuntu machine type
+    - add ubuntu machine types on ppc64el and s390x
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 20 Sep 2016 09:38:03 +0200
+
 qemu (1:2.5+dfsg-5ubuntu10.4) xenial-security; urgency=medium
 
   * SECURITY REGRESSION: crash on migration with memory stats enabled

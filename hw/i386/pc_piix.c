@@ -1065,7 +1065,7 @@ static void pc_trusty_machine_options(MachineClass *m)
     m->desc = "Ubuntu 14.04 PC (i440FX + PIIX, 1996)";
 }
 DEFINE_I440FX_MACHINE(trusty, "pc-i440fx-trusty", pc_compat_2_0,
-			pc_trusty_machine_options)
+                      pc_trusty_machine_options)
 
 static void pc_utopic_machine_options(MachineClass *m)
 {
@@ -1074,7 +1074,7 @@ static void pc_utopic_machine_options(MachineClass *m)
     m->default_display = "std";
 }
 DEFINE_I440FX_MACHINE(utopic, "pc-i440fx-utopic", pc_compat_2_0,
-			pc_utopic_machine_options)
+                      pc_utopic_machine_options)
 
 static void pc_vivid_machine_options(MachineClass *m)
 {
@@ -1082,12 +1082,10 @@ static void pc_vivid_machine_options(MachineClass *m)
     pc_i440fx_machine_options(m);
     m->desc = "Ubuntu 15.04 PC (i440FX + PIIX, 1996)",
     m->default_display = "std";
-    m->alias = "ubuntu";
-    m->is_default = 1;
 }
 
 DEFINE_I440FX_MACHINE(vivid, "pc-i440fx-vivid", pc_compat_2_3,
-			pc_vivid_machine_options);
+                      pc_vivid_machine_options);
 
 static void pc_wily_machine_options(MachineClass *m)
 {
@@ -1095,9 +1093,18 @@ static void pc_wily_machine_options(MachineClass *m)
     pc_i440fx_machine_options(m);
     m->desc = "Ubuntu 15.04 PC (i440FX + PIIX, 1996)",
     m->default_display = "std";
+}
+
+DEFINE_I440FX_MACHINE(wily, "pc-i440fx-wily", pc_compat_2_3,
+                      pc_wily_machine_options);
+
+static void pc_xenial_machine_options(MachineClass *m)
+{
+    pc_i440fx_2_5_machine_options(m);
+    m->desc = "Ubuntu 16.04 PC (i440FX + PIIX, 1996)",
     m->alias = "ubuntu";
     m->is_default = 1;
 }
 
-DEFINE_I440FX_MACHINE(wily, "pc-i440fx-wily", pc_compat_2_3,
-			pc_wily_machine_options);
+DEFINE_I440FX_MACHINE(xenial, "pc-i440fx-xenial", NULL,
+                      pc_xenial_machine_options);
