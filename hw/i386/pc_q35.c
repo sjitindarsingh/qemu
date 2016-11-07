@@ -485,3 +485,14 @@ static void pc_q35_1_4_machine_options(MachineClass *m)
 
 DEFINE_Q35_MACHINE(v1_4, "pc-q35-1.4", pc_compat_1_4,
                    pc_q35_1_4_machine_options);
+
+/* Ubuntu machine types */
+static void pc_q35_xenial_machine_options(MachineClass *m)
+{
+    pc_q35_2_5_machine_options(m);
+    m->desc = "Ubuntu 16.04 PC (Q35 + ICH9, 2009)";
+    /* The ubuntu alias and default is on a i440fx type */
+    m->alias = NULL;
+}
+DEFINE_Q35_MACHINE(xenial, "pc-q35-xenial", NULL,
+                   pc_q35_xenial_machine_options);
