@@ -1,3 +1,132 @@
+qemu (1:2.5+dfsg-5ubuntu10.6) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: DoS via unbounded memory allocation
+    - debian/patches/CVE-2016-5403.patch: re-enable original patch.
+    - debian/patches/CVE-2016-5403-2.patch: recalculate vq->inuse after
+      migration in hw/virtio/virtio.c.
+    - debian/patches/CVE-2016-5403-3.patch: decrement vq->inuse in
+      virtqueue_discard() in hw/virtio/virtio.c.
+    - debian/patches/CVE-2016-5403-4.patch: zero vq->inuse in
+      virtio_reset() in hw/virtio/virtio.c.
+    - CVE-2016-5403
+  * SECURITY UPDATE: use after free while writing in vmxnet3
+    - debian/patches/CVE-2016-6833.patch: check for device_active before
+      write in hw/net/vmxnet3.c.
+    - CVE-2016-6833
+  * SECURITY UPDATE: DoS via infinite loop during packet fragmentation
+    - debian/patches/CVE-2016-6834.patch: check fragment length during
+      fragmentation in hw/net/vmxnet_tx_pkt.c.
+    - CVE-2016-6834
+  * SECURITY UPDATE: Buffer overflow in vmxnet_tx_pkt_parse_headers()
+    - debian/patches/CVE-2016-6835.patch: check IP header length in
+      hw/net/vmxnet_tx_pkt.c.
+    - CVE-2016-6835
+  * SECURITY UPDATE: Information leak in vmxnet3_complete_packet
+    - debian/patches/CVE-2016-6836.patch: initialise local tx descriptor in
+      hw/net/vmxnet3.c.
+    - CVE-2016-6836
+  * SECURITY UPDATE: Integer overflow in packet initialisation in VMXNET3
+    - debian/patches/CVE-2016-6888.patch: use g_new for pkt initialisation
+      in hw/net/vmxnet_tx_pkt.c.
+    - CVE-2016-6888
+  * SECURITY UPDATE: directory traversal flaw in 9p virtio backend
+    - debian/patches/CVE-2016-7116-1.patch: forbid illegal path names in
+      hw/9pfs/virtio-9p.c.
+    - debian/patches/CVE-2016-7116-2.patch: forbid . and .. in file names
+      in hw/9pfs/virtio-9p.c.
+    - debian/patches/CVE-2016-7116-3.patch: handle walk of ".." in the root
+      directory in hw/9pfs/virtio-9p.*.
+    - debian/patches/CVE-2016-7116-4.patch: fix potential segfault during
+      walk in hw/9pfs/virtio-9p.c.
+    - CVE-2016-7116
+  * SECURITY UPDATE: OOB read and infinite loop in pvscsi
+    - debian/patches/CVE-2016-7155.patch: check page count while
+      initialising descriptor rings in hw/scsi/vmw_pvscsi.c.
+    - CVE-2016-7155
+  * SECURITY UPDATE: infinite loop when building SG list in pvscsi
+    - debian/patches/CVE-2016-7156.patch: limit loop to fetch SG list in
+      hw/scsi/vmw_pvscsi.c.
+    - CVE-2016-7156
+  * SECURITY UPDATE: buffer overflow in xlnx.xps-ethernetlite
+    - debian/patches/CVE-2016-7161.patch: fix a heap overflow in
+      hw/net/xilinx_ethlite.c.
+    - CVE-2016-7161
+  * SECURITY UPDATE: OOB stack memory access in vmware_vga
+    - debian/patches/CVE-2016-7170.patch: correct bitmap and pixmap size
+      checks in hw/display/vmware_vga.c.
+    - CVE-2016-7170
+  * SECURITY UPDATE: Infinite loop when processing IO requests in pvscsi
+    - debian/patches/CVE-2016-7421.patch: limit process IO loop to ring
+      size in hw/scsi/vmw_pvscsi.c.
+    - CVE-2016-7421
+  * SECURITY UPDATE: memory leakage during device unplug in xhci
+    - debian/patches/CVE-2016-7466.patch: fix memory leak in usb_xhci_exit
+      in hw/usb/hcd-xhci.c.
+    - CVE-2016-7466
+  * SECURITY UPDATE: denial of service in mcf via invalid count
+    - debian/patches/CVE-2016-7908.patch: limit buffer descriptor count in
+      hw/net/mcf_fec.c.
+    - CVE-2016-7908
+  * SECURITY UPDATE: denial of service in pcnet via invalid length
+    - debian/patches/CVE-2016-7909.patch: check rx/tx descriptor ring
+      length in hw/net/pcnet.c.
+    - CVE-2016-7909
+  * SECURITY UPDATE: denial of service via memory leak in virtio-gpu
+    - debian/patches/CVE-2016-7994.patch: fix memory leak in
+      virtio_gpu_resource_create_2d in hw/display/virtio-gpu.c.
+    - CVE-2016-7994
+  * SECURITY UPDATE: denial of service via infinite loop in xhci
+    - debian/patches/CVE-2016-8576.patch: limit the number of link trbs we
+      are willing to process in hw/usb/hcd-xhci.c.
+    - CVE-2016-8576
+  * SECURITY UPDATE: host memory leakage in 9pfs
+    - debian/patches/CVE-2016-8577.patch: fix potential host memory leak in
+      v9fs_read in hw/9pfs/virtio-9p.c.
+    - CVE-2016-8577
+  * SECURITY UPDATE: NULL dereference in 9pfs
+    - debian/patches/CVE-2016-8578.patch: allocate space for guest
+      originated empty strings in fsdev/virtio-9p-marshal.c,
+      hw/9pfs/virtio-9p.c.
+    - CVE-2016-8578
+  * SECURITY UPDATE: OOB buffer access in rocker switch emulation
+    - debian/patches/CVE-2016-8668.patch: set limit to DMA buffer size in
+      hw/net/rocker/rocker.c.
+    - CVE-2016-8668
+  * SECURITY UPDATE: infinite loop in Intel HDA controller
+    - debian/patches/CVE-2016-8909.patch: check stream entry count during
+      transfer in hw/audio/intel-hda.c.
+    - CVE-2016-8909
+  * SECURITY UPDATE: infinite loop in RTL8139 ethernet controller
+    - debian/patches/CVE-2016-8910.patch: limit processing of ring
+      descriptors in hw/net/rtl8139.c.
+    - CVE-2016-8910
+  * SECURITY UPDATE: memory leakage at device unplug in eepro100
+    - debian/patches/CVE-2016-9101.patch: fix memory leak in device uninit
+      in hw/net/eepro100.c.
+    - CVE-2016-9101
+  * SECURITY UPDATE: denial of service via memory leak in 9pfs
+    - debian/patches/CVE-2016-9102.patch: fix memory leak in
+      v9fs_xattrcreate in hw/9pfs/virtio-9p.c.
+    - CVE-2016-9102
+  * SECURITY UPDATE: information leakage via xattribute in 9pfs
+    - debian/patches/CVE-2016-9103.patch: fix information leak in xattr
+      read in hw/9pfs/virtio-9p.c.
+    - CVE-2016-9103
+  * SECURITY UPDATE: integer overflow leading to OOB access in 9pfs
+    - debian/patches/CVE-2016-9104.patch: fix integer overflow issue in
+      xattr read/write in hw/9pfs/virtio-9p.c.
+    - CVE-2016-9104
+  * SECURITY UPDATE: denial of service via memory leakage in 9pfs
+    - debian/patches/CVE-2016-9105.patch: fix memory leak in v9fs_link in
+      hw/9pfs/virtio-9p.c.
+    - CVE-2016-9105
+  * SECURITY UPDATE: denial of service via memory leakage in 9pfs
+    - debian/patches/CVE-2016-9106.patch: fix memory leak in v9fs_write in
+      hw/9pfs/virtio-9p.c.
+    - CVE-2016-9106
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Mon, 07 Nov 2016 11:17:16 -0500
+
 qemu (1:2.5+dfsg-5ubuntu10.5) xenial; urgency=medium
 
   * fix default machine types. (LP: #1621042)

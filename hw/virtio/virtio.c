@@ -271,6 +271,7 @@ void virtqueue_discard(VirtQueue *vq, const VirtQueueElement *elem,
                        unsigned int len)
 {
     vq->last_avail_idx--;
+    vq->inuse--;
     virtqueue_unmap_sg(vq, elem, len);
 }
 
@@ -515,6 +516,11 @@ int virtqueue_pop(VirtQueue *vq, VirtQueueElement *elem)
 
     max = vq->vring.num;
 
+    if (vq->inuse >= vq->vring.num) {
+        error_report("Virtqueue size exceeded");
+        exit(1);
+    }
+
     i = head = virtqueue_get_head(vq, vq->last_avail_idx++);
     if (virtio_vdev_has_feature(vdev, VIRTIO_RING_F_EVENT_IDX)) {
         vring_set_avail_event(vq, vq->last_avail_idx);
@@ -678,6 +684,7 @@ void virtio_reset(void *opaque)
         vdev->vq[i].signalled_used_valid = false;
         vdev->vq[i].notification = true;
         vdev->vq[i].vring.num = vdev->vq[i].vring.num_default;
+        vdev->vq[i].inuse = 0;
     }
 }
 
@@ -1511,6 +1518,21 @@ int virtio_load(VirtIODevice *vdev, QEMUFile *f, int version_id)
                              i, vdev->vq[i].vring.num,
                              vring_avail_idx(&vdev->vq[i]),
                              vdev->vq[i].last_avail_idx, nheads);
+                return -1;
+            }
+
+            /*
+             * Some devices migrate VirtQueueElements that have been popped
+             * from the avail ring but not yet returned to the used ring.
+             */
+            vdev->vq[i].inuse = vdev->vq[i].last_avail_idx -
+                                vring_used_idx(&vdev->vq[i]);
+            if (vdev->vq[i].inuse > vdev->vq[i].vring.num) {
+                error_report("VQ %d size 0x%x < last_avail_idx 0x%x - "
+                             "used_idx 0x%x",
+                             i, vdev->vq[i].vring.num,
+                             vdev->vq[i].last_avail_idx,
+                             vring_used_idx(&vdev->vq[i]));
                 return -1;
             }
         }
