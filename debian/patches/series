@@ -91,3 +91,4 @@ CVE-2016-9102.patch
 CVE-2016-9104.patch
 CVE-2016-9105.patch
 CVE-2016-9106.patch
+vhost_migration-blocker-only-if-shared-log-is-used.patch

@@ -1,0 +1,32 @@
+Description: vhost: migration blocker only if shared log is used
+
+Commit 31190ed7 added a migration blocker in vhost_dev_init() to
+check if memfd would succeed. It is better if this blocker first
+checks if vhost backend requires shared log. This will avoid a
+situation where a blocker is added inappropriately (e.g. shared
+log allocation fails when vhost backend doesn't support it).
+
+Signed-off-by: Rafael David Tinoco <rafael.tinoco@canonical.com>
+Reviewed-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+---
+
+Origin: upstream, commit: 0d34fbabc13
+Bug: https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1626972
+Bug-Ubuntu: https://launchpad.net/bugs/1626972
+Reviewed-By: Rafael David Tinoco
+Last-Update: 2016-11-18
+
+--- qemu-2.5+dfsg.orig/hw/virtio/vhost.c
++++ qemu-2.5+dfsg/hw/virtio/vhost.c
+@@ -1029,7 +1029,7 @@ int vhost_dev_init(struct vhost_dev *hde
+         if (!(hdev->features & (0x1ULL << VHOST_F_LOG_ALL))) {
+             error_setg(&hdev->migration_blocker,
+                        "Migration disabled: vhost lacks VHOST_F_LOG_ALL feature.");
+-        } else if (!qemu_memfd_check()) {
++        } else if (vhost_dev_log_is_shared(hdev) && !qemu_memfd_check()) {
+             error_setg(&hdev->migration_blocker,
+                        "Migration disabled: failed to allocate shared memory");
+         }
