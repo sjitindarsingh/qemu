@@ -1,3 +1,11 @@
+qemu (1:2.5+dfsg-5ubuntu10.7) xenial; urgency=medium
+
+  [ Rafael David Tinoco ]
+  * Fixed wrong migration blocker when vhost is used (LP: #1626972)
+    - d/p/vhost_migration-blocker-only-if-shared-log-is-used.patch
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 22 Nov 2016 13:45:39 +0100
+
 qemu (1:2.5+dfsg-5ubuntu10.6) xenial-security; urgency=medium
 
   * SECURITY UPDATE: DoS via unbounded memory allocation
