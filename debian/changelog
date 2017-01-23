@@ -1,3 +1,12 @@
+qemu (1:2.5+dfsg-5ubuntu10.8) xenial; urgency=medium
+
+  [ Dmitrii Shcherbakov ]
+  *  d/p/ubuntu/net-fix-qemu_announce_self-not-emitting-packets.patch:
+     Cherrypick upstream patch: net: fix qemu_announce_self not emitting
+     packets (LP: #1656480)
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Mon, 23 Jan 2017 15:12:05 +0100
+
 qemu (1:2.5+dfsg-5ubuntu10.7) xenial; urgency=medium
 
   [ Rafael David Tinoco ]

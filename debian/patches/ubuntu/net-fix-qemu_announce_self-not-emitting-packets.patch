@@ -1,0 +1,24 @@
+Description: net: fix qemu_announce_self not emitting packets
+  commit fefe2a78 accidentally dropped the code path for injecting
+  raw packets. This feature is needed for sending gratuitous ARPs
+  after an incoming migration has completed. The result is increased
+  network downtime for vservers where the network card is not virtio-net
+  with the VIRTIO_NET_F_GUEST_ANNOUNCE feature.
+
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1656480
+Origin: upstream, http://git.qemu.org/?p=qemu.git;a=commitdiff;h=ca1ee3d6b546e841a1b9db413eb8fa09f13a061b
+Applied-Upstream: ca1ee3d6b546e841a1b9db413eb8fa09f13a061b
+Last-Update: 2017-01-14
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/net/net.c
++++ b/net/net.c
+@@ -735,7 +735,7 @@
+         return 0;
+     }
+ 
+-    if (nc->info->receive_iov) {
++    if (nc->info->receive_iov && !(flags & QEMU_NET_PACKET_FLAG_RAW)) {
+         ret = nc->info->receive_iov(nc, iov, iovcnt);
+     } else {
+         ret = nc_sendv_compat(nc, iov, iovcnt, flags);
