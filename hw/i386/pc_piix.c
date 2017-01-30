@@ -1061,7 +1061,7 @@ DEFINE_PC_MACHINE(xenfv, "xenfv", pc_xen_hvm_init,
 /* Ubuntu machine types */
 static void pc_trusty_machine_options(MachineClass *m)
 {
-    pc_i440fx_machine_options(m);
+    pc_i440fx_2_0_machine_options(m);
     m->desc = "Ubuntu 14.04 PC (i440FX + PIIX, 1996)";
 }
 DEFINE_I440FX_MACHINE(trusty, "pc-i440fx-trusty", pc_compat_2_0,
@@ -1069,11 +1069,11 @@ DEFINE_I440FX_MACHINE(trusty, "pc-i440fx-trusty", pc_compat_2_0,
 
 static void pc_utopic_machine_options(MachineClass *m)
 {
-    pc_i440fx_machine_options(m);
+    pc_i440fx_2_1_machine_options(m);
     m->desc = "Ubuntu 14.10 PC (i440FX + PIIX, 1996)";
     m->default_display = "std";
 }
-DEFINE_I440FX_MACHINE(utopic, "pc-i440fx-utopic", pc_compat_2_0,
+DEFINE_I440FX_MACHINE(utopic, "pc-i440fx-utopic", pc_compat_2_1,
                       pc_utopic_machine_options)
 
 static void pc_vivid_machine_options(MachineClass *m)
