@@ -93,3 +93,4 @@ CVE-2016-9105.patch
 CVE-2016-9106.patch
 vhost_migration-blocker-only-if-shared-log-is-used.patch
 ubuntu/net-fix-qemu_announce_self-not-emitting-packets.patch
+ubuntu/add_force_size_option.patch
