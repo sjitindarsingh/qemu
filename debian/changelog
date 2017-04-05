@@ -1,3 +1,158 @@
+qemu (1:2.5+dfsg-5ubuntu10.11) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: DoS in virtio GPU device
+    - debian/patches/CVE-2016-10028.patch: check virgl capabilities
+      max_size in hw/display/virtio-gpu-3d.c.
+    - CVE-2016-10028
+  * SECURITY UPDATE: DoS in virtio GPU device
+    - debian/patches/CVE-2016-10029-*.patch: check values in
+      hw/display/virtio-gpu.c, hw/display/virtio-gpu-3d.c,
+      include/hw/virtio/virtio-gpu.h.
+    - CVE-2016-10029
+  * SECURITY UPDATE: DoS via 6300esb unplug operations
+    - debian/patches/CVE-2016-10155.patch: add exit function in
+      hw/watchdog/wdt_i6300esb.c.
+    - CVE-2016-10155
+  * SECURITY UPDATE: DoS in i.MX Fast Ethernet Controller
+    - debian/patches/CVE-2016-7907.patch: limit buffer descriptor count in
+      hw/net/imx_fec.c.
+    - CVE-2016-7907
+  * SECURITY UPDATE: DoS in JAZZ RC4030 chipset emulation
+    - debian/patches/CVE-2016-8667.patch: limit interval timer reload value
+      in hw/dma/rc4030.c.
+    - CVE-2016-8667
+  * SECURITY UPDATE: DoS in 16550A UART emulation
+    - debian/patches/CVE-2016-8669.patch: check divider value against baud
+      base in hw/char/serial.c.
+    - CVE-2016-8669
+  * SECURITY UPDATE: privilege escalation via ioreq handling
+    - debian/patches/CVE-2016-9381.patch: avoid double fetches and add
+      bounds checks to xen-hvm.c.
+    - CVE-2016-9381
+  * SECURITY UPDATE: host filesystem access via virtFS
+    - debian/patches/CVE-2016-9602-*.patch: don't follow symlinks in
+      hw/9pfs/*.
+    - CVE-2016-9602
+  * SECURITY UPDATE: arbitrary code execution via Cirrus VGA
+    - debian/patches/CVE-2016-9603.patch: remove bitblit support from
+      console code in hw/display/cirrus_vga.c, include/ui/console.h,
+      ui/console.c, ui/vnc.c.
+    - CVE-2016-9603
+  * SECURITY UPDATE: infinite loop in ColdFire Fast Ethernet Controller
+    - debian/patches/CVE-2016-9776.patch: check receive buffer size
+      register value in hw/net/mcf_fec.c.
+    - CVE-2016-9776
+  * SECURITY UPDATE: information leak in virtio GPU device
+    - debian/patches/CVE-2016-9845.patch: properly clear out memory in
+      hw/display/virtio-gpu-3d.c.
+    - CVE-2016-9845
+  * SECURITY UPDATE: DoS via memory leak in virtio GPU device
+    - debian/patches/CVE-2016-9846.patch: properly free memory in
+      hw/display/virtio-gpu.c.
+    - CVE-2016-9846
+  * SECURITY UPDATE: DoS via memory leak in USB redirector
+    - debian/patches/CVE-2016-9907.patch: properly free memory in
+      hw/usb/redirect.c.
+    - CVE-2016-9907
+  * SECURITY UPDATE: information leak in virtio GPU device
+    - debian/patches/CVE-2016-9908.patch: properly clear out memory in
+      hw/display/virtio-gpu-3d.c.
+    - CVE-2016-9908
+  * SECURITY UPDATE: DoS via memory leak in USB EHCI Emulation
+    - debian/patches/CVE-2016-9911.patch: properly free memory in
+      hw/usb/hcd-ehci.c.
+    - CVE-2016-9911
+  * SECURITY UPDATE: DoS via memory leak in virtio GPU device
+    - debian/patches/CVE-2016-9912.patch: properly free memory in
+      hw/display/virtio-gpu.c.
+    - CVE-2016-9912
+  * SECURITY UPDATE: DoS via virtFS
+    - debian/patches/CVE-2016-9913.patch: adjust the order of resource
+      cleanup in hw/9pfs/virtio-9p-device.c.
+    - CVE-2016-9913
+  * SECURITY UPDATE: DoS via virtFS
+    - debian/patches/CVE-2016-9914-*.patch: add cleanup operations to
+      fsdev/file-op-9p.h, hw/9pfs/virtio-9p-device.c.
+    - CVE-2016-9914
+  * SECURITY UPDATE: DoS via virtFS
+    - debian/patches/CVE-2016-9915.patch: add cleanup operation to
+      hw/9pfs/virtio-9p-handle.c.
+    - CVE-2016-9915
+  * SECURITY UPDATE: DoS via virtFS
+    - debian/patches/CVE-2016-9916.patch: add cleanup operation to
+      hw/9pfs/virtio-9p-proxy.c.
+    - CVE-2016-9916
+  * SECURITY UPDATE: DoS in Cirrus VGA
+    - debian/patches/CVE-2016-9921-9922.patch: check bpp values in
+      hw/display/cirrus_vga.c.
+    - CVE-2016-9921
+    - CVE-2016-9922
+  * SECURITY UPDATE: code execution via Cirrus VGA
+    - debian/patches/CVE-2017-2615.patch: fix oob access in
+      hw/display/cirrus_vga.c.
+    - CVE-2017-2615
+  * SECURITY UPDATE: code execution via Cirrus VGA
+    - debian/patches/CVE-2017-2620-pre.patch: add extra parameter to
+      blit_is_unsafe in hw/display/cirrus_vga.c.
+    - debian/patches/CVE-2017-2620.patch: add blit destination check to
+      hw/display/cirrus_vga.c.
+    - CVE-2017-2620
+  * SECURITY UPDATE: DoS via memory leak in ac97 audio device
+    - debian/patches/CVE-2017-5525.patch: add exit function to
+      hw/audio/ac97.c.
+    - CVE-2017-5525
+  * SECURITY UPDATE: DoS via memory leak in es1370 audio device
+    - debian/patches/CVE-2017-5526.patch: add exit function to
+      hw/audio/es1370.c.
+    - CVE-2017-5526
+  * SECURITY UPDATE: DoS via memory leak in virtio GPU device
+    - debian/patches/CVE-2017-5552.patch: check return value in
+      hw/display/virtio-gpu-3d.c.
+    - CVE-2017-5552
+  * SECURITY UPDATE: DoS via memory leak in virtio GPU device
+    - debian/patches/CVE-2017-5578.patch: check res->iov in
+      hw/display/virtio-gpu.c.
+    - CVE-2017-5578
+  * SECURITY UPDATE: DoS via memory leak in 16550A UART emulation
+    - debian/patches/CVE-2017-5579.patch: properly free resources in
+      hw/char/serial.c.
+    - CVE-2017-5579
+  * SECURITY UPDATE: code execution via SDHCI device emulation
+    - debian/patches/CVE-2017-5667.patch: check data length in
+      hw/sd/sdhci.c.
+    - CVE-2017-5667
+  * SECURITY UPDATE: DoS via memory leak in MegaRAID SAS device
+    - debian/patches/CVE-2017-5856.patch: properly handle memory in
+      hw/scsi/megasas.c.
+    - CVE-2017-5856
+  * SECURITY UPDATE: DoS via memory leak in virtio GPU device
+    - debian/patches/CVE-2017-5857.patch: properly clean up in
+      hw/display/virtio-gpu-3d.c.
+    - CVE-2017-5857
+  * SECURITY UPDATE: DoS in CCID Card device
+    - debian/patches/CVE-2017-5898.patch: check ccid apdu length in
+      hw/usb/dev-smartcard-reader.c.
+    - CVE-2017-5898
+  * SECURITY UPDATE: DoS via infinite loop in USB xHCI controller emulator
+    - debian/patches/CVE-2017-5973.patch: apply limits to loops in
+      hw/usb/hcd-xhci.c, trace-events.
+    - CVE-2017-5973
+  * SECURITY UPDATE: DoS via infinite loop in SDHCI device emulation
+    - debian/patches/CVE-2017-5987-*.patch: fix transfer mode register
+      handling in hw/sd/sdhci.c.
+    - CVE-2017-5987
+  * SECURITY UPDATE: DoS via infinite loop in USB OHCI emulation
+    - debian/patches/CVE-2017-6505.patch: limit the number of link eds in
+      hw/usb/hcd-ohci.c.
+    - CVE-2017-6505
+  * A work-around to fix live migrations (LP: #1647389)
+    - debian/patches/CVE-2016-5403-5.patch: fix vq->inuse recalc after
+      migration in hw/virtio/virtio.c.
+    - debian/patches/CVE-2016-5403-6.patch: make sure vdev->vq[i].inuse
+      never goes below 0 in hw/virtio/virtio.c.
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Wed, 05 Apr 2017 09:55:02 -0400
+
 qemu (1:2.5+dfsg-5ubuntu10.10) xenial; urgency=medium
 
   [Nishanth Aravamudan]
