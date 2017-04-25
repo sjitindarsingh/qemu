@@ -1,3 +1,18 @@
+qemu (1:2.5+dfsg-5ubuntu10.13) xenial; urgency=medium
+
+  * debian/patches/ubuntu/vvfat-fix-volume-name-assertion.patch:
+    Fix the volume name assertion in vvfat rw mode (LP: #1684239)
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 25 Apr 2017 13:58:10 +0200
+
+qemu (1:2.5+dfsg-5ubuntu10.12) xenial; urgency=medium
+
+  * debian/patches/ubuntu/bug-1656112-POWER8NVL-[12]-*.patch:
+    Add PowerISA 2.07 compatibility mode to fix execution on POWER8NVL
+    processors such as in S822LC (8335-GTB) machines (LP: #1656112)
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Fri, 21 Apr 2017 07:51:57 +0200
+
 qemu (1:2.5+dfsg-5ubuntu10.11) xenial-security; urgency=medium
 
   * SECURITY UPDATE: DoS in virtio GPU device

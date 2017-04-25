@@ -1,0 +1,47 @@
+Description: vvfat: Fix volume name assertion
+
+commit ebb72c9f066e5f85259e1541a6d3fb5bfd6e73ff
+Author: Kevin Wolf <kwolf@redhat.com>
+Date:   Wed Apr 27 14:11:38 2016 +0200
+
+    vvfat: Fix volume name assertion
+
+    Commit d5941dd made the volume name configurable, but it didn't consider
+    that the rw code compares the volume name string to assert that the
+    first directory entry is the volume name. This made vvfat crash in rw
+    mode.
+
+    This fixes the assertion to compare with the configured volume name
+    instead of a literal string.
+
+    Cc: qemu-stable@nongnu.org
+    Signed-off-by: Kevin Wolf <kwolf@redhat.com>
+    Reviewed-by: Markus Armbruster <armbru@redhat.com>
+    Reviewed-by: Stefan Hajnoczi <stefanha@redhat.com>
+
+Bug-Ubuntu: https://bugs.launchpad.net/ubuntu/+source/qemu/+bug/1684239
+Origin: http://git.qemu-project.org/?p=qemu.git;a=commitdiff;h=ebb72c9f066e5f85259e1541a6d3fb5bfd6e73ff
+Original-Author: Kevin Wolf <kwolf@redhat.com>
+Author: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+Last-Update: 2017-04-25
+--- a/block/vvfat.c
++++ b/block/vvfat.c
+@@ -2282,12 +2282,17 @@
+ 		factor * (old_cluster_count - new_cluster_count));
+ 
+     for (c = first_cluster; !fat_eof(s, c); c = modified_fat_get(s, c)) {
++        direntry_t *first_direntry;
+ 	void* direntry = array_get(&(s->directory), current_dir_index);
+ 	int ret = vvfat_read(s->bs, cluster2sector(s, c), direntry,
+ 		s->sectors_per_cluster);
+ 	if (ret)
+ 	    return ret;
+-	assert(!strncmp(s->directory.pointer, "QEMU", 4));
++
++        /* The first directory entry on the filesystem is the volume name */
++        first_direntry = (direntry_t*) s->directory.pointer;
++        assert(!memcmp(first_direntry->name, s->volume_label, 11));
++
+ 	current_dir_index += factor;
+     }
+ 
