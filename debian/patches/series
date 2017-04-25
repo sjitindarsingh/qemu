@@ -168,3 +168,6 @@ CVE-2016-9911.patch
 CVE-2017-2615.patch
 CVE-2016-5403-5.patch
 CVE-2016-5403-6.patch
+ubuntu/bug-1656112-POWER8NVL-1-7-9d6ba75d.patch
+ubuntu/bug-1656112-POWER8NVL-2-7-a88dced8.patch
+ubuntu/vvfat-fix-volume-name-assertion.patch
