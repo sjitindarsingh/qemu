@@ -88,6 +88,7 @@ static int cap_fixup_hcalls;
 static int cap_htm;             /* Hardware transactional memory support */
 static int cap_mmu_radix;
 static int cap_mmu_hash_v3;
+static int cap_large_decr;
 
 static uint32_t debug_inst_opcode;
 
@@ -391,6 +392,19 @@ target_ulong kvmppc_configure_v3_mmu(PowerPCCPU *cpu,
     default:
         return H_HARDWARE;
     }
+}
+
+void kvmppc_configure_large_decrementer(CPUState *cs, bool enable_ld)
+{
+    uint64_t lpcr;
+
+    kvm_get_one_reg(cs, KVM_REG_PPC_LPCR_64, &lpcr);
+    if (enable_ld) {
+        lpcr |= LPCR_LD;
+    } else {
+        lpcr &= LPCR_LD;
+    }
+    kvm_set_one_reg(cs, KVM_REG_PPC_LPCR_64, &lpcr);
 }
 
 static bool kvm_valid_page_size(uint32_t flags, long rampgsize, uint32_t shift)
@@ -2004,6 +2018,11 @@ uint32_t kvmppc_get_dfp(void)
     return kvmppc_read_int_cpu_dt("ibm,dfp");
 }
 
+uint32_t kvmppc_get_dec_bits(void)
+{
+    return kvmppc_read_int_cpu_dt("ibm,dec-bits");
+}
+
 static int kvmppc_get_pvinfo(CPUPPCState *env, struct kvm_ppc_pvinfo *pvinfo)
  {
      PowerPCCPU *cpu = ppc_env_get_cpu(env);
@@ -2380,6 +2399,7 @@ static void kvmppc_host_cpu_class_init(ObjectClass *oc, void *data)
 
 #if defined(TARGET_PPC64)
     pcc->radix_page_info = kvm_get_radix_page_info();
+    pcc->large_decr_bits = kvmppc_get_dec_bits();
 
     if ((pcc->pvr & 0xffffff00) == CPU_POWERPC_POWER9_DD1) {
         /*
@@ -2422,6 +2442,45 @@ bool kvmppc_has_cap_mmu_radix(void)
 bool kvmppc_has_cap_mmu_hash_v3(void)
 {
     return cap_mmu_hash_v3;
+}
+
+void kvmppc_check_cap_large_decr(void)
+{
+    PowerPCCPU *cpu = POWERPC_CPU(first_cpu);
+    CPUState *cs = CPU(cpu);
+    bool large_dec_support;
+    uint32_t dec_bits;
+    uint64_t lpcr;
+
+    /*
+     * Try and set the LPCR_LD (large decrementer) bit to enable the large
+     * decrementer. A hypervisor with large decrementer capabilities will allow
+     * this so the value read back after this will have the LPCR_LD bit set.
+     * Otherwise the bit will be cleared meaning we can't use the large
+     * decrementer.
+     */
+    kvm_get_one_reg(cs, KVM_REG_PPC_LPCR_64, &lpcr);
+    lpcr |= LPCR_LD;
+    kvm_set_one_reg(cs, KVM_REG_PPC_LPCR_64, &lpcr);
+    kvm_get_one_reg(cs, KVM_REG_PPC_LPCR_64, &lpcr);
+    large_dec_support = !!(lpcr & LPCR_LD);
+    /* Probably a good idea to clear it again */
+    lpcr &= ~LPCR_LD;
+    kvm_set_one_reg(cs, KVM_REG_PPC_LPCR_64, &lpcr);
+
+    /*
+     * Check for the ibm,dec-bits property on the host, if it isn't there then
+     * something has gone wrong and we're better off not letting the guest use
+     * the large decrementer.
+     */
+    dec_bits = kvmppc_get_dec_bits();
+
+    cap_large_decr = large_dec_support && dec_bits;
+}
+
+bool kvmppc_has_cap_large_decr(void)
+{
+    return cap_large_decr;
 }
 
 PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void)

@@ -17,6 +17,7 @@ uint32_t kvmppc_get_tbfreq(void);
 uint64_t kvmppc_get_clockfreq(void);
 uint32_t kvmppc_get_vmx(void);
 uint32_t kvmppc_get_dfp(void);
+uint32_t kvmppc_get_dec_bits(void);
 bool kvmppc_get_host_model(char **buf);
 bool kvmppc_get_host_serial(char **buf);
 int kvmppc_get_hasidle(CPUPPCState *env);
@@ -36,6 +37,8 @@ int kvmppc_booke_watchdog_enable(PowerPCCPU *cpu);
 target_ulong kvmppc_configure_v3_mmu(PowerPCCPU *cpu,
                                      bool radix, bool gtse,
                                      uint64_t proc_tbl);
+void kvmppc_check_cap_large_decr(void);
+void kvmppc_configure_large_decrementer(CPUState *cs, bool enable_ld);
 #ifndef CONFIG_USER_ONLY
 off_t kvmppc_alloc_rma(void **rma);
 bool kvmppc_spapr_use_multitce(void);
@@ -60,6 +63,7 @@ bool kvmppc_has_cap_fixup_hcalls(void);
 bool kvmppc_has_cap_htm(void);
 bool kvmppc_has_cap_mmu_radix(void);
 bool kvmppc_has_cap_mmu_hash_v3(void);
+bool kvmppc_has_cap_large_decr(void);
 int kvmppc_enable_hwrng(void);
 int kvmppc_put_books_sregs(PowerPCCPU *cpu);
 PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void);
@@ -94,6 +98,11 @@ static inline uint32_t kvmppc_get_vmx(void)
 }
 
 static inline uint32_t kvmppc_get_dfp(void)
+{
+    return 0;
+}
+
+static inline uint32_t kvmppc_get_dec_bits(void)
 {
     return 0;
 }
@@ -168,6 +177,17 @@ static inline target_ulong kvmppc_configure_v3_mmu(PowerPCCPU *cpu,
                                      uint64_t proc_tbl)
 {
     return 0;
+}
+
+static inline void kvmppc_check_cap_large_decr(void)
+{
+    return;
+}
+
+static inline void kvmppc_configure_large_decrementer(CPUState *cs,
+                                                      bool enable_ld)
+{
+    return;
 }
 
 #ifndef CONFIG_USER_ONLY
@@ -278,6 +298,11 @@ static inline bool kvmppc_has_cap_mmu_radix(void)
 }
 
 static inline bool kvmppc_has_cap_mmu_hash_v3(void)
+{
+    return false;
+}
+
+static inline bool kvmppc_has_cap_large_decr(void)
 {
     return false;
 }
