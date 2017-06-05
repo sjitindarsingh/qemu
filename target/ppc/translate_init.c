@@ -8995,6 +8995,7 @@ POWERPC_FAMILY(POWER9)(ObjectClass *oc, void *data)
     /* segment page size remain the same */
     pcc->sps = &POWER7_POWER8_sps;
     pcc->radix_page_info = &POWER9_radix_page_info;
+    pcc->large_decr_bits = 56;
 #endif
     pcc->excp_model = POWERPC_EXCP_POWER8;
     pcc->bus_model = PPC_FLAGS_INPUT_POWER7;
@@ -9047,6 +9048,8 @@ void cpu_ppc_set_papr(PowerPCCPU *cpu, PPCVirtualHypervisor *vhyp)
          * tables and guest translation shootdown by default
          */
         lpcr->default_value &= ~(LPCR_UPRT | LPCR_GTSE);
+        /* Disable Large Decrementer by Default */
+        lpcr->default_value &= ~LPCR_LD;
         lpcr->default_value |= LPCR_PDEE | LPCR_HDEE | LPCR_EEE | LPCR_DEE |
                                LPCR_OEE;
         break;
