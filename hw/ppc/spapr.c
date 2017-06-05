@@ -1420,6 +1420,45 @@ static bool spapr_vga_init(PCIBus *pci_bus, Error **errp)
     }
 }
 
+static int spapr_import_large_decr_bits(sPAPRMachineState *spapr)
+{
+    /*
+     * If the guest uses the large decrementer then this hypervisor must also
+     * support it and have the exact same width. We must also enable the large
+     * decrementer because we have no way to tell the guest to stop using it.
+     */
+    if (spapr->large_decr_bits) {
+        uint32_t dec_bits = 32;
+        PowerPCCPU *cpu = POWERPC_CPU(first_cpu);
+        CPUState *cs = CPU(cpu);
+        PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cs);
+
+        if (kvm_enabled()) {
+            if (!kvmppc_has_cap_large_decr()) {
+                error_report("Host doesn't support large decrementer and guest requires it");
+                return -EINVAL;
+            }
+            dec_bits = kvmppc_get_dec_bits();
+        } else {
+            dec_bits = pcc->large_decr_bits;
+        }
+
+        if (spapr->large_decr_bits != dec_bits) {
+            error_report("Host large decrementer size [%u] doesn't match what guest expects [%u]",
+                         dec_bits, spapr->large_decr_bits);
+            return -EINVAL;
+        }
+
+        if (kvm_enabled()) {
+            CPU_FOREACH(cs) {
+                kvmppc_configure_large_decrementer(cs, true);
+            }
+        }
+    }
+
+    return 0;
+}
+
 static int spapr_post_load(void *opaque, int version_id)
 {
     sPAPRMachineState *spapr = (sPAPRMachineState *)opaque;
@@ -1439,7 +1478,12 @@ static int spapr_post_load(void *opaque, int version_id)
      * value into the RTC device */
     if (version_id < 3) {
         err = spapr_rtc_import_offset(&spapr->rtc, spapr->rtc_offset);
+        if (err) {
+            return err;
+        }
     }
+
+    err = spapr_import_large_decr_bits(spapr);
 
     return err;
 }
@@ -1529,6 +1573,24 @@ static const VMStateDescription vmstate_spapr_patb_entry = {
     },
 };
 
+static bool spapr_large_decr_entry_needed(void *opaque)
+{
+    sPAPRMachineState *spapr = opaque;
+
+    return !!spapr->large_decr_bits;
+}
+
+static const VMStateDescription vmstate_spapr_large_decr_entry = {
+    .name = "spapr_large_decr_entry",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = spapr_large_decr_entry_needed,
+    .fields = (VMStateField[]) {
+        VMSTATE_UINT32(large_decr_bits, sPAPRMachineState),
+        VMSTATE_END_OF_LIST()
+    },
+};
+
 static const VMStateDescription vmstate_spapr = {
     .name = "spapr",
     .version_id = 3,
@@ -1547,6 +1609,7 @@ static const VMStateDescription vmstate_spapr = {
     .subsections = (const VMStateDescription*[]) {
         &vmstate_spapr_ov5_cas,
         &vmstate_spapr_patb_entry,
+        &vmstate_spapr_large_decr_entry,
         NULL
     }
 };
