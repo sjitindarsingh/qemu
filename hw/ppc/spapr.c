@@ -558,12 +558,12 @@ static void spapr_populate_cpu_dt(CPUState *cs, void *fdt, int offset,
     /*
      * We set this property to let the guest know that it can use the large
      * decrementer and its width in bits. This means we must be on a processor
-     * with a large decrementer and the hypervisor must support it. In TCG the
-     * large decrementer is always supported, in KVM we check the hypervisor
-     * capability.
+     * with a large decrementer, it must not have been disabled and the
+     * hypervisor must support it. In TCG the large decrementer is always
+     * supported, in KVM we check the hypervisor capability.
      */
-    if (pcc->large_decr_bits && ((!kvm_enabled()) ||
-                                 kvmppc_has_cap_large_decr())) {
+    if (pcc->large_decr_bits && (spapr->large_decr_support != -1) &&
+            ((!kvm_enabled()) || kvmppc_has_cap_large_decr())) {
         _FDT((fdt_setprop_u32(fdt, offset, "ibm,dec-bits",
                               pcc->large_decr_bits)));
     }
@@ -1344,6 +1344,11 @@ static void ppc_spapr_reset(void)
     /* We have to do this after vcpus are created since it calls ioctls */
     if (kvm_enabled()) {
         kvmppc_check_cap_large_decr();
+
+        if ((spapr->large_decr_support == 1) && !kvmppc_has_cap_large_decr()) {
+            error_report("Large decrementer unsupported by hypervisor");
+            exit(1);
+        }
     }
 
     qemu_devices_reset();
@@ -1451,7 +1456,9 @@ static int spapr_import_large_decr_bits(sPAPRMachineState *spapr)
         CPUState *cs = CPU(cpu);
         PowerPCCPUClass *pcc = POWERPC_CPU_GET_CLASS(cs);
 
-        if (kvm_enabled()) {
+        if (spapr->large_decr_support == -1) {
+            /* Large decrementer disabled on the command line */
+        } else if (kvm_enabled()) {
             if (!kvmppc_has_cap_large_decr()) {
                 error_report("Host doesn't support large decrementer and guest requires it");
                 return -EINVAL;
@@ -2554,6 +2561,37 @@ static void spapr_set_modern_hotplug_events(Object *obj, bool value,
     spapr->use_hotplug_event_source = value;
 }
 
+static char *spapr_get_large_decr_support(Object *obj, Error **errp)
+{
+    sPAPRMachineState *spapr = SPAPR_MACHINE(obj);
+
+    switch (spapr->large_decr_support) {
+    case -1:
+        return g_strdup("disabled");
+    case 1:
+        return g_strdup("required");
+    default:
+        return g_strdup("default");
+    }
+}
+
+static void spapr_set_large_decr_support(Object *obj, const char *value,
+                                         Error **errp)
+{
+    sPAPRMachineState *spapr = SPAPR_MACHINE(obj);
+
+    if (!strncmp(value, "disabled", strlen("disabled"))) {
+        spapr->large_decr_support = -1;
+    } else if (!strncmp(value, "required", strlen("required"))) {
+        spapr->large_decr_support = 1;
+    } else if (!strncmp(value, "default", strlen("default"))) {
+        spapr->large_decr_support = 0;
+    } else {
+        error_report("Unknown large-decr-support specified '%s'", value);
+        exit(1);
+    }
+}
+
 static void spapr_machine_initfn(Object *obj)
 {
     sPAPRMachineState *spapr = SPAPR_MACHINE(obj);
@@ -2574,6 +2612,15 @@ static void spapr_machine_initfn(Object *obj)
                                     " place of standard EPOW events when possible"
                                     " (required for memory hot-unplug support)",
                                     NULL);
+    object_property_add_str(obj, "large-decr-support",
+                            spapr_get_large_decr_support,
+                            spapr_set_large_decr_support, NULL);
+    object_property_set_description(obj, "large-decr-support",
+                                    "Specifies the level of large decrementer support"
+                                    " {required - don't start if not available "
+                                    "| disabled - disable the large decrementer"
+                                    " | default - depend on hypervisor support}"
+                                    , NULL);
 }
 
 static void spapr_machine_finalizefn(Object *obj)
