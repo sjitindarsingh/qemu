@@ -986,7 +986,15 @@ static void ide_flush_cache(IDEState *s)
 
     s->status |= BUSY_STAT;
     block_acct_start(blk_get_stats(s->blk), &s->acct, 0, BLOCK_ACCT_FLUSH);
-    s->pio_aiocb = blk_aio_flush(s->blk, ide_flush_cb, s);
+
+    if (blk_bs(s->blk)) {
+        s->pio_aiocb = blk_aio_flush(s->blk, ide_flush_cb, s);
+    } else {
+        /* XXX blk_aio_flush() crashes when blk_bs(blk) is NULL, remove this
+         * temporary workaround when blk_aio_*() functions handle NULL blk_bs.
+         */
+        ide_flush_cb(s, 0);
+    }
 }
 
 static void ide_cfata_metadata_inquiry(IDEState *s)
@@ -2515,6 +2523,14 @@ void ide_init2(IDEBus *bus, qemu_irq irq)
     }
     bus->irq = irq;
     bus->dma = &ide_dma_nop;
+}
+
+void ide_exit(IDEState *s)
+{
+    timer_del(s->sector_write_timer);
+    timer_free(s->sector_write_timer);
+    qemu_vfree(s->smart_selftest_data);
+    qemu_vfree(s->io_buffer);
 }
 
 static const MemoryRegionPortio ide_portio_list[] = {
