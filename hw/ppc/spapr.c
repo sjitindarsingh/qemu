@@ -1373,6 +1373,8 @@ void spapr_reallocate_hpt(sPAPRMachineState *spapr, int shift,
             DIRTY_HPTE(HPTE(spapr->htab, i));
         }
     }
+    /* We're setting up a hash table, so that means we're not radix */
+    spapr->patb_entry = 0;
 }
 
 void spapr_setup_hpt_and_vrma(sPAPRMachineState *spapr)
@@ -1392,8 +1394,6 @@ void spapr_setup_hpt_and_vrma(sPAPRMachineState *spapr)
         spapr->rma_size = kvmppc_rma_size(spapr_node0_size(MACHINE(spapr)),
                                           spapr->htab_shift);
     }
-    /* We're setting up a hash table, so that means we're not radix */
-    spapr->patb_entry = 0;
 }
 
 static void find_unknown_sysbus_device(SysBusDevice *sbdev, void *opaque)
@@ -1549,16 +1549,14 @@ static int spapr_post_load(void *opaque, int version_id)
         err = spapr_rtc_import_offset(&spapr->rtc, spapr->rtc_offset);
     }
 
-    if (spapr->patb_entry) {
-        PowerPCCPU *cpu = POWERPC_CPU(first_cpu);
-        bool radix = !!(spapr->patb_entry & PATBE1_GR);
-        bool gtse = !!(cpu->env.spr[SPR_LPCR] & LPCR_GTSE);
+    PowerPCCPU *cpu = POWERPC_CPU(first_cpu);
+    bool radix = !!(spapr->patb_entry & PATBE1_GR);
+    bool gtse = !!(cpu->env.spr[SPR_LPCR] & LPCR_GTSE);
 
-        err = kvmppc_configure_v3_mmu(cpu, radix, gtse, spapr->patb_entry);
-        if (err) {
-            error_report("Process table config unsupported by the host");
-            return -EINVAL;
-        }
+    err = kvmppc_configure_v3_mmu(cpu, radix, gtse, spapr->patb_entry);
+    if (err) {
+        error_report("Process table config unsupported by the host");
+        return -EINVAL;
     }
 
     return err;
