@@ -1140,6 +1140,8 @@ static void ppc_spapr_reset(void)
     /* Check for unknown sysbus devices */
     foreach_dynamic_sysbus_device(find_unknown_sysbus_device, NULL);
 
+    spapr_caps_reset(spapr);
+
     /* Reset the hash table & recalc the RMA */
     spapr_reset_htab(spapr);
 
@@ -1729,6 +1731,8 @@ static void ppc_spapr_init(MachineState *machine)
     bool kernel_le = false;
     char *filename;
 
+    spapr_caps_validate(spapr, &error_fatal);
+
     msi_supported = true;
 
     QLIST_INIT(&spapr->phbs);
@@ -2099,6 +2103,7 @@ static void spapr_machine_initfn(Object *obj)
     object_property_set_description(obj, "kvm-type",
                                     "Specifies the KVM virtualization mode (HV, PR)",
                                     NULL);
+    spapr_caps_add_properties(obj, &error_abort);
 }
 
 static void ppc_cpu_do_nmi_on_cpu(void *arg)
@@ -2280,6 +2285,8 @@ static void spapr_machine_class_init(ObjectClass *oc, void *data)
     smc->dr_lmb_enabled = false;
     fwc->get_dev_path = spapr_get_fw_dev_path;
     nc->nmi_monitor_handler = spapr_nmi;
+
+    smc->default_caps = spapr_caps(0);
 }
 
 static const TypeInfo spapr_machine_info = {
