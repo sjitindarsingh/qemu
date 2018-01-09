@@ -89,6 +89,9 @@ static int cap_mmu_radix;
 static int cap_mmu_hash_v3;
 static int cap_resize_hpt;
 static int cap_ppc_pvr_compat;
+static int cap_ppc_safe_cache;
+static int cap_ppc_safe_bounds_check;
+static int cap_ppc_safe_indirect_branch;
 
 static uint32_t debug_inst_opcode;
 
@@ -147,6 +150,16 @@ int kvm_arch_init(MachineState *ms, KVMState *s)
     cap_mmu_radix = kvm_vm_check_extension(s, KVM_CAP_PPC_MMU_RADIX);
     cap_mmu_hash_v3 = kvm_vm_check_extension(s, KVM_CAP_PPC_MMU_HASH_V3);
     cap_resize_hpt = kvm_vm_check_extension(s, KVM_CAP_SPAPR_RESIZE_HPT);
+    cap_ppc_safe_cache = kvm_vm_check_extension(s, KVM_CAP_PPC_SAFE_CACHE);
+    cap_ppc_safe_cache = cap_ppc_safe_cache > 0 ? cap_ppc_safe_cache : 0;
+    cap_ppc_safe_bounds_check = kvm_vm_check_extension(s,
+                                KVM_CAP_PPC_SAFE_BOUNDS_CHECK);
+    cap_ppc_safe_bounds_check = cap_ppc_safe_bounds_check > 0 ?
+                                cap_ppc_safe_bounds_check : 0;
+    cap_ppc_safe_indirect_branch = kvm_vm_check_extension(s,
+                                   KVM_CAP_PPC_SAFE_INDIRECT_BRANCH);
+    cap_ppc_safe_indirect_branch = cap_ppc_safe_indirect_branch > 0 ?
+                                   cap_ppc_safe_indirect_branch : 0;
     /*
      * Note: setting it to false because there is not such capability
      * in KVM at this moment.
@@ -2454,6 +2467,21 @@ bool kvmppc_has_cap_mmu_radix(void)
 bool kvmppc_has_cap_mmu_hash_v3(void)
 {
     return cap_mmu_hash_v3;
+}
+
+int kvmppc_get_cap_safe_cache(void)
+{
+    return cap_ppc_safe_cache;
+}
+
+int kvmppc_get_cap_safe_bounds_check(void)
+{
+    return cap_ppc_safe_bounds_check;
+}
+
+int kvmppc_get_cap_safe_indirect_branch(void)
+{
+    return cap_ppc_safe_indirect_branch;
 }
 
 PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void)
