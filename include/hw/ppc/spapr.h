@@ -31,9 +31,21 @@ typedef struct sPAPRMachineState sPAPRMachineState;
  * Capabilities
  */
 
+/* These bits go in the migration stream, so they can't be reassigned */
+
+/* Num Caps */
+#define SPAPR_CAP_NUM                   (0)
+
+/*
+ * Capability Values
+ */
+/* Bool Caps */
+#define SPAPR_CAP_OFF                   0x00
+#define SPAPR_CAP_ON                    0x01
+
 typedef struct sPAPRCapabilities sPAPRCapabilities;
 struct sPAPRCapabilities {
-    uint64_t mask;
+    uint8_t caps[SPAPR_CAP_NUM];
 };
 
 /**
@@ -90,9 +102,8 @@ struct sPAPRMachineState {
     char *kvm_type;
     MemoryHotplugState hotplug_memory;
 
-    sPAPRCapabilities forced_caps, forbidden_caps;
-    sPAPRCapabilities mig_forced_caps, mig_forbidden_caps;
-    sPAPRCapabilities effective_caps;
+    bool cmd_line_caps[SPAPR_CAP_NUM];
+    sPAPRCapabilities def, eff, mig;
 };
 
 #define H_SUCCESS         0
@@ -660,24 +671,20 @@ int spapr_rng_populate_dt(void *fdt);
  */
 #define SPAPR_LMB_FLAGS_ASSIGNED 0x00000008
 
+
+int spapr_caps_pre_load(void *opaque);
+void spapr_caps_pre_save(void *opaque);
+
 /*
  * Handling of optional capabilities
  */
-extern const VMStateDescription vmstate_spapr_caps;
 
-static inline sPAPRCapabilities spapr_caps(uint64_t mask)
+static inline uint8_t spapr_get_cap(sPAPRMachineState *spapr, int cap)
 {
-    sPAPRCapabilities caps = { mask };
-    return caps;
-}
-
-static inline bool spapr_has_cap(sPAPRMachineState *spapr, uint64_t cap)
-{
-    return !!(spapr->effective_caps.mask & cap);
+    return spapr->eff.caps[cap];
 }
 
 void spapr_caps_reset(sPAPRMachineState *spapr);
-void spapr_caps_validate(sPAPRMachineState *spapr, Error **errp);
 void spapr_caps_add_properties(Object *obj, Error **errp);
 int spapr_caps_post_migration(sPAPRMachineState *spapr);
 

@@ -1252,6 +1252,18 @@ static int spapr_vga_init(PCIBus *pci_bus)
     }
 }
 
+static int spapr_pre_load(void *opaque)
+{
+    int rc;
+
+    rc = spapr_caps_pre_load(opaque);
+    if (rc) {
+        return rc;
+    }
+
+    return 0;
+}
+
 static int spapr_post_load(void *opaque, int version_id)
 {
     sPAPRMachineState *spapr = (sPAPRMachineState *)opaque;
@@ -1273,6 +1285,11 @@ static int spapr_post_load(void *opaque, int version_id)
     return err;
 }
 
+static void spapr_pre_save(void *opaque)
+{
+    spapr_caps_pre_save(opaque);
+}
+
 static bool version_before_3(void *opaque, int version_id)
 {
     return version_id < 3;
@@ -1282,7 +1299,9 @@ static const VMStateDescription vmstate_spapr = {
     .name = "spapr",
     .version_id = 3,
     .minimum_version_id = 1,
+    .pre_load = spapr_pre_load,
     .post_load = spapr_post_load,
+    .pre_save = spapr_pre_save,
     .fields = (VMStateField[]) {
         /* used to be @next_irq */
         VMSTATE_UNUSED_BUFFER(version_before_3, 0, 4),
@@ -1294,7 +1313,6 @@ static const VMStateDescription vmstate_spapr = {
         VMSTATE_END_OF_LIST()
     },
     .subsections = (const VMStateDescription*[]) {
-        &vmstate_spapr_caps,
         NULL
     }
 };
@@ -1739,8 +1757,6 @@ static void ppc_spapr_init(MachineState *machine)
     long load_limit, fw_size;
     bool kernel_le = false;
     char *filename;
-
-    spapr_caps_validate(spapr, &error_fatal);
 
     msi_supported = true;
 
@@ -2294,8 +2310,6 @@ static void spapr_machine_class_init(ObjectClass *oc, void *data)
     smc->dr_lmb_enabled = false;
     fwc->get_dev_path = spapr_get_fw_dev_path;
     nc->nmi_monitor_handler = spapr_nmi;
-
-    smc->default_caps = spapr_caps(0);
 }
 
 static const TypeInfo spapr_machine_info = {
