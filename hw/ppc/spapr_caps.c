@@ -27,6 +27,7 @@
 #include "qapi/visitor.h"
 
 #include "hw/ppc/spapr.h"
+#include "kvm_ppc.h"
 
 typedef struct sPAPRCapabilityInfo {
     const char *name;
@@ -71,11 +72,8 @@ static void ATTRIBUTE_UNUSED spapr_cap_set_bool(Object *obj, Visitor *v,
     spapr->eff.caps[cap->index] = value ? SPAPR_CAP_ON : SPAPR_CAP_OFF;
 }
 
-static void ATTRIBUTE_UNUSED spapr_cap_get_tristate(Object *obj,
-                                                    Visitor *v,
-                                                    void *opaque,
-                                                    const char *name,
-                                                    Error **errp)
+static void spapr_cap_get_tristate(Object *obj, Visitor *v, void *opaque,
+                                   const char *name, Error **errp)
 {
     sPAPRCapabilityInfo *cap = opaque;
     sPAPRMachineState *spapr = SPAPR_MACHINE(obj);
@@ -101,11 +99,8 @@ static void ATTRIBUTE_UNUSED spapr_cap_get_tristate(Object *obj,
     g_free(val);
 }
 
-static void ATTRIBUTE_UNUSED spapr_cap_set_tristate(Object *obj,
-                                                    Visitor *v,
-                                                    void *opaque,
-                                                    const char *name,
-                                                    Error **errp)
+static void spapr_cap_set_tristate(Object *obj, Visitor *v, void *opaque,
+                                   const char *name, Error **errp)
 {
     sPAPRCapabilityInfo *cap = opaque;
     sPAPRMachineState *spapr = SPAPR_MACHINE(obj);
@@ -137,7 +132,29 @@ out:
     g_free(val);
 }
 
+static void cap_safe_cache_apply(sPAPRMachineState *spapr, uint8_t val,
+                                 Error **errp)
+{
+    if (tcg_enabled() && val) {
+        /* TODO - for now only allow broken for TCG */
+        error_setg(errp, "Requested safe cache capability level not supported by tcg, try a different value for cap-cfpc");
+    } else if (kvm_enabled() && (val > kvmppc_get_cap_safe_cache())) {
+        error_setg(errp, "Requested safe cache capability level not supported by kvm, try a different value for cap-cfpc");
+    }
+}
+
+#define VALUE_DESC_TRISTATE     " (broken, workaround, fixed)"
+
 sPAPRCapabilityInfo capability_table[SPAPR_CAP_NUM] = {
+    [SPAPR_CAP_CFPC] = {
+        .name = "cfpc",
+        .description = "Cache Flush on Privilege Change" VALUE_DESC_TRISTATE,
+        .index = SPAPR_CAP_CFPC,
+        .get = spapr_cap_get_tristate,
+        .set = spapr_cap_set_tristate,
+        .type = "string",
+        .apply = cap_safe_cache_apply,
+    },
 };
 
 static sPAPRCapabilities default_caps_with_cpu(sPAPRMachineState *spapr,
@@ -226,6 +243,8 @@ const VMStateDescription vmstate_spapr_cap_##cap = {    \
         VMSTATE_END_OF_LIST()                           \
     },                                                  \
 }
+
+SPAPR_CAP_MIG_STATE(cfpc, CFPC);
 
 void spapr_caps_reset(sPAPRMachineState *spapr)
 {
