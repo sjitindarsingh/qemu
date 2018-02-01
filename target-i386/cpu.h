@@ -316,6 +316,7 @@
 #define MSR_IA32_APICBASE_BASE          (0xfffffU<<12)
 #define MSR_IA32_FEATURE_CONTROL        0x0000003a
 #define MSR_TSC_ADJUST                  0x0000003b
+#define MSR_IA32_SPEC_CTRL              0x48
 #define MSR_IA32_TSCDEADLINE            0x6e0
 
 #define MSR_P6_PERFCTR0                 0xc1
@@ -414,9 +415,12 @@ typedef enum FeatureWord {
     FEAT_1_EDX,         /* CPUID[1].EDX */
     FEAT_1_ECX,         /* CPUID[1].ECX */
     FEAT_7_0_EBX,       /* CPUID[EAX=7,ECX=0].EBX */
+    FEAT_7_0_ECX,       /* CPUID[EAX=7,ECX=0].ECX */
+    FEAT_7_0_EDX,       /* CPUID[EAX=7,ECX=0].EDX */
     FEAT_8000_0001_EDX, /* CPUID[8000_0001].EDX */
     FEAT_8000_0001_ECX, /* CPUID[8000_0001].ECX */
     FEAT_8000_0007_EDX, /* CPUID[8000_0007].EDX */
+    FEAT_8000_0008_EBX, /* CPUID[8000_0008].EBX */
     FEAT_C000_0001_EDX, /* CPUID[C000_0001].EDX */
     FEAT_KVM,           /* CPUID[4000_0001].EAX (KVM_CPUID_FEATURES) */
     FEAT_SVM,           /* CPUID[8000_000A].EDX */
@@ -584,6 +588,9 @@ typedef uint32_t FeatureWordArray[FEATURE_WORDS];
 #define CPUID_7_0_EBX_AVX512PF (1U << 26) /* AVX-512 Prefetch */
 #define CPUID_7_0_EBX_AVX512ER (1U << 27) /* AVX-512 Exponential and Reciprocal */
 #define CPUID_7_0_EBX_AVX512CD (1U << 28) /* AVX-512 Conflict Detection */
+#define CPUID_7_0_EDX_SPEC_CTRL     (1U << 26) /* Speculation Control */
+
+#define CPUID_8000_0008_EBX_IBPB    (1U << 12) /* Indirect Branch Prediction Barrier */
 
 #define CPUID_XSAVE_XSAVEOPT   (1U << 0)
 #define CPUID_XSAVE_XSAVEC     (1U << 1)
@@ -904,6 +911,8 @@ typedef struct CPUX86State {
 
     uint64_t pat;
     uint32_t smbase;
+
+    uint64_t spec_ctrl;
 
     /* End of state preserved by INIT (dummy marker).  */
     struct {} end_init_save;

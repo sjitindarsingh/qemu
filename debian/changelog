@@ -1,3 +1,26 @@
+qemu (1:2.5+dfsg-5ubuntu10.20) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: Add support for Spectre mitigations (LP: #1744882)
+    - debian/patches/CVE-2017-5715-1.patch: Lengthen X86CPUDefinition::
+      model_id in target-i386/cpu.c.
+    - debian/patches/CVE-2017-5715-2.patch: Add support for SPEC_CTRL MSR
+      in target-i386/cpu.h, target-i386/kvm.c, target-i386/machine.c.
+    - debian/patches/CVE-2017-5715-3pre1.patch: add FEAT_7_0_ECX and
+      FEAT_7_0_EDX in target-i386/cpu.c, target-i386/cpu.h.
+    - debian/patches/CVE-2017-5715-3.patch: Add spec-ctrl CPUID bit in
+      target-i386/cpu.c, target-i386/cpu.h.
+    - debian/patches/CVE-2017-5715-4.patch: Add FEAT_8000_0008_EBX CPUID
+      feature word in target-i386/cpu.c, target-i386/cpu.h.
+    - debian/patches/CVE-2017-5715-5.patch: Add new -IBRS versions of Intel
+      CPU models in target-i386/cpu.c.
+    - debian/patches/CVE-2017-5715-s390x-1.patch: add linux-header content
+      for bpbc in linux-headers/asm-s390/kvm.h, linux-headers/linux/kvm.h.
+    - debian/patches/CVE-2017-5715-s390x-2.patch: handle bpb feature in
+      target-s390x/cpu.c, target-s390x/cpu.h, target-s390x/kvm.c.
+    - CVE-2017-5715
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 01 Feb 2018 13:27:34 -0500
+
 qemu (1:2.5+dfsg-5ubuntu10.16) xenial-security; urgency=medium
 
   * SECURITY REGRESSION: regression in in USB xHCI emulation (LP: #1718222)
