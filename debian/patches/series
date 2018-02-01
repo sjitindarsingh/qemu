@@ -208,3 +208,12 @@ CVE-2017-10911.patch
 CVE-2017-11434.patch
 CVE-2017-12809.patch
 CVE-2017-9375-regression.patch
+CVE-2017-5715-1.patch
+CVE-2017-5715-2.patch
+CVE-2017-5715-3pre1.patch
+CVE-2017-5715-3.patch
+
+CVE-2017-5715-4.patch
+CVE-2017-5715-5.patch
+CVE-2017-5715-s390x-1.patch
+CVE-2017-5715-s390x-2.patch
