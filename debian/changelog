@@ -1,3 +1,10 @@
+qemu (1:2.5+dfsg-5ubuntu10.21) xenial; urgency=medium
+
+  * debian/patches/ubuntu/lp-1712803-hypercalls_backport.patch: support
+    newer hcalls; Thanks to Yasmin Beatriz Alves da Silva. (LP: #1712803).
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Thu, 08 Feb 2018 14:06:39 +0100
+
 qemu (1:2.5+dfsg-5ubuntu10.20) xenial-security; urgency=medium
 
   * SECURITY UPDATE: Add support for Spectre mitigations (LP: #1744882)
