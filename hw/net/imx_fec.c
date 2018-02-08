@@ -51,6 +51,8 @@
         } \
     } while (0)
 
+#define IMX_MAX_DESC    1024
+
 static const VMStateDescription vmstate_imx_fec = {
     .name = TYPE_IMX_FEC,
     .version_id = 1,
@@ -263,12 +265,12 @@ static void imx_fec_update(IMXFECState *s)
 
 static void imx_fec_do_tx(IMXFECState *s)
 {
-    int frame_size = 0;
+    int frame_size = 0, descnt = 0;
     uint8_t frame[FEC_MAX_FRAME_SIZE];
     uint8_t *ptr = frame;
     uint32_t addr = s->tx_descriptor;
 
-    while (1) {
+    while (descnt++ < IMX_MAX_DESC) {
         IMXFECBufDesc bd;
         int len;
 
