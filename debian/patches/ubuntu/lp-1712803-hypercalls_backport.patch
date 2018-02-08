@@ -1,0 +1,278 @@
+Description: support newer hcalls
+.
+New hcalls are issued by newer guest kernels and kvm tests, this set of three
+commits backported from upstream by Yasmin Beatriz Alves da Silva implement
+them in Xenial so that the guests and tests will no more crash.
+This is triggered by Xenial+Xenial-HWE and therefore considered valid for an
+SRU even though base-Xenial would not trigger an issue.
+.
+Forwarded: no (backport)
+Author: Christian Ehrhardt <christian.ehrhardt@canonical.com>
+Author: Yasmin Beatriz Alves da Silva (IBM)
+Original-Author: David Gibson <david@gibson.dropbear.id.au>
+Original-Author: Thomas Huth <thuth@redhat.com>
+Origin: upstream, https://git.qemu.org/?p=qemu.git;a=commit;h=ecbc25fa86ce44cf5aea94adaf79ea8428f12f4b
+Origin: upstream, https://git.qemu.org/?p=qemu.git;a=commit;h=423576f771db8c6dbb944ddb8dc15b472f62de4a
+Origin: upstream, https://git.qemu.org/?p=qemu.git;a=commit;h=3240dd9a6924df18dfccb83defa0914065da076e
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1712803
+Bug-Debian: none
+
+Last-Update: 2018-02-01
+
+From ecbc25fa86ce44cf5aea94adaf79ea8428f12f4b Mon Sep 17 00:00:00 2001
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Thu, 21 Jan 2016 14:48:43 +1100
+Subject: [PATCH 1/3] pseries: Allow TCG h_enter to work with hotplugged memory
+
+The implementation of the H_ENTER hypercall for PAPR guests needs to
+enforce correct access attributes on the inserted HPTE.  This means
+determining if the HPTE's real address is a regular RAM address (which
+requires attributes for coherent access) or an IO address (which requires
+attributes for cache-inhibited access).
+
+At the moment this check is implemented with (raddr < machine->ram_size),
+but that only handles addresses in the base RAM area, not any hotplugged
+RAM.
+
+This patch corrects the problem with a new helper.
+
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+Reviewed-by: Alexey Kardashevskiy <aik@ozlabs.ru>
+---
+ hw/ppc/spapr_hcall.c | 19 +++++++++++++++++--
+ 1 file changed, 17 insertions(+), 2 deletions(-)
+
+From 423576f771db8c6dbb944ddb8dc15b472f62de4a Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Thu, 11 Feb 2016 13:47:18 +0100
+Subject: [PATCH 2/3] hw/ppc/spapr: Add h_set_sprg0 hypercall
+
+This is a very simple hypercall that only sets up the SPRG0
+register for the guest (since writing to SPRG0 was only permitted
+to the hypervisor in older versions of the PowerISA).
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+---
+ hw/ppc/spapr_hcall.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+From 3240dd9a6924df18dfccb83defa0914065da076e Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Thu, 18 Feb 2016 10:15:54 +0100
+Subject: [PATCH 3/3] hw/ppc/spapr: Implement the h_page_init hypercall
+
+This hypercall either initializes a page with zeros, or copies
+another page.
+According to LoPAPR, the i-cache of the page should also be
+flushed if using H_ICACHE_INVALIDATE or H_ICACHE_SYNCHRONIZE,
+and the d-cache should be synchronized to the RAM if the
+H_ICACHE_SYNCHRONIZE flag is used. For this, two new functions
+are introduced, kvmppc_dcbst_range() and kvmppc_icbi()_range, which
+use the corresponding assembler instructions to flush the caches
+if running with KVM on Power. If the code runs with TCG instead,
+the code only uses tb_flush(), assuming that this will be
+enough for synchronization.
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+---
+ hw/ppc/spapr_hcall.c | 60 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ target-ppc/kvm_ppc.h | 36 +++++++++++++++++++++++++++++--
+ 2 files changed, 94 insertions(+), 2 deletions(-)
+
+
+
+--- a/hw/ppc/spapr_hcall.c
++++ b/hw/ppc/spapr_hcall.c
+@@ -84,10 +84,25 @@ static inline bool valid_pte_index(CPUPP
+     return true;
+ }
+ 
++static bool is_ram_address(sPAPRMachineState *spapr, hwaddr addr)
++{
++    MachineState *machine = MACHINE(spapr);
++    MemoryHotplugState *hpms = &spapr->hotplug_memory;
++
++    if (addr < machine->ram_size) {
++        return true;
++    }
++    if ((addr >= hpms->base)
++        && ((addr - hpms->base) < memory_region_size(&hpms->mr))) {
++        return true;
++    }
++
++    return false;
++}
++
+ static target_ulong h_enter(PowerPCCPU *cpu, sPAPRMachineState *spapr,
+                             target_ulong opcode, target_ulong *args)
+ {
+-    MachineState *machine = MACHINE(spapr);
+     CPUPPCState *env = &cpu->env;
+     target_ulong flags = args[0];
+     target_ulong pte_index = args[1];
+@@ -119,7 +134,7 @@ static target_ulong h_enter(PowerPCCPU *
+ 
+     raddr = (ptel & HPTE64_R_RPN) & ~((1ULL << page_shift) - 1);
+ 
+-    if (raddr < machine->ram_size) {
++    if (is_ram_address(spapr, raddr)) {
+         /* Regular RAM - should have WIMG=0010 */
+         if ((ptel & HPTE64_R_WIMG) != HPTE64_R_M) {
+             return H_PARAMETER;
+@@ -368,6 +383,15 @@ static target_ulong h_read(PowerPCCPU *c
+     return H_SUCCESS;
+ }
+ 
++static target_ulong h_set_sprg0(PowerPCCPU *cpu, sPAPRMachineState *spapr,
++                                target_ulong opcode, target_ulong *args)
++{
++    cpu_synchronize_state(CPU(cpu));
++    cpu->env.spr[SPR_SPRG0] = args[0];
++
++    return H_SUCCESS;
++}
++
+ static target_ulong h_set_dabr(PowerPCCPU *cpu, sPAPRMachineState *spapr,
+                                target_ulong opcode, target_ulong *args)
+ {
+@@ -375,6 +399,65 @@ static target_ulong h_set_dabr(PowerPCCP
+     return H_HARDWARE;
+ }
+ 
++static target_ulong h_page_init(PowerPCCPU *cpu, sPAPRMachineState *spapr,
++                                target_ulong opcode, target_ulong *args)
++{
++    target_ulong flags = args[0];
++    hwaddr dst = args[1];
++    hwaddr src = args[2];
++    hwaddr len = TARGET_PAGE_SIZE;
++    uint8_t *pdst, *psrc;
++    target_long ret = H_SUCCESS;
++
++    if (flags & ~(H_ICACHE_SYNCHRONIZE | H_ICACHE_INVALIDATE
++                  | H_COPY_PAGE | H_ZERO_PAGE)) {
++        qemu_log_mask(LOG_UNIMP, "h_page_init: Bad flags (" TARGET_FMT_lx "\n",
++                      flags);
++        return H_PARAMETER;
++    }
++
++    /* Map-in destination */
++    if (!is_ram_address(spapr, dst) || (dst & ~TARGET_PAGE_MASK) != 0) {
++        return H_PARAMETER;
++    }
++    pdst = cpu_physical_memory_map(dst, &len, 1);
++    if (!pdst || len != TARGET_PAGE_SIZE) {
++        return H_PARAMETER;
++    }
++
++    if (flags & H_COPY_PAGE) {
++        /* Map-in source, copy to destination, and unmap source again */
++        if (!is_ram_address(spapr, src) || (src & ~TARGET_PAGE_MASK) != 0) {
++            ret = H_PARAMETER;
++            goto unmap_out;
++        }
++        psrc = cpu_physical_memory_map(src, &len, 0);
++        if (!psrc || len != TARGET_PAGE_SIZE) {
++            ret = H_PARAMETER;
++            goto unmap_out;
++        }
++        memcpy(pdst, psrc, len);
++        cpu_physical_memory_unmap(psrc, len, 0, len);
++    } else if (flags & H_ZERO_PAGE) {
++        memset(pdst, 0, len);          /* Just clear the destination page */
++    }
++
++    if (kvm_enabled() && (flags & H_ICACHE_SYNCHRONIZE) != 0) {
++        kvmppc_dcbst_range(cpu, pdst, len);
++    }
++    if (flags & (H_ICACHE_SYNCHRONIZE | H_ICACHE_INVALIDATE)) {
++        if (kvm_enabled()) {
++            kvmppc_icbi_range(cpu, pdst, len);
++        } else {
++            tb_flush(CPU(cpu));
++        }
++    }
++
++unmap_out:
++    cpu_physical_memory_unmap(pdst, TARGET_PAGE_SIZE, 1, len);
++    return ret;
++}
++
+ #define FLAGS_REGISTER_VPA         0x0000200000000000ULL
+ #define FLAGS_REGISTER_DTL         0x0000400000000000ULL
+ #define FLAGS_REGISTER_SLBSHADOW   0x0000600000000000ULL
+@@ -1033,6 +1116,11 @@ static void hypercall_register_types(voi
+     spapr_register_hypercall(H_REGISTER_VPA, h_register_vpa);
+     spapr_register_hypercall(H_CEDE, h_cede);
+ 
++    /* processor register resource access h-calls */
++    spapr_register_hypercall(H_SET_SPRG0, h_set_sprg0);
++    spapr_register_hypercall(H_PAGE_INIT, h_page_init);
++    spapr_register_hypercall(H_SET_MODE, h_set_mode);
++
+     /* "debugger" hcalls (also used by SLOF). Note: We do -not- differenciate
+      * here between the "CI" and the "CACHE" variants, they will use whatever
+      * mapping attributes qemu is using. When using KVM, the kernel will
+@@ -1049,8 +1137,6 @@ static void hypercall_register_types(voi
+     /* qemu/KVM-PPC specific hcalls */
+     spapr_register_hypercall(KVMPPC_H_RTAS, h_rtas);
+ 
+-    spapr_register_hypercall(H_SET_MODE, h_set_mode);
+-
+     /* ibm,client-architecture-support support */
+     spapr_register_hypercall(KVMPPC_H_CAS, h_client_architecture_support);
+ }
+--- a/target-ppc/kvm_ppc.h
++++ b/target-ppc/kvm_ppc.h
+@@ -259,15 +259,47 @@ static inline int kvmppc_enable_hwrng(vo
+ #endif
+ 
+ #ifndef CONFIG_KVM
++
+ #define kvmppc_eieio() do { } while (0)
+-#else
++
++static inline void kvmppc_dcbst_range(PowerPCCPU *cpu, uint8_t *addr, int len)
++{
++}
++
++static inline void kvmppc_icbi_range(PowerPCCPU *cpu, uint8_t *addr, int len)
++{
++}
++
++#else   /* CONFIG_KVM */
++
+ #define kvmppc_eieio() \
+     do {                                          \
+         if (kvm_enabled()) {                          \
+             asm volatile("eieio" : : : "memory"); \
+         } \
+     } while (0)
+-#endif
++
++/* Store data cache blocks back to memory */
++static inline void kvmppc_dcbst_range(PowerPCCPU *cpu, uint8_t *addr, int len)
++{
++    uint8_t *p;
++
++    for (p = addr; p < addr + len; p += cpu->env.dcache_line_size) {
++        asm volatile("dcbst 0,%0" : : "r"(p) : "memory");
++    }
++}
++
++/* Invalidate instruction cache blocks */
++static inline void kvmppc_icbi_range(PowerPCCPU *cpu, uint8_t *addr, int len)
++{
++    uint8_t *p;
++
++    for (p = addr; p < addr + len; p += cpu->env.icache_line_size) {
++        asm volatile("icbi 0,%0" : : "r"(p));
++    }
++}
++
++#endif  /* CONFIG_KVM */
+ 
+ #ifndef KVM_INTERRUPT_SET
+ #define KVM_INTERRUPT_SET -1
