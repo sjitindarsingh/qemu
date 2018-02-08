@@ -1973,11 +1973,7 @@ static int xhci_fire_ctl_transfer(XHCIState *xhci, XHCITransfer *xfer)
     xfer->packet.parameter = trb_setup->parameter;
 
     usb_handle_packet(xfer->packet.ep->dev, &xfer->packet);
-
     xhci_complete_packet(xfer);
-    if (!xfer->running_async && !xfer->running_retry) {
-        xhci_kick_ep(xhci, xfer->slotid, xfer->epid, 0);
-    }
     return 0;
 }
 
@@ -2077,11 +2073,7 @@ static int xhci_submit(XHCIState *xhci, XHCITransfer *xfer, XHCIEPContext *epctx
         return -1;
     }
     usb_handle_packet(xfer->packet.ep->dev, &xfer->packet);
-
     xhci_complete_packet(xfer);
-    if (!xfer->running_async && !xfer->running_retry) {
-        xhci_kick_ep(xhci, xfer->slotid, xfer->epid, xfer->streamid);
-    }
     return 0;
 }
 
