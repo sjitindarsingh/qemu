@@ -218,3 +218,13 @@ CVE-2017-5715-5.patch
 CVE-2017-5715-s390x-1.patch
 CVE-2017-5715-s390x-2.patch
 ubuntu/lp-1712803-hypercalls_backport.patch
+CVE-2017-11334-1.patch
+CVE-2017-11334-2.patch
+CVE-2017-14167.patch
+CVE-2017-15038.patch
+CVE-2017-15119.patch
+CVE-2017-15289.patch
+CVE-2017-16845.patch
+CVE-2017-17381.patch
+CVE-2017-18043.patch
+CVE-2018-5683.patch

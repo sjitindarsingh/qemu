@@ -1,3 +1,46 @@
+qemu (1:2.5+dfsg-5ubuntu10.22) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: DoS via guest ram block area
+    - debian/patches/CVE-2017-11334-1.patch: use qemu_ram_ptr_length to
+      access guest ram in exec.c.
+    - debian/patches/CVE-2017-11334-2.patch: add lock parameter to
+      qemu_ram_ptr_length in exec.c.
+    - CVE-2017-11334
+  * SECURITY UPDATE: code execution via multiboot out-of-bounds write
+    - debian/patches/CVE-2017-14167.patch: validate multiboot header
+      address values in hw/i386/multiboot.c.
+    - CVE-2017-14167
+  * SECURITY UPDATE: information disclosure via race in 9pfs
+    - debian/patches/CVE-2017-15038.patch: use g_malloc0 to allocate space
+      for xattr in hw/9pfs/virtio-9p.c.
+    - CVE-2017-15038
+  * SECURITY UPDATE: DoS via large option request in NBD server
+    - debian/patches/CVE-2017-15119.patch: reject options larger than 32M
+      in nbd.c.
+    - CVE-2017-15119
+  * SECURITY UPDATE: DoS in cirrus driver
+    - debian/patches/CVE-2017-15289.patch: fix oob access in mode4and5
+      write functions in hw/display/cirrus_vga.c.
+    - CVE-2017-15289
+  * SECURITY UPDATE: out-of-bounds access in ps2 driver
+    - debian/patches/CVE-2017-16845.patch: check PS2Queue pointers in
+      post_load routine in hw/input/ps2.c.
+    - CVE-2017-16845
+  * SECURITY UPDATE: DoS in Virtio Vring implementation
+    - debian/patches/CVE-2017-17381.patch: check VirtQueue Vring object is
+      set in hw/virtio/virtio.c.
+    - CVE-2017-17381
+  * SECURITY UPDATE: DoS via integer overflow in ROUND_UP
+    - debian/patches/CVE-2017-18043.patch: fix ROUND_UP in
+      include/qemu/osdep.h.
+    - CVE-2017-18043
+  * SECURITY UPDATE: DoS in VGA driver
+    - debian/patches/CVE-2018-5683.patch: check the validation of memory
+      addr when draw text in hw/display/vga.c.
+    - CVE-2018-5683
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Thu, 15 Feb 2018 09:48:27 -0500
+
 qemu (1:2.5+dfsg-5ubuntu10.21) xenial; urgency=medium
 
   * debian/patches/ubuntu/lp-1712803-hypercalls_backport.patch: support
