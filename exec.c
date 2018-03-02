@@ -1855,14 +1855,14 @@ unlock:
  * pointer, such as a reference to the region that includes the incoming
  * ram_addr_t.
  */
-static void *qemu_ram_ptr_length(ram_addr_t addr, hwaddr *size, bool lock)
+static void *qemu_ram_ptr_length(ram_addr_t addr, hwaddr *size)
 {
     void *ptr;
     if (*size == 0) {
         return NULL;
     }
     if (xen_enabled()) {
-        return xen_map_cache(addr, *size, lock);
+        return xen_map_cache(addr, *size, 1);
     } else {
         RAMBlock *block;
         rcu_read_lock();
@@ -2564,7 +2564,7 @@ MemTxResult address_space_rw(AddressSpace *as, hwaddr addr, MemTxAttrs attrs,
             } else {
                 addr1 += memory_region_get_ram_addr(mr);
                 /* RAM case */
-                ptr = qemu_ram_ptr_length(addr1, &l, false);
+                ptr = qemu_get_ram_ptr(addr1);
                 memcpy(ptr, buf, l);
                 invalidate_and_set_dirty(mr, addr1, l);
             }
@@ -2603,7 +2603,7 @@ MemTxResult address_space_rw(AddressSpace *as, hwaddr addr, MemTxAttrs attrs,
                 }
             } else {
                 /* RAM case */
-                ptr = qemu_ram_ptr_length(mr->ram_addr + addr1, &l, false);
+                ptr = qemu_get_ram_ptr(mr->ram_addr + addr1);
                 memcpy(buf, ptr, l);
             }
         }
@@ -2878,7 +2878,7 @@ void *address_space_map(AddressSpace *as,
     memory_region_ref(mr);
     rcu_read_unlock();
     *plen = done;
-    return qemu_ram_ptr_length(raddr + base, plen, true);
+    return qemu_ram_ptr_length(raddr + base, plen);
 }
 
 /* Unmaps a memory region previously mapped by address_space_map().
