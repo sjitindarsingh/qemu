@@ -1,3 +1,15 @@
+qemu (1:2.5+dfsg-5ubuntu10.25) xenial; urgency=medium
+
+  [ Murilo Opsfelder Araújo ]
+  * debian/patches/ubuntu/lp-1723914-ppc64-set-msr-register.patch:
+    properly set MSR register for ppc64 targets (LP: #1723914)
+
+  [ Yasmin Beatriz Alves da Silva ]
+  * debian/patches/ubuntu/lp-1723904-sprs-backport.patch:
+    Fix handling of Power8 special purpose registers (LP: #1723904)
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Wed, 04 Apr 2018 12:46:15 +0200
+
 qemu (1:2.5+dfsg-5ubuntu10.24) xenial-security; urgency=medium
 
   * SECURITY REGRESSION: Xen regression (LP: #1752761)
