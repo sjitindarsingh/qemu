@@ -84,10 +84,25 @@ static inline bool valid_pte_index(CPUPPCState *env, target_ulong pte_index)
     return true;
 }
 
+static bool is_ram_address(sPAPRMachineState *spapr, hwaddr addr)
+{
+    MachineState *machine = MACHINE(spapr);
+    MemoryHotplugState *hpms = &spapr->hotplug_memory;
+
+    if (addr < machine->ram_size) {
+        return true;
+    }
+    if ((addr >= hpms->base)
+        && ((addr - hpms->base) < memory_region_size(&hpms->mr))) {
+        return true;
+    }
+
+    return false;
+}
+
 static target_ulong h_enter(PowerPCCPU *cpu, sPAPRMachineState *spapr,
                             target_ulong opcode, target_ulong *args)
 {
-    MachineState *machine = MACHINE(spapr);
     CPUPPCState *env = &cpu->env;
     target_ulong flags = args[0];
     target_ulong pte_index = args[1];
@@ -119,7 +134,7 @@ static target_ulong h_enter(PowerPCCPU *cpu, sPAPRMachineState *spapr,
 
     raddr = (ptel & HPTE64_R_RPN) & ~((1ULL << page_shift) - 1);
 
-    if (raddr < machine->ram_size) {
+    if (is_ram_address(spapr, raddr)) {
         /* Regular RAM - should have WIMG=0010 */
         if ((ptel & HPTE64_R_WIMG) != HPTE64_R_M) {
             return H_PARAMETER;
@@ -368,11 +383,79 @@ static target_ulong h_read(PowerPCCPU *cpu, sPAPRMachineState *spapr,
     return H_SUCCESS;
 }
 
+static target_ulong h_set_sprg0(PowerPCCPU *cpu, sPAPRMachineState *spapr,
+                                target_ulong opcode, target_ulong *args)
+{
+    cpu_synchronize_state(CPU(cpu));
+    cpu->env.spr[SPR_SPRG0] = args[0];
+
+    return H_SUCCESS;
+}
+
 static target_ulong h_set_dabr(PowerPCCPU *cpu, sPAPRMachineState *spapr,
                                target_ulong opcode, target_ulong *args)
 {
     /* FIXME: actually implement this */
     return H_HARDWARE;
+}
+
+static target_ulong h_page_init(PowerPCCPU *cpu, sPAPRMachineState *spapr,
+                                target_ulong opcode, target_ulong *args)
+{
+    target_ulong flags = args[0];
+    hwaddr dst = args[1];
+    hwaddr src = args[2];
+    hwaddr len = TARGET_PAGE_SIZE;
+    uint8_t *pdst, *psrc;
+    target_long ret = H_SUCCESS;
+
+    if (flags & ~(H_ICACHE_SYNCHRONIZE | H_ICACHE_INVALIDATE
+                  | H_COPY_PAGE | H_ZERO_PAGE)) {
+        qemu_log_mask(LOG_UNIMP, "h_page_init: Bad flags (" TARGET_FMT_lx "\n",
+                      flags);
+        return H_PARAMETER;
+    }
+
+    /* Map-in destination */
+    if (!is_ram_address(spapr, dst) || (dst & ~TARGET_PAGE_MASK) != 0) {
+        return H_PARAMETER;
+    }
+    pdst = cpu_physical_memory_map(dst, &len, 1);
+    if (!pdst || len != TARGET_PAGE_SIZE) {
+        return H_PARAMETER;
+    }
+
+    if (flags & H_COPY_PAGE) {
+        /* Map-in source, copy to destination, and unmap source again */
+        if (!is_ram_address(spapr, src) || (src & ~TARGET_PAGE_MASK) != 0) {
+            ret = H_PARAMETER;
+            goto unmap_out;
+        }
+        psrc = cpu_physical_memory_map(src, &len, 0);
+        if (!psrc || len != TARGET_PAGE_SIZE) {
+            ret = H_PARAMETER;
+            goto unmap_out;
+        }
+        memcpy(pdst, psrc, len);
+        cpu_physical_memory_unmap(psrc, len, 0, len);
+    } else if (flags & H_ZERO_PAGE) {
+        memset(pdst, 0, len);          /* Just clear the destination page */
+    }
+
+    if (kvm_enabled() && (flags & H_ICACHE_SYNCHRONIZE) != 0) {
+        kvmppc_dcbst_range(cpu, pdst, len);
+    }
+    if (flags & (H_ICACHE_SYNCHRONIZE | H_ICACHE_INVALIDATE)) {
+        if (kvm_enabled()) {
+            kvmppc_icbi_range(cpu, pdst, len);
+        } else {
+            tb_flush(CPU(cpu));
+        }
+    }
+
+unmap_out:
+    cpu_physical_memory_unmap(pdst, TARGET_PAGE_SIZE, 1, len);
+    return ret;
 }
 
 #define FLAGS_REGISTER_VPA         0x0000200000000000ULL
@@ -1033,6 +1116,11 @@ static void hypercall_register_types(void)
     spapr_register_hypercall(H_REGISTER_VPA, h_register_vpa);
     spapr_register_hypercall(H_CEDE, h_cede);
 
+    /* processor register resource access h-calls */
+    spapr_register_hypercall(H_SET_SPRG0, h_set_sprg0);
+    spapr_register_hypercall(H_PAGE_INIT, h_page_init);
+    spapr_register_hypercall(H_SET_MODE, h_set_mode);
+
     /* "debugger" hcalls (also used by SLOF). Note: We do -not- differenciate
      * here between the "CI" and the "CACHE" variants, they will use whatever
      * mapping attributes qemu is using. When using KVM, the kernel will
@@ -1048,8 +1136,6 @@ static void hypercall_register_types(void)
 
     /* qemu/KVM-PPC specific hcalls */
     spapr_register_hypercall(KVMPPC_H_RTAS, h_rtas);
-
-    spapr_register_hypercall(H_SET_MODE, h_set_mode);
 
     /* ibm,client-architecture-support support */
     spapr_register_hypercall(KVMPPC_H_CAS, h_client_architecture_support);
