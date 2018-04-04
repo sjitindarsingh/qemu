@@ -52,6 +52,8 @@
  * to the specs when it gets them */
 #define ER_FULL_HACK
 
+#define TRB_LINK_LIMIT  4
+
 #define LEN_CAP         0x40
 #define LEN_OPER        (0x400 + 0x10 * MAXPORTS)
 #define LEN_RUNTIME     ((MAXINTRS + 1) * 0x20)
@@ -996,6 +998,7 @@ static TRBType xhci_ring_fetch(XHCIState *xhci, XHCIRing *ring, XHCITRB *trb,
                                dma_addr_t *addr)
 {
     PCIDevice *pci_dev = PCI_DEVICE(xhci);
+    uint32_t link_cnt = 0;
 
     while (1) {
         TRBType type;
@@ -1022,6 +1025,9 @@ static TRBType xhci_ring_fetch(XHCIState *xhci, XHCIRing *ring, XHCITRB *trb,
             ring->dequeue += TRB_SIZE;
             return type;
         } else {
+            if (++link_cnt > TRB_LINK_LIMIT) {
+                return 0;
+            }
             ring->dequeue = xhci_mask64(trb->parameter);
             if (trb->control & TRB_LK_TC) {
                 ring->ccs = !ring->ccs;
@@ -1039,6 +1045,7 @@ static int xhci_ring_chain_length(XHCIState *xhci, const XHCIRing *ring)
     bool ccs = ring->ccs;
     /* hack to bundle together the two/three TDs that make a setup transfer */
     bool control_td_set = 0;
+    uint32_t link_cnt = 0;
 
     while (1) {
         TRBType type;
@@ -1054,6 +1061,9 @@ static int xhci_ring_chain_length(XHCIState *xhci, const XHCIRing *ring)
         type = TRB_TYPE(trb);
 
         if (type == TR_LINK) {
+            if (++link_cnt > TRB_LINK_LIMIT) {
+                return -length;
+            }
             dequeue = xhci_mask64(trb.parameter);
             if (trb.control & TRB_LK_TC) {
                 ccs = !ccs;
