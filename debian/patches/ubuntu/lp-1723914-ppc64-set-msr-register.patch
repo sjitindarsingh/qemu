@@ -1,0 +1,38 @@
+From 8b9f2118ca40b1de72d8f75b59a5fb4d347a69f7 Mon Sep 17 00:00:00 2001
+From: Laurent Vivier <lvivier@redhat.com>
+Date: Wed, 16 Mar 2016 10:43:52 +0100
+Subject: [PATCH] ppc64: set MSR_SF bit
+
+When a qemu-system-ppc64 is started, the 64-bit mode bit
+is not set in MSR.
+
+Signed-off-by: Laurent Vivier <lvivier@redhat.com>
+Reviewed-by: Alexander Graf <agraf@suse.de>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+Forwarded: no (backport)
+Author: Murilo Opsfelder Araújo <muriloo@linux.ibm.com>
+Original-Author: Laurent Vivier <lvivier@redhat.com>
+Origin: upstream, https://git.qemu.org/?p=qemu.git;a=commit;h=8b9f2118ca40b1de72d8f75b59a5fb4d347a69f7
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1723914
+Last-Update: 2018-04-04
+---
+ target-ppc/translate_init.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target-ppc/translate_init.c b/target-ppc/translate_init.c
+index fb206af..11d5fd3 100644
+--- a/target-ppc/translate_init.c
++++ b/target-ppc/translate_init.c
+@@ -9703,7 +9703,7 @@ static void ppc_cpu_reset(CPUState *s)
+ 
+ #if defined(TARGET_PPC64)
+     if (env->mmu_model & POWERPC_MMU_64) {
+-        env->msr |= (1ULL << MSR_SF);
++        msr |= (1ULL << MSR_SF);
+     }
+ #endif
+ 
+-- 
+1.8.3.1
+

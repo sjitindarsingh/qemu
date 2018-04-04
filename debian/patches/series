@@ -228,3 +228,5 @@ CVE-2017-16845.patch
 CVE-2017-17381.patch
 CVE-2017-18043.patch
 CVE-2018-5683.patch
+ubuntu/lp-1723914-ppc64-set-msr-register.patch
+ubuntu/lp-1723904-sprs-backport.patch

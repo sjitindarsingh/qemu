@@ -1,0 +1,634 @@
+Description: Fix handling and migration of Power8 Special purpose registers
+Backport of a series of upstream patches to no more fail tests.
+This is part of the ongoing HW exploitation and also fixes a set of tests
+as well as guests that would use these new features.
+
+Forwarded: no (backports)
+Author: Yasmin Beatriz Alves da Silva <yasmins@br.ibm.com>
+Origin: https://git.qemu.org/?p=qemu.git;a=commit;h=
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1723904
+Last-Update: 2018-04-04
+
+
+From b5772ac8b757ac637e37c29d37efc644ead10b63 Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Wed, 2 Mar 2016 21:19:20 +0100
+Subject: [PATCH 1/6] ppc: Define the PSPB register on POWER8
+
+POWER8 / PowerISA 2.07 has a new special purpose register called PSPB
+("Problem State Priority Boost Register"). The contents of this register
+are currently lost during migration. To be able to migrate this register,
+too, we've got to define this SPR along with the other SPRs of POWER8.
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit d6f1445fafa8dcb578c90e7b475fd4728abd99da)
+Signed-off-by: Yasmin Beatriz <yasmins@linux.ibm.com>
+---
+ target-ppc/cpu.h            | 1 +
+ target-ppc/translate_init.c | 9 +++++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/target-ppc/cpu.h b/target-ppc/cpu.h
+index 9706000..359ee59 100644
+--- a/target-ppc/cpu.h
++++ b/target-ppc/cpu.h
+@@ -1361,6 +1361,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_UAMOR             (0x09D)
+ #define SPR_MPC_ICTRL         (0x09E)
+ #define SPR_MPC_BAR           (0x09F)
++#define SPR_PSPB              (0x09F)
+ #define SPR_VRSAVE            (0x100)
+ #define SPR_USPRG0            (0x100)
+ #define SPR_USPRG1            (0x101)
+diff --git a/target-ppc/translate_init.c b/target-ppc/translate_init.c
+index e88dc7f..c9106d8 100644
+--- a/target-ppc/translate_init.c
++++ b/target-ppc/translate_init.c
+@@ -7841,6 +7841,14 @@ static void gen_spr_power8_fscr(CPUPPCState *env)
+                      KVM_REG_PPC_FSCR, initval);
+ }
+ 
++static void gen_spr_power8_pspb(CPUPPCState *env)
++{
++    spr_register_kvm(env, SPR_PSPB, "PSPB",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic32,
++                     KVM_REG_PPC_PSPB, 0);
++}
++
+ static void init_proc_book3s_64(CPUPPCState *env, int version)
+ {
+     gen_spr_ne_601(env);
+@@ -7891,6 +7899,7 @@ static void init_proc_book3s_64(CPUPPCState *env, int version)
+         gen_spr_power8_pmu_sup(env);
+         gen_spr_power8_pmu_user(env);
+         gen_spr_power8_tm(env);
++        gen_spr_power8_pspb(env);
+         gen_spr_vtb(env);
+     }
+     if (version < BOOK3S_CPU_POWER8) {
+-- 
+2.7.4
+
+
+From d1af0f5adf8818503555582d9fdff6f8635c71ab Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Wed, 2 Mar 2016 21:19:21 +0100
+Subject: [PATCH 2/6] ppc: Fix migration of the TAR SPR
+
+The TAR special purpose register currently does not get migrated
+under KVM because it does not get synchronized with the kernel.
+Use spr_register_kvm() instead of spr_register() to fix this issue.
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit 1e440cbc99d810ac8153619e6fbee3d7dfaf1893)
+Signed-off-by: Yasmin Beatriz <yasmins@linux.ibm.com>
+---
+ target-ppc/translate_init.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/target-ppc/translate_init.c b/target-ppc/translate_init.c
+index c9106d8..4d77edf 100644
+--- a/target-ppc/translate_init.c
++++ b/target-ppc/translate_init.c
+@@ -7713,10 +7713,10 @@ static void spr_write_tar(DisasContext *ctx, int sprn, int gprn)
+ 
+ static void gen_spr_power8_tce_address_control(CPUPPCState *env)
+ {
+-    spr_register(env, SPR_TAR, "TAR",
+-                 &spr_read_tar, &spr_write_tar,
+-                 &spr_read_generic, &spr_write_generic,
+-                 0x00000000);
++    spr_register_kvm(env, SPR_TAR, "TAR",
++                     &spr_read_tar, &spr_write_tar,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_TAR, 0x00000000);
+ }
+ 
+ static void spr_read_tm(DisasContext *ctx, int gprn, int sprn)
+-- 
+2.7.4
+
+
+From 977f4275909f2525a3b503056607a5d56d728c56 Mon Sep 17 00:00:00 2001
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 2 Mar 2016 21:19:22 +0100
+Subject: [PATCH 3/6] ppc: Add a few more P8 PMU SPRs
+
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit 14646457ae79628b797ff8da8842e7d4bad92458)
+Signed-off-by: Yasmin Beatriz <yasmins@linux.ibm.com>
+---
+ target-ppc/cpu.h            |  7 +++++++
+ target-ppc/translate_init.c | 28 ++++++++++++++++++++++++++++
+ 2 files changed, 35 insertions(+)
+
+diff --git a/target-ppc/cpu.h b/target-ppc/cpu.h
+index 359ee59..d5edd34 100644
+--- a/target-ppc/cpu.h
++++ b/target-ppc/cpu.h
+@@ -1545,6 +1545,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_PERF0             (0x300)
+ #define SPR_RCPU_MI_RBA0      (0x300)
+ #define SPR_MPC_MI_CTR        (0x300)
++#define SPR_POWER_USIER       (0x300)
+ #define SPR_PERF1             (0x301)
+ #define SPR_RCPU_MI_RBA1      (0x301)
+ #define SPR_POWER_UMMCR2      (0x301)
+@@ -1594,6 +1595,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_PERFF             (0x30F)
+ #define SPR_MPC_MD_TW         (0x30F)
+ #define SPR_UPERF0            (0x310)
++#define SPR_POWER_SIER        (0x310)
+ #define SPR_UPERF1            (0x311)
+ #define SPR_POWER_MMCR2       (0x311)
+ #define SPR_UPERF2            (0x312)
+@@ -1655,7 +1657,12 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_440_ITV2          (0x376)
+ #define SPR_440_ITV3          (0x377)
+ #define SPR_440_CCR1          (0x378)
++#define SPR_TACR              (0x378)
++#define SPR_TCSCR             (0x379)
++#define SPR_CSIGR             (0x37a)
+ #define SPR_DCRIPR            (0x37B)
++#define SPR_POWER_SPMC1       (0x37C)
++#define SPR_POWER_SPMC2       (0x37D)
+ #define SPR_POWER_MMCRS       (0x37E)
+ #define SPR_PPR               (0x380)
+ #define SPR_750_GQR0          (0x390)
+diff --git a/target-ppc/translate_init.c b/target-ppc/translate_init.c
+index 4d77edf..164493e 100644
+--- a/target-ppc/translate_init.c
++++ b/target-ppc/translate_init.c
+@@ -7602,6 +7602,30 @@ static void gen_spr_power8_pmu_sup(CPUPPCState *env)
+                      SPR_NOACCESS, SPR_NOACCESS,
+                      &spr_read_generic, &spr_write_generic,
+                      KVM_REG_PPC_MMCRS, 0x00000000);
++    spr_register_kvm(env, SPR_POWER_SIER, "SIER",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_SIER, 0x00000000);
++    spr_register_kvm(env, SPR_POWER_SPMC1, "SPMC1",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_SPMC1, 0x00000000);
++    spr_register_kvm(env, SPR_POWER_SPMC2, "SPMC2",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_SPMC2, 0x00000000);
++    spr_register_kvm(env, SPR_TACR, "TACR",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_TACR, 0x00000000);
++    spr_register_kvm(env, SPR_TCSCR, "TCSCR",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_TCSCR, 0x00000000);
++    spr_register_kvm(env, SPR_CSIGR, "CSIGR",
++                     SPR_NOACCESS, SPR_NOACCESS,
++                     &spr_read_generic, &spr_write_generic,
++                     KVM_REG_PPC_CSIGR, 0x00000000);
+ }
+ 
+ static void gen_spr_power8_pmu_user(CPUPPCState *env)
+@@ -7610,6 +7634,10 @@ static void gen_spr_power8_pmu_user(CPUPPCState *env)
+                  &spr_read_ureg, SPR_NOACCESS,
+                  &spr_read_ureg, &spr_write_ureg,
+                  0x00000000);
++    spr_register(env, SPR_POWER_USIER, "USIER",
++                 &spr_read_generic, SPR_NOACCESS,
++                 &spr_read_generic, &spr_write_generic,
++                 0x00000000);
+ }
+ 
+ static void gen_spr_power5p_ear(CPUPPCState *env)
+-- 
+2.7.4
+
+
+From 32db4f76c984ab87f0e5bb053ae51d1e1de3ac9f Mon Sep 17 00:00:00 2001
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Mon, 21 Mar 2016 13:52:31 +0100
+Subject: [PATCH 4/6] ppc: Update SPR definitions
+
+Add definitions for additional SPR numbers and SPR bit definitions
+that will be relevant for subsequent improvements to POWER8 emulation
+
+Also fix the definition of LPIDR which was incorrect (and is different
+for server and embedded).
+
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit 1488270e822dc497a9bc799c6c49fdca85b9f28b)
+Signed-off-by: Yasmin Beatriz <yasmins@linux.ibm.com>
+---
+ target-ppc/cpu.h | 54 +++++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 47 insertions(+), 7 deletions(-)
+
+diff --git a/target-ppc/cpu.h b/target-ppc/cpu.h
+index d5edd34..69a26ac 100644
+--- a/target-ppc/cpu.h
++++ b/target-ppc/cpu.h
+@@ -474,9 +474,17 @@ struct ppc_slb_t {
+ #define MSR_RI   1  /* Recoverable interrupt                        1        */
+ #define MSR_LE   0  /* Little-endian mode                           1 hflags */
+ 
+-#define LPCR_ILE (1 << (63-38))
+-#define LPCR_AIL_SHIFT (63-40)      /* Alternate interrupt location */
+-#define LPCR_AIL (3 << LPCR_AIL_SHIFT)
++/* LPCR bits */
++#define LPCR_VPM0         (1ull << (63 - 0))
++#define LPCR_VPM1         (1ull << (63 - 1))
++#define LPCR_ISL          (1ull << (63 - 2))
++#define LPCR_KBV          (1ull << (63 - 3))
++#define LPCR_ILE          (1ull << (63 - 38))
++#define LPCR_MER          (1ull << (63 - 52))
++#define LPCR_LPES0        (1ull << (63 - 60))
++#define LPCR_LPES1        (1ull << (63 - 61))
++#define LPCR_AIL_SHIFT    (63 - 40)      /* Alternate interrupt location */
++#define LPCR_AIL          (3ull << LPCR_AIL_SHIFT)
+ 
+ #define msr_sf   ((env->msr >> MSR_SF)   & 1)
+ #define msr_isf  ((env->msr >> MSR_ISF)  & 1)
+@@ -1362,6 +1370,10 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_MPC_ICTRL         (0x09E)
+ #define SPR_MPC_BAR           (0x09F)
+ #define SPR_PSPB              (0x09F)
++#define SPR_DAWR              (0x0B4)
++#define SPR_RPR               (0x0BA)
++#define SPR_DAWRX             (0x0BC)
++#define SPR_HFSCR             (0x0BE)
+ #define SPR_VRSAVE            (0x100)
+ #define SPR_USPRG0            (0x100)
+ #define SPR_USPRG1            (0x101)
+@@ -1416,19 +1428,25 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_HSRR1             (0x13B)
+ #define SPR_BOOKE_IAC4        (0x13B)
+ #define SPR_BOOKE_DAC1        (0x13C)
+-#define SPR_LPIDR             (0x13D)
++#define SPR_MMCRH             (0x13C)
+ #define SPR_DABR2             (0x13D)
+ #define SPR_BOOKE_DAC2        (0x13D)
++#define SPR_TFMR              (0x13D)
+ #define SPR_BOOKE_DVC1        (0x13E)
+ #define SPR_LPCR              (0x13E)
+ #define SPR_BOOKE_DVC2        (0x13F)
++#define SPR_LPIDR             (0x13F)
+ #define SPR_BOOKE_TSR         (0x150)
++#define SPR_HMER              (0x150)
++#define SPR_HMEER             (0x151)
+ #define SPR_PCR               (0x152)
++#define SPR_BOOKE_LPIDR       (0x152)
+ #define SPR_BOOKE_TCR         (0x154)
+ #define SPR_BOOKE_TLB0PS      (0x158)
+ #define SPR_BOOKE_TLB1PS      (0x159)
+ #define SPR_BOOKE_TLB2PS      (0x15A)
+ #define SPR_BOOKE_TLB3PS      (0x15B)
++#define SPR_AMOR              (0x15D)
+ #define SPR_BOOKE_MAS7_MAS3   (0x174)
+ #define SPR_BOOKE_IVOR0       (0x190)
+ #define SPR_BOOKE_IVOR1       (0x191)
+@@ -1648,6 +1666,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_RCPU_L2U_RA3      (0x32B)
+ #define SPR_TAR               (0x32F)
+ #define SPR_VTB               (0x351)
++#define SPR_MMCRC             (0x353)
+ #define SPR_440_INV0          (0x370)
+ #define SPR_440_INV1          (0x371)
+ #define SPR_440_INV2          (0x372)
+@@ -1686,6 +1705,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_440_DVLIM         (0x398)
+ #define SPR_750_WPAR          (0x399)
+ #define SPR_440_IVLIM         (0x399)
++#define SPR_TSCR              (0x399)
+ #define SPR_750_DMAU          (0x39A)
+ #define SPR_750_DMAL          (0x39B)
+ #define SPR_440_RSTCFG        (0x39B)
+@@ -1860,9 +1880,10 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define   L1CSR1_ICE		0x00000001	/* Instruction Cache Enable */
+ 
+ /* HID0 bits */
+-#define HID0_DEEPNAP        (1 << 24)
+-#define HID0_DOZE           (1 << 23)
+-#define HID0_NAP            (1 << 22)
++#define HID0_DEEPNAP        (1 << 24)           /* pre-2.06 */
++#define HID0_DOZE           (1 << 23)           /* pre-2.06 */
++#define HID0_NAP            (1 << 22)           /* pre-2.06 */
++#define HID0_HILE           (1ull << (63 - 19)) /* POWER8 */
+ 
+ /*****************************************************************************/
+ /* PowerPC Instructions types definitions                                    */
+@@ -2211,6 +2232,25 @@ enum {
+     PCR_TM_DIS          = 1ull << (63-2), /* Trans. memory disable (POWER8) */
+ };
+ 
++/* HMER/HMEER */
++enum {
++    HMER_MALFUNCTION_ALERT      = 1ull << (63 - 0),
++    HMER_PROC_RECV_DONE         = 1ull << (63 - 2),
++    HMER_PROC_RECV_ERROR_MASKED = 1ull << (63 - 3),
++    HMER_TFAC_ERROR             = 1ull << (63 - 4),
++    HMER_TFMR_PARITY_ERROR      = 1ull << (63 - 5),
++    HMER_XSCOM_FAIL             = 1ull << (63 - 8),
++    HMER_XSCOM_DONE             = 1ull << (63 - 9),
++    HMER_PROC_RECV_AGAIN        = 1ull << (63 - 11),
++    HMER_WARN_RISE              = 1ull << (63 - 14),
++    HMER_WARN_FALL              = 1ull << (63 - 15),
++    HMER_SCOM_FIR_HMI           = 1ull << (63 - 16),
++    HMER_TRIG_FIR_HMI           = 1ull << (63 - 17),
++    HMER_HYP_RESOURCE_ERR       = 1ull << (63 - 20),
++    HMER_XSCOM_STATUS_MASK      = 7ull << (63 - 23),
++    HMER_XSCOM_STATUS_LSH       = (63 - 23),
++};
++
+ /*****************************************************************************/
+ 
+ static inline target_ulong cpu_read_xer(CPUPPCState *env)
+-- 
+2.7.4
+
+
+From 2b660f168333b8ae012e2ad6bce061cb8c2aac5c Mon Sep 17 00:00:00 2001
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Mon, 21 Mar 2016 13:52:32 +0100
+Subject: [PATCH 5/6] ppc: Add macros to register hypervisor mode SPRs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The current set of spr_register_* macros only take the user and
+supervisor function pointers. To make the transition easy, we
+don't change that but we add "_hv" variants that can be used to
+register all 3 sets.
+
+To simplify the transition, users of the "old" macro will set the
+hypervisor callback to be the same as the supervisor one. The new
+registration function only needs to be used for registers that are
+either hypervisor only or behave differently in HV mode.
+
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+[clg: fixed else if condition in gen_op_mfspr() ]
+Signed-off-by: Cédric Le Goater <clg@fr.ibm.com>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+(cherry picked from commit eb94268e73a379a54326701a0341f2649e222d29)
+Signed-off-by: Yasmin Beatriz <yasmins@linux.ibm.com>
+---
+ target-ppc/translate.c      | 26 ++++++++++++++++----------
+ target-ppc/translate_init.c | 35 +++++++++++++++++++++++++++++++----
+ 2 files changed, 47 insertions(+), 14 deletions(-)
+
+diff --git a/target-ppc/translate.c b/target-ppc/translate.c
+index 41a7258..6d182ed 100644
+--- a/target-ppc/translate.c
++++ b/target-ppc/translate.c
+@@ -4267,14 +4267,17 @@ static inline void gen_op_mfspr(DisasContext *ctx)
+     void (*read_cb)(DisasContext *ctx, int gprn, int sprn);
+     uint32_t sprn = SPR(ctx->opcode);
+ 
+-#if !defined(CONFIG_USER_ONLY)
+-    if (ctx->hv)
++#if defined(CONFIG_USER_ONLY)
++    read_cb = ctx->spr_cb[sprn].uea_read;
++#else
++    if (ctx->pr) {
++        read_cb = ctx->spr_cb[sprn].uea_read;
++    } else if (ctx->hv) {
+         read_cb = ctx->spr_cb[sprn].hea_read;
+-    else if (!ctx->pr)
++    } else {
+         read_cb = ctx->spr_cb[sprn].oea_read;
+-    else
++    }
+ #endif
+-        read_cb = ctx->spr_cb[sprn].uea_read;
+     if (likely(read_cb != NULL)) {
+         if (likely(read_cb != SPR_NOACCESS)) {
+             (*read_cb)(ctx, rD(ctx->opcode), sprn);
+@@ -4418,14 +4421,17 @@ static void gen_mtspr(DisasContext *ctx)
+     void (*write_cb)(DisasContext *ctx, int sprn, int gprn);
+     uint32_t sprn = SPR(ctx->opcode);
+ 
+-#if !defined(CONFIG_USER_ONLY)
+-    if (ctx->hv)
++#if defined(CONFIG_USER_ONLY)
++    write_cb = ctx->spr_cb[sprn].uea_write;
++#else
++    if (ctx->pr) {
++        write_cb = ctx->spr_cb[sprn].uea_write;
++    } else if (ctx->hv) {
+         write_cb = ctx->spr_cb[sprn].hea_write;
+-    else if (!ctx->pr)
++    } else {
+         write_cb = ctx->spr_cb[sprn].oea_write;
+-    else
++    }
+ #endif
+-        write_cb = ctx->spr_cb[sprn].uea_write;
+     if (likely(write_cb != NULL)) {
+         if (likely(write_cb != SPR_NOACCESS)) {
+             (*write_cb)(ctx, sprn, rS(ctx->opcode));
+diff --git a/target-ppc/translate_init.c b/target-ppc/translate_init.c
+index 164493e..afaa793 100644
+--- a/target-ppc/translate_init.c
++++ b/target-ppc/translate_init.c
+@@ -578,17 +578,33 @@ static inline void vscr_init (CPUPPCState *env, uint32_t val)
+ #define spr_register_kvm(env, num, name, uea_read, uea_write,                  \
+                          oea_read, oea_write, one_reg_id, initial_value)       \
+     _spr_register(env, num, name, uea_read, uea_write, initial_value)
++#define spr_register_kvm_hv(env, num, name, uea_read, uea_write,               \
++                            oea_read, oea_write, hea_read, hea_write,          \
++                            one_reg_id, initial_value)                         \
++    _spr_register(env, num, name, uea_read, uea_write, initial_value)
+ #else
+ #if !defined(CONFIG_KVM)
+ #define spr_register_kvm(env, num, name, uea_read, uea_write,                  \
+-                         oea_read, oea_write, one_reg_id, initial_value) \
++                         oea_read, oea_write, one_reg_id, initial_value)       \
++    _spr_register(env, num, name, uea_read, uea_write,                         \
++                  oea_read, oea_write, oea_read, oea_write, initial_value)
++#define spr_register_kvm_hv(env, num, name, uea_read, uea_write,               \
++                            oea_read, oea_write, hea_read, hea_write,          \
++                            one_reg_id, initial_value)                         \
+     _spr_register(env, num, name, uea_read, uea_write,                         \
+-                  oea_read, oea_write, initial_value)
++                  oea_read, oea_write, hea_read, hea_write, initial_value)
+ #else
+ #define spr_register_kvm(env, num, name, uea_read, uea_write,                  \
+-                         oea_read, oea_write, one_reg_id, initial_value) \
++                         oea_read, oea_write, one_reg_id, initial_value)       \
++    _spr_register(env, num, name, uea_read, uea_write,                         \
++                  oea_read, oea_write, oea_read, oea_write,                    \
++                  one_reg_id, initial_value)
++#define spr_register_kvm_hv(env, num, name, uea_read, uea_write,               \
++                            oea_read, oea_write, hea_read, hea_write,          \
++                            one_reg_id, initial_value)                         \
+     _spr_register(env, num, name, uea_read, uea_write,                         \
+-                  oea_read, oea_write, one_reg_id, initial_value)
++                  oea_read, oea_write, hea_read, hea_write,                    \
++                  one_reg_id, initial_value)
+ #endif
+ #endif
+ 
+@@ -597,6 +613,13 @@ static inline void vscr_init (CPUPPCState *env, uint32_t val)
+     spr_register_kvm(env, num, name, uea_read, uea_write,                      \
+                      oea_read, oea_write, 0, initial_value)
+ 
++#define spr_register_hv(env, num, name, uea_read, uea_write,                   \
++                        oea_read, oea_write, hea_read, hea_write,              \
++                        initial_value)                                         \
++    spr_register_kvm_hv(env, num, name, uea_read, uea_write,                   \
++                        oea_read, oea_write, hea_read, hea_write,              \
++                        0, initial_value)
++
+ static inline void _spr_register(CPUPPCState *env, int num,
+                                  const char *name,
+                                  void (*uea_read)(DisasContext *ctx, int gprn, int sprn),
+@@ -605,6 +628,8 @@ static inline void _spr_register(CPUPPCState *env, int num,
+ 
+                                  void (*oea_read)(DisasContext *ctx, int gprn, int sprn),
+                                  void (*oea_write)(DisasContext *ctx, int sprn, int gprn),
++                                 void (*hea_read)(DisasContext *opaque, int gprn, int sprn),
++                                 void (*hea_write)(DisasContext *opaque, int sprn, int gprn),
+ #endif
+ #if defined(CONFIG_KVM)
+                                  uint64_t one_reg_id,
+@@ -632,6 +657,8 @@ static inline void _spr_register(CPUPPCState *env, int num,
+ #if !defined(CONFIG_USER_ONLY)
+     spr->oea_read = oea_read;
+     spr->oea_write = oea_write;
++    spr->hea_read = hea_read;
++    spr->hea_write = hea_write;
+ #endif
+ #if defined(CONFIG_KVM)
+     spr->one_reg_id = one_reg_id,
+-- 
+2.7.4
+
+
+From 44e9243debb64f3590cf3047f321cc64aa905f67 Mon Sep 17 00:00:00 2001
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Mon, 21 Mar 2016 13:52:38 +0100
+Subject: [PATCH 6/6] ppc: Add POWER8 IAMR register
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+With appropriate AMR-like masks. Not actually used by the translation
+logic at that point
+
+Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+[clg: changed spr_register_hv(SPR_IAMR) to spr_register_kvm_hv(SPR_IAMR)
+      changed gen_spr_amr() prototype ]
+Signed-off-by: Cédric Le Goater <clg@fr.ibm.com>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Reviewed-by: David Gibson <david@gibson.dropbear.id.au>
+Signed-off-by: David Gibson <david@gibson.dropbear.id.au>
+
+(backported from commit a6eabb9e5908ddf521ea372651b8321ffa804bd8)
+[yasmins: resolved conflict with master]
+Signed-off-by: Yasmin Beatriz <yasmins@linux.ibm.com>
+---
+ target-ppc/cpu.h            |  1 +
+ target-ppc/translate_init.c | 46 +++++++++++++++++++++++++++++++++++++++++++--
+ 2 files changed, 45 insertions(+), 2 deletions(-)
+
+diff --git a/target-ppc/cpu.h b/target-ppc/cpu.h
+index 69a26ac..728ee1b 100644
+--- a/target-ppc/cpu.h
++++ b/target-ppc/cpu.h
+@@ -1340,6 +1340,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
+ #define SPR_BOOKE_CSRR0       (0x03A)
+ #define SPR_BOOKE_CSRR1       (0x03B)
+ #define SPR_BOOKE_DEAR        (0x03D)
++#define SPR_IAMR              (0x03D)
+ #define SPR_BOOKE_ESR         (0x03E)
+ #define SPR_BOOKE_IVPR        (0x03F)
+ #define SPR_MPC_EIE           (0x050)
+diff --git a/target-ppc/translate_init.c b/target-ppc/translate_init.c
+index afaa793..7e7bf8a 100644
+--- a/target-ppc/translate_init.c
++++ b/target-ppc/translate_init.c
+@@ -1083,9 +1083,39 @@ static void spr_write_uamr_pr (DisasContext *ctx, int sprn, int gprn)
+     gen_store_spr(SPR_AMR, t0);
+     spr_store_dump_spr(SPR_AMR);
+ }
++
++static void spr_write_iamr(DisasContext *ctx, int sprn, int gprn)
++{
++    TCGv t0 = tcg_temp_new();
++    TCGv t1 = tcg_temp_new();
++    TCGv t2 = tcg_temp_new();
++
++    /* Note, the HV=1 case is handled earlier by simply using
++     * spr_write_generic for HV mode in the SPR table
++     */
++
++    /* Build insertion mask into t1 based on context */
++    gen_load_spr(t1, SPR_AMOR);
++
++    /* Mask new bits into t2 */
++    tcg_gen_and_tl(t2, t1, cpu_gpr[gprn]);
++
++    /* Load AMR and clear new bits in t0 */
++    gen_load_spr(t0, SPR_IAMR);
++    tcg_gen_andc_tl(t0, t0, t1);
++
++    /* Or'in new bits and write it out */
++    tcg_gen_or_tl(t0, t0, t2);
++    gen_store_spr(SPR_IAMR, t0);
++    spr_store_dump_spr(SPR_IAMR);
++
++    tcg_temp_free(t0);
++    tcg_temp_free(t1);
++    tcg_temp_free(t2);
++}
+ #endif /* CONFIG_USER_ONLY */
+ 
+-static void gen_spr_amr (CPUPPCState *env)
++static void gen_spr_amr(CPUPPCState *env, bool has_iamr)
+ {
+ #ifndef CONFIG_USER_ONLY
+     /* Virtual Page Class Key protection */
+@@ -1104,6 +1134,18 @@ static void gen_spr_amr (CPUPPCState *env)
+                      SPR_NOACCESS, SPR_NOACCESS,
+                      &spr_read_generic, &spr_write_generic,
+                      KVM_REG_PPC_UAMOR, 0);
++    spr_register_hv(env, SPR_AMOR, "AMOR",
++                    SPR_NOACCESS, SPR_NOACCESS,
++                    SPR_NOACCESS, SPR_NOACCESS,
++                    &spr_read_generic, &spr_write_generic,
++                    0);
++    if (has_iamr) {
++        spr_register_kvm_hv(env, SPR_IAMR, "IAMR",
++                            SPR_NOACCESS, SPR_NOACCESS,
++                            &spr_read_generic, &spr_write_iamr,
++                            &spr_read_generic, &spr_write_generic,
++                            KVM_REG_PPC_IAMR, 0);
++    }
+ #endif /* !CONFIG_USER_ONLY */
+ }
+ #endif /* TARGET_PPC64 */
+@@ -7925,7 +7967,7 @@ static void init_proc_book3s_64(CPUPPCState *env, int version)
+     case BOOK3S_CPU_POWER7:
+     case BOOK3S_CPU_POWER8:
+         gen_spr_book3s_ids(env);
+-        gen_spr_amr(env);
++        gen_spr_amr(env, version >= BOOK3S_CPU_POWER8);
+         gen_spr_book3s_purr(env);
+         env->ci_large_pages = true;
+         break;
+-- 
+2.7.4
+
