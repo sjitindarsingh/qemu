@@ -110,8 +110,12 @@ module-common.o: CFLAGS += $(DSO_OBJ_CFLAGS)
 	@# Copy to build root so modules can be loaded when program started without install
 	$(if $(findstring /,$@),$(call quiet-command,cp $@ $(subst /,-,$@), "  CP    $(subst /,-,$@)"))
 
-
-LD_REL := $(CC) -nostdlib -Wl,-r
+ifeq (,$(shell $(CC) -fsyntax-only -no-pie -xc /dev/null 2>&1))
+no_pie:=-no-pie
+else
+no_pie:=
+endif
+LD_REL := $(CC) $(no_pie) -nostdlib -Wl,-r
 
 %.mo:
 	$(call quiet-command,$(LD_REL) -o $@ $^,"  LD -r $(TARGET_DIR)$@")
