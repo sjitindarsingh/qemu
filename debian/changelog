@@ -1,3 +1,10 @@
+qemu (1:2.5+dfsg-5ubuntu10.26) xenial; urgency=medium
+
+  * d/p/ubuntu/lp-1705743-fix-vnc-crash.patch: fix crash when using long or
+    invalid vnc connection setups (LP: #1705743)
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Mon, 23 Apr 2018 10:18:51 +0200
+
 qemu (1:2.5+dfsg-5ubuntu10.25) xenial; urgency=medium
 
   [ Murilo Opsfelder Araújo ]
