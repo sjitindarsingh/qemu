@@ -940,6 +940,12 @@ static int timebase_pre_save(void *opaque)
 {
     PPCTimebase *tb = opaque;
 
+    if (runstate_check(RUN_STATE_POSTMIGRATE)) {
+        /* if it's a 2nd migration don't clobber the source's tb */
+        g_warning("post-migrate: skipping resave of guest timebase");
+        return 0;
+    }
+
     timebase_save(tb);
 
     return 0;
