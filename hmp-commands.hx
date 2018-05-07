@@ -953,6 +953,27 @@ Migrate to @var{uri} (using -d to not wait for completion).
 ETEXI
 
     {
+        .name       = "migrate_backup",
+        .args_type  = "detach:-d,blk:-b,inc:-i,uri:s",
+        .params     = "[-d] [-b] [-i] uri",
+        .help       = "migrate to URI (using -d to not wait for completion)"
+		      "\n\t\t\t -b for migration without shared storage with"
+		      " full copy of disk\n\t\t\t -i for migration without "
+		      "shared storage with incremental copy of disk "
+		      "(base image shared between src and destination)",
+        .cmd        = hmp_migrate_backup,
+    },
+
+
+STEXI
+@item migrate_backup [-d] [-b] [-i] @var{uri}
+@findex migrate_backup
+Migrate to @var{uri} (using -d to not wait for completion). Skip resave of guest timebase in doing so to maintain source value
+	-b for migration with full copy of disk
+	-i for migration with incremental copy of disk (base image is shared)
+ETEXI
+
+    {
         .name       = "migrate_cancel",
         .args_type  = "",
         .params     = "",

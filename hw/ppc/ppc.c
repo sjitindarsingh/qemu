@@ -946,6 +946,11 @@ static int timebase_pre_save(void *opaque)
         return 0;
     }
 
+    if (migrate_backup_mode) {
+        migrate_backup_mode = false;
+        return 0;
+    }
+
     timebase_save(tb);
 
     return 0;
