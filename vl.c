@@ -224,6 +224,20 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
+void tr(const char *format, ...)
+{
+    va_list args;
+    struct timeval tr_now;
+    char format_ts[512];
+
+    va_start (args, format);
+    gettimeofday(&tr_now, NULL);
+    snprintf(format_ts, 512, "%d@%zd.%06zd: %s\n", getpid(),
+             (size_t)tr_now.tv_sec, (size_t)tr_now.tv_usec, format);
+    vfprintf(stderr, (const char *)format_ts, args);
+    va_end (args);
+}
+
 static struct {
     const char *driver;
     int *flag;

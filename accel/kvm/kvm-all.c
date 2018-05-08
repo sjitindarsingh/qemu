@@ -490,6 +490,7 @@ static int kvm_physical_sync_dirty_bitmap(KVMMemoryListener *kml,
     hwaddr start_addr, size;
 
     size = kvm_align_section(section, &start_addr);
+    tr("kvm_log_sync, addr: %llx, size: %llx", start_addr, size);
     if (size) {
         mem = kvm_lookup_matching_slot(kml, start_addr, size);
         if (!mem) {

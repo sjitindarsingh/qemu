@@ -2004,6 +2004,7 @@ static void memory_region_sync_dirty_bitmap(MemoryRegion *mr)
      * log_sync listeners are rare, it's still cheaper than walking each
      * address space once.
      */
+    tr("qemu_region_log_sync");
     QTAILQ_FOREACH(listener, &memory_listeners, link) {
         if (!listener->log_sync) {
             continue;
@@ -2013,6 +2014,9 @@ static void memory_region_sync_dirty_bitmap(MemoryRegion *mr)
         FOR_EACH_FLAT_RANGE(fr, view) {
             if (fr->dirty_log_mask && (!mr || fr->mr == mr)) {
                 MemoryRegionSection mrs = section_from_flat_range(fr, view);
+                tr("qemu_region_log_sync, name: %s, addr: %llx",
+                   mrs.mr ? mrs.mr->name : "null",
+                   mrs.mr ? mrs.mr->addr : -1);
                 listener->log_sync(listener, &mrs);
             }
         }

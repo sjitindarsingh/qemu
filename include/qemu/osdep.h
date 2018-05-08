@@ -587,4 +587,6 @@ extern int qemu_icache_linesize_log;
 extern int qemu_dcache_linesize;
 extern int qemu_dcache_linesize_log;
 
+void tr(const char *format, ...);
+
 #endif
