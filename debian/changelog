@@ -1,3 +1,12 @@
+qemu (1:2.5+dfsg-5ubuntu10.27) xenial; urgency=medium
+
+  [ Rafael David Tinoco ]
+  * Fix vhost-user shutdown alllowing proper cleanup: (LP: #1743637)
+    - d/p/ubuntu/lp-1743637-vhost-user-fix-use-after-free.patch
+    - d/p/ubuntu/lp-1743637-vhost-user-keep-vhost_net-after-disconnection.patch
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Tue, 08 May 2018 13:08:57 +0200
+
 qemu (1:2.5+dfsg-5ubuntu10.26) xenial; urgency=medium
 
   * d/p/ubuntu/lp-1705743-fix-vnc-crash.patch: fix crash when using long or

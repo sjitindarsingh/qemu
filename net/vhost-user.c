@@ -36,11 +36,6 @@ VHostNetState *vhost_user_get_vhost_net(NetClientState *nc)
     return s->vhost_net;
 }
 
-static int vhost_user_running(VhostUserState *s)
-{
-    return (s->vhost_net) ? 1 : 0;
-}
-
 static void vhost_user_stop(int queues, NetClientState *ncs[])
 {
     VhostUserState *s;
@@ -50,13 +45,9 @@ static void vhost_user_stop(int queues, NetClientState *ncs[])
         assert (ncs[i]->info->type == NET_CLIENT_OPTIONS_KIND_VHOST_USER);
 
         s = DO_UPCAST(VhostUserState, nc, ncs[i]);
-        if (!vhost_user_running(s)) {
-            continue;
-        }
 
         if (s->vhost_net) {
             vhost_net_cleanup(s->vhost_net);
-            s->vhost_net = NULL;
         }
     }
 }
@@ -64,6 +55,7 @@ static void vhost_user_stop(int queues, NetClientState *ncs[])
 static int vhost_user_start(int queues, NetClientState *ncs[])
 {
     VhostNetOptions options;
+    struct vhost_net *net = NULL;
     VhostUserState *s;
     int max_queues;
     int i;
@@ -74,32 +66,38 @@ static int vhost_user_start(int queues, NetClientState *ncs[])
         assert (ncs[i]->info->type == NET_CLIENT_OPTIONS_KIND_VHOST_USER);
 
         s = DO_UPCAST(VhostUserState, nc, ncs[i]);
-        if (vhost_user_running(s)) {
-            continue;
-        }
 
         options.net_backend = ncs[i];
         options.opaque      = s->chr;
-        s->vhost_net = vhost_net_init(&options);
-        if (!s->vhost_net) {
+        net = vhost_net_init(&options);
+        if (!net) {
             error_report("failed to init vhost_net for queue %d\n", i);
             goto err;
         }
 
         if (i == 0) {
-            max_queues = vhost_net_get_max_queues(s->vhost_net);
+            max_queues = vhost_net_get_max_queues(net);
             if (queues > max_queues) {
                 error_report("you are asking more queues than "
                              "supported: %d\n", max_queues);
                 goto err;
             }
         }
+
+        if (s->vhost_net) {
+                vhost_net_cleanup(s->vhost_net);
+                g_free(s->vhost_net);
+        }
+        s->vhost_net = net;
     }
 
     return 0;
 
 err:
-    vhost_user_stop(i + 1, ncs);
+    if (net) {
+	vhost_net_cleanup(net);
+    }
+    vhost_user_stop(i, ncs);
     return -1;
 }
 
@@ -138,6 +136,7 @@ static void vhost_user_cleanup(NetClientState *nc)
 
     if (s->vhost_net) {
         vhost_net_cleanup(s->vhost_net);
+        g_free(s->vhost_net);
         s->vhost_net = NULL;
     }
 
@@ -178,6 +177,8 @@ static void net_vhost_user_event(void *opaque, int event)
     queues = qemu_find_net_clients_except(name, ncs,
                                           NET_CLIENT_OPTIONS_KIND_NIC,
                                           MAX_QUEUE_NUM);
+    assert(queues < MAX_QUEUE_NUM);
+
     s = DO_UPCAST(VhostUserState, nc, ncs[0]);
     trace_vhost_user_event(s->chr->label, event);
     switch (event) {
@@ -206,6 +207,9 @@ static int net_vhost_user_init(NetClientState *peer, const char *device,
     VhostUserState *s;
     int i;
 
+    assert(name);
+    assert(queues > 0);
+
     for (i = 0; i < queues; i++) {
         nc = qemu_new_net_client(&net_vhost_user_info, peer, device, name);
 
@@ -218,7 +222,7 @@ static int net_vhost_user_init(NetClientState *peer, const char *device,
         s->chr = chr;
     }
 
-    qemu_chr_add_handlers(chr, NULL, NULL, net_vhost_user_event, (void*)name);
+    qemu_chr_add_handlers(chr, NULL, NULL, net_vhost_user_event, nc[0].name);
 
     return 0;
 }

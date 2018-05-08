@@ -1,0 +1,137 @@
+Description: vhost-user: keep vhost_net after a disconnection
+
+Many code paths assume get_vhost_net() returns non-null.
+
+Keep VhostUserState.vhost_net after a successful vhost_net_init(),
+instead of freeing it in vhost_net_cleanup().
+
+VhostUserState.vhost_net is thus freed before after being recreated or
+on final vhost_user_cleanup() and there is no need to save the acked
+features.
+
+Signed-off-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+[ Backported by Rafael David Tinoco ]
+
+  s->acked_fatures wasn't included in this qemu specific
+  version so I skipped the small feature saving part of the
+  patch.
+
+Author: Marc-André Lureau <marcandre.lureau@redhat.com>
+Origin: upstream, commit: e6bcb1b61782cefacecc8b9ee7a5f782373dab2d
+Bug-Ubuntu: https://launchpad.net/bugs/1743637
+Reviewed-By: Rafael David Tinoco <rafael.tinoco@canonical.com>
+Last-Update: 2018-04-12
+
+--- qemu-2.5+dfsg.orig/hw/net/vhost_net.c
++++ qemu-2.5+dfsg/hw/net/vhost_net.c
+@@ -384,7 +384,6 @@ void vhost_net_stop(VirtIODevice *dev, N
+ void vhost_net_cleanup(struct vhost_net *net)
+ {
+     vhost_dev_cleanup(&net->dev);
+-    g_free(net);
+ }
+ 
+ int vhost_net_notify_migration_done(struct vhost_net *net, char* mac_addr)
+--- qemu-2.5+dfsg.orig/net/tap.c
++++ qemu-2.5+dfsg/net/tap.c
+@@ -298,6 +298,7 @@ static void tap_cleanup(NetClientState *
+ 
+     if (s->vhost_net) {
+         vhost_net_cleanup(s->vhost_net);
++        g_free(s->vhost_net);
+         s->vhost_net = NULL;
+     }
+ 
+--- qemu-2.5+dfsg.orig/net/vhost-user.c
++++ qemu-2.5+dfsg/net/vhost-user.c
+@@ -36,11 +36,6 @@ VHostNetState *vhost_user_get_vhost_net(
+     return s->vhost_net;
+ }
+ 
+-static int vhost_user_running(VhostUserState *s)
+-{
+-    return (s->vhost_net) ? 1 : 0;
+-}
+-
+ static void vhost_user_stop(int queues, NetClientState *ncs[])
+ {
+     VhostUserState *s;
+@@ -50,13 +45,9 @@ static void vhost_user_stop(int queues,
+         assert (ncs[i]->info->type == NET_CLIENT_OPTIONS_KIND_VHOST_USER);
+ 
+         s = DO_UPCAST(VhostUserState, nc, ncs[i]);
+-        if (!vhost_user_running(s)) {
+-            continue;
+-        }
+ 
+         if (s->vhost_net) {
+             vhost_net_cleanup(s->vhost_net);
+-            s->vhost_net = NULL;
+         }
+     }
+ }
+@@ -64,6 +55,7 @@ static void vhost_user_stop(int queues,
+ static int vhost_user_start(int queues, NetClientState *ncs[])
+ {
+     VhostNetOptions options;
++    struct vhost_net *net = NULL;
+     VhostUserState *s;
+     int max_queues;
+     int i;
+@@ -74,32 +66,38 @@ static int vhost_user_start(int queues,
+         assert (ncs[i]->info->type == NET_CLIENT_OPTIONS_KIND_VHOST_USER);
+ 
+         s = DO_UPCAST(VhostUserState, nc, ncs[i]);
+-        if (vhost_user_running(s)) {
+-            continue;
+-        }
+ 
+         options.net_backend = ncs[i];
+         options.opaque      = s->chr;
+-        s->vhost_net = vhost_net_init(&options);
+-        if (!s->vhost_net) {
++        net = vhost_net_init(&options);
++        if (!net) {
+             error_report("failed to init vhost_net for queue %d\n", i);
+             goto err;
+         }
+ 
+         if (i == 0) {
+-            max_queues = vhost_net_get_max_queues(s->vhost_net);
++            max_queues = vhost_net_get_max_queues(net);
+             if (queues > max_queues) {
+                 error_report("you are asking more queues than "
+                              "supported: %d\n", max_queues);
+                 goto err;
+             }
+         }
++
++        if (s->vhost_net) {
++                vhost_net_cleanup(s->vhost_net);
++                g_free(s->vhost_net);
++        }
++        s->vhost_net = net;
+     }
+ 
+     return 0;
+ 
+ err:
+-    vhost_user_stop(i + 1, ncs);
++    if (net) {
++	vhost_net_cleanup(net);
++    }
++    vhost_user_stop(i, ncs);
+     return -1;
+ }
+ 
+@@ -138,6 +136,7 @@ static void vhost_user_cleanup(NetClient
+ 
+     if (s->vhost_net) {
+         vhost_net_cleanup(s->vhost_net);
++        g_free(s->vhost_net);
+         s->vhost_net = NULL;
+     }
+ 
