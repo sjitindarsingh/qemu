@@ -1,0 +1,81 @@
+Description: vhost-user: fix use after free
+
+"name" is freed after visiting options, instead use the first NetClientState
+name. Adds a few assert() for clarifying and checking some impossible states.
+
+READ of size 1 at 0x602000000990 thread T0
+    #0 0x7f6b251c570c  (/lib64/libasan.so.2+0x4770c)
+    #1 0x5566dc380600 in qemu_find_net_clients_except net/net.c:824
+    #2 0x5566dc39bac7 in net_vhost_user_event net/vhost-user.c:193
+    #3 0x5566dbee862a in qemu_chr_be_event /home/elmarco/src/qemu/qemu-char.c:201
+    #4 0x5566dbef2890 in tcp_chr_disconnect /home/elmarco/src/qemu/qemu-char.c:2790
+    #5 0x5566dbef2d0b in tcp_chr_sync_read /home/elmarco/src/qemu/qemu-char.c:2835
+    #6 0x5566dbee8a99 in qemu_chr_fe_read_all /home/elmarco/src/qemu/qemu-char.c:295
+    #7 0x5566dc39b964 in net_vhost_user_watch net/vhost-user.c:180
+    #8 0x5566dc5a06c7 in qio_channel_fd_source_dispatch io/channel-watch.c:70
+    #9 0x7f6b1aa2ab87 in g_main_dispatch /home/elmarco/src/gnome/glib/glib/gmain.c:3154
+    #10 0x7f6b1aa2b9cb in g_main_context_dispatch /home/elmarco/src/gnome/glib/glib/gmain.c:3769
+    #11 0x5566dc475ed4 in glib_pollfds_poll /home/elmarco/src/qemu/main-loop.c:212
+    #12 0x5566dc476029 in os_host_main_loop_wait /home/elmarco/src/qemu/main-loop.c:257
+    #13 0x5566dc476165 in main_loop_wait /home/elmarco/src/qemu/main-loop.c:505
+    #14 0x5566dbf08d31 in main_loop /home/elmarco/src/qemu/vl.c:1932
+    #15 0x5566dbf16783 in main /home/elmarco/src/qemu/vl.c:4646
+    #16 0x7f6b180bb57f in __libc_start_main (/lib64/libc.so.6+0x2057f)
+    #17 0x5566dbbf5348 in _start (/home/elmarco/src/qemu/x86_64-softmmu/qemu-system-x86_64+0x3f9348)
+
+0x602000000990 is located 0 bytes inside of 5-byte region [0x602000000990,0x602000000995)
+freed by thread T0 here:
+    #0 0x7f6b2521666a in __interceptor_free (/lib64/libasan.so.2+0x9866a)
+    #1 0x7f6b1aa332a4 in g_free /home/elmarco/src/gnome/glib/glib/gmem.c:189
+    #2 0x5566dc5f416f in qapi_dealloc_type_str qapi/qapi-dealloc-visitor.c:134
+    #3 0x5566dc5f3268 in visit_type_str qapi/qapi-visit-core.c:196
+    #4 0x5566dc5ced58 in visit_type_Netdev_fields /home/elmarco/src/qemu/qapi-visit.c:5936
+    #5 0x5566dc5cef71 in visit_type_Netdev /home/elmarco/src/qemu/qapi-visit.c:5960
+    #6 0x5566dc381a8d in net_visit net/net.c:1049
+    #7 0x5566dc381c37 in net_client_init net/net.c:1076
+    #8 0x5566dc3839e2 in net_init_netdev net/net.c:1473
+    #9 0x5566dc63cc0a in qemu_opts_foreach util/qemu-option.c:1112
+    #10 0x5566dc383b36 in net_init_clients net/net.c:1499
+    #11 0x5566dbf15d86 in main /home/elmarco/src/qemu/vl.c:4397
+    #12 0x7f6b180bb57f in __libc_start_main (/lib64/libc.so.6+0x2057f)
+
+Signed-off-by: Marc-André Lureau <marcandre.lureau@redhat.com>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+--
+Author: Marc-André Lureau <marcandre.lureau@redhat.com>
+Origin: https://goo.gl/mHvEhf, commit: c1bf3531ae
+Bug-Ubuntu: https://launchpad.net/bugs/1743637
+Reviewed-By: Rafael David Tinoco <rafael.tinoco@canonical.com>
+Last-Update: 2018-01-16
+
+--- qemu-2.5+dfsg.orig/net/vhost-user.c
++++ qemu-2.5+dfsg/net/vhost-user.c
+@@ -178,6 +178,8 @@ static void net_vhost_user_event(void *o
+     queues = qemu_find_net_clients_except(name, ncs,
+                                           NET_CLIENT_OPTIONS_KIND_NIC,
+                                           MAX_QUEUE_NUM);
++    assert(queues < MAX_QUEUE_NUM);
++
+     s = DO_UPCAST(VhostUserState, nc, ncs[0]);
+     trace_vhost_user_event(s->chr->label, event);
+     switch (event) {
+@@ -206,6 +208,9 @@ static int net_vhost_user_init(NetClient
+     VhostUserState *s;
+     int i;
+ 
++    assert(name);
++    assert(queues > 0);
++
+     for (i = 0; i < queues; i++) {
+         nc = qemu_new_net_client(&net_vhost_user_info, peer, device, name);
+ 
+@@ -218,7 +223,7 @@ static int net_vhost_user_init(NetClient
+         s->chr = chr;
+     }
+ 
+-    qemu_chr_add_handlers(chr, NULL, NULL, net_vhost_user_event, (void*)name);
++    qemu_chr_add_handlers(chr, NULL, NULL, net_vhost_user_event, nc[0].name);
+ 
+     return 0;
+ }

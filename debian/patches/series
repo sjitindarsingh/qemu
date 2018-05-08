@@ -231,3 +231,5 @@ CVE-2018-5683.patch
 ubuntu/lp-1723914-ppc64-set-msr-register.patch
 ubuntu/lp-1723904-sprs-backport.patch
 ubuntu/lp-1705743-fix-vnc-crash.patch
+ubuntu/lp-1743637-vhost-user-fix-use-after-free.patch
+ubuntu/lp-1743637-vhost-user-keep-vhost_net-after-disconnection.patch
