@@ -931,6 +931,81 @@ stops because the size limit is reached.
 ETEXI
 
     {
+        .name       = "dirty_logging_enable",
+        .args_type  = "",
+        .params     = "",
+        .help       = "enable dirty logging",
+        .cmd        = hmp_dirty_logging_enable,
+    },
+
+
+STEXI
+@item dirty_logging_enable
+@findex dirty_logging_enable
+Enable dirty page logging
+ETEXI
+
+    {
+        .name       = "dirty_logging_disable",
+        .args_type  = "",
+        .params     = "",
+        .help       = "disable dirty logging",
+        .cmd        = hmp_dirty_logging_disable,
+    },
+
+
+STEXI
+@item dirty_logging_disable
+@findex dirty_logging_disable
+Disable dirty page logging
+ETEXI
+
+    {
+        .name       = "dirty_logging_list_ramblocks",
+        .args_type  = "",
+        .params     = "",
+        .help       = "disable dirty logging",
+        .cmd        = hmp_dirty_logging_list_ramblocks,
+    },
+
+
+STEXI
+@item dirty_logging_list_ramblocks
+@findex dirty_logging_list_ramblocks
+List RAMBlocks for associated dirty bitmap info
+ETEXI
+
+    {
+        .name       = "dirty_logging_save_bitmap",
+        .args_type  = "ramblock_id:s,addr:l,size:l,filename:s",
+        .params     = "",
+        .help       = "save current dirty bitmap to file",
+        .cmd        = hmp_dirty_logging_save_bitmap,
+    },
+
+
+STEXI
+@item dirty_logging_save_bitmap
+@findex dirty_logging_save_bitmap
+Save current dirty bitmap to file
+ETEXI
+
+    {
+        .name       = "dirty_logging_clear_bitmap",
+        .args_type  = "ramblock_id:s",
+        .params     = "",
+        .help       = "clear current copy of dirty bitmap",
+        .cmd        = hmp_dirty_logging_clear_bitmap,
+    },
+
+
+STEXI
+@item dirty_logging_clear_bitmap
+@findex dirty_logging_clear_bitmap
+Clear current dirty bitmap
+ETEXI
+
+    {
         .name       = "migrate",
         .args_type  = "detach:-d,blk:-b,inc:-i,resume:-r,uri:s",
         .params     = "[-d] [-b] [-i] [-r] uri",

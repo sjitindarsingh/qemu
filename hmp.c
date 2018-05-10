@@ -2026,6 +2026,96 @@ static void hmp_migrate_status_cb(void *opaque)
     qapi_free_MigrationInfo(info);
 }
 
+void hmp_dirty_logging_enable(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+
+    dirty_logging_enable(&err);
+
+    if (err) {
+        monitor_printf(mon, "error: %s", error_get_pretty(err));
+        error_free(err);
+    }
+}
+
+void hmp_dirty_logging_disable(Monitor *mon, const QDict *qdict)
+{
+    Error *err = NULL;
+
+    dirty_logging_disable(&err);
+
+    if (err) {
+        monitor_printf(mon, "error: %s", error_get_pretty(err));
+        error_free(err);
+    }
+}
+
+void hmp_dirty_logging_list_ramblocks(Monitor *mon, const QDict *qdict)
+{
+    RAMBlockInfo *rb_info = NULL;
+    int i = 0;
+    size_t count;
+
+    rb_info = dirty_logging_get_ramblocks(&count, NULL);
+
+    for (i = 0; i < count; i++) {
+        monitor_printf(mon,
+                       "ramblock: %s, offset: %" PRIx64
+                       ", used_length: %" PRIx64
+                       ", max_length: %" PRIx64 "\n",
+                       rb_info[i].idstr, rb_info[i].offset,
+                       rb_info[i].used_length, rb_info[i].max_length);
+    }
+
+    g_free(rb_info);
+}
+
+void hmp_dirty_logging_clear_bitmap(Monitor *mon, const QDict *qdict)
+{
+    const char *ramblock_id = qdict_get_str(qdict, "ramblock_id");
+    uint64_t dirty_pages_new = 0;
+    uint64_t dirty_pages_reported = 0;
+    Error *err = NULL;
+
+    dirty_logging_clear_bitmap(ramblock_id, &dirty_pages_new, &dirty_pages_reported, NULL);
+
+    if (err) {
+        monitor_printf(mon, "error: %s", error_get_pretty(err));
+        error_free(err);
+        return;
+    }
+
+    monitor_printf(mon, "reported dirty pages: %" PRIu64 "\n",
+                   dirty_pages_reported);
+    monitor_printf(mon, "new dirty pages: %" PRIu64 "\n",
+                   dirty_pages_new);
+}
+
+void hmp_dirty_logging_save_bitmap(Monitor *mon, const QDict *qdict)
+{
+    const uint64_t addr = qdict_get_int(qdict, "addr");
+    const uint64_t size = qdict_get_int(qdict, "size");
+    const char *ramblock_id  = qdict_get_str(qdict, "ramblock_id");
+    const char *filename = qdict_get_str(qdict, "filename");
+    uint64_t dirty_pages_new = 0;
+    uint64_t dirty_pages_reported = 0;
+    Error *err = NULL;
+
+    dirty_logging_save_bitmap(ramblock_id, addr, size, filename,
+                              &dirty_pages_new, &dirty_pages_reported, &err);
+
+    if (err) {
+        monitor_printf(mon, "error: %s", error_get_pretty(err));
+        error_free(err);
+        return;
+    }
+
+    monitor_printf(mon, "reported dirty pages: %" PRIu64 "\n",
+                   dirty_pages_reported);
+    monitor_printf(mon, "new dirty pages: %" PRIu64 "\n",
+                   dirty_pages_new);
+}
+
 void hmp_migrate(Monitor *mon, const QDict *qdict)
 {
     bool detach = qdict_get_try_bool(qdict, "detach", false);

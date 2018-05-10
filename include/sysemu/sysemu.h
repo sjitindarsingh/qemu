@@ -216,4 +216,30 @@ extern QemuOptsList qemu_net_opts;
 extern QemuOptsList qemu_global_opts;
 extern QemuOptsList qemu_mon_opts;
 
+/* dirty logging hacks */
+void dirty_logging_enable(Error **errp);
+void dirty_logging_disable(Error **errp);
+
+typedef struct {
+    const char *idstr;
+    uint64_t offset;
+    uint64_t used_length;
+    uint64_t max_length;
+} RAMBlockInfo;
+
+RAMBlockInfo *dirty_logging_get_ramblocks(size_t *count, Error **errp);
+
+void dirty_logging_clear_bitmap(const char *ramblock_id,
+                                uint64_t *dirty_pages_new,
+                                uint64_t *dirty_pages_reported,
+                                Error **errp);
+
+void dirty_logging_save_bitmap(const char *ramblock_id,
+                               const uint64_t addr,
+                               const uint64_t size,
+                               const char *filename,
+                               uint64_t *dirty_pages_new,
+                               uint64_t *dirty_pages_reported,
+                               Error **errp);
+
 #endif

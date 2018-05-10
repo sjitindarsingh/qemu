@@ -2469,3 +2469,178 @@ void dump_drift_info(FILE *f, fprintf_function cpu_fprintf)
         cpu_fprintf(f, "Max guest advance   NA\n");
     }
 }
+
+/* dirty logging hacks */
+
+#include "exec/ram_addr.h"
+
+static bool dirty_logging_enabled = false;
+
+void dirty_logging_enable(Error **errp)
+{
+    RAMBlock *rb;
+    unsigned long pages;
+
+    if (dirty_logging_enabled) {
+        return;
+    }
+
+    QLIST_FOREACH_RCU(rb, &ram_list.blocks, next) {
+        pages = rb->max_length >> TARGET_PAGE_BITS;
+        rb->bmap = bitmap_new(pages);
+        bitmap_set(rb->bmap, 0, pages);
+    }
+
+    memory_global_dirty_log_start();
+    dirty_logging_enabled = true;
+}
+
+void dirty_logging_disable(Error **errp)
+{
+    RAMBlock *rb;
+
+    if (!dirty_logging_enabled) {
+        return;
+    }
+
+    memory_global_dirty_log_stop();
+
+    QLIST_FOREACH_RCU(rb, &ram_list.blocks, next) {
+        g_free(rb->bmap);
+        rb->bmap = NULL;
+    }
+
+    dirty_logging_enabled = false;
+}
+
+RAMBlockInfo *dirty_logging_get_ramblocks(size_t *count, Error **errp)
+{
+    RAMBlockInfo *rb_info;
+    RAMBlock *rb;
+    size_t allocated = 10;
+    int i = 0;
+
+    rb_info = g_new0(RAMBlockInfo, allocated);
+
+    QLIST_FOREACH_RCU(rb, &ram_list.blocks, next) {
+        if (i == allocated) {
+            allocated += 10;
+            rb_info = realloc(rb_info, allocated);
+        }
+        rb_info[i].idstr = rb->idstr;
+        rb_info[i].offset = rb->offset;
+        rb_info[i].used_length = rb->used_length;
+        rb_info[i].max_length = rb->max_length;
+        i++;
+    }
+
+    *count = i;
+    return rb_info;
+}
+
+static uint64_t
+dirty_logging_sync_bitmap_range(RAMBlock *rb,
+                                ram_addr_t start,
+                                ram_addr_t size,
+                                uint64_t *dirty_pages_reported)
+{
+    memory_global_dirty_log_sync();
+    return cpu_physical_memory_sync_dirty_bitmap(rb, start, size,
+                                                 dirty_pages_reported);
+}
+
+void dirty_logging_clear_bitmap(const char *ramblock_id,
+                                uint64_t *dirty_pages_new,
+                                uint64_t *dirty_pages_reported,
+                                Error **errp)
+{
+    RAMBlock *rb;
+
+    rcu_read_lock();
+    RAMBLOCK_FOREACH(rb) {
+        if (strcmp(rb->idstr, ramblock_id) == 0) {
+            *dirty_pages_new =
+                dirty_logging_sync_bitmap_range(rb, 0, rb->used_length,
+                                                dirty_pages_reported);
+            break;
+        }
+    }
+    rcu_read_unlock();
+
+    bitmap_clear(rb->bmap, 0, rb->max_length >> TARGET_PAGE_BITS);
+}
+
+#define DLB_SIZE 1024
+
+void dirty_logging_save_bitmap(const char *ramblock_id,
+                               const uint64_t addr,
+                               const uint64_t size,
+                               const char *filename,
+                               uint64_t *dirty_pages_new,
+                               uint64_t *dirty_pages_reported,
+                               Error **errp)
+{
+    RAMBlock *rb;
+    bool found = false;
+    FILE *f;
+    long word_idx;
+    uint64_t word_buf[DLB_SIZE];
+    size_t buf_idx = 0;
+
+    f = fopen(filename, "wb");
+    if (!f) {
+        error_setg(errp, "failed to open %s: %s", filename, 
+                   errno != 0 ? strerror(errno) : NULL);
+        return;
+    }
+
+    rcu_read_lock();
+    RAMBLOCK_FOREACH(rb) {
+        if (strcmp(rb->idstr, ramblock_id) == 0) {
+            *dirty_pages_new =
+                dirty_logging_sync_bitmap_range(rb, 0, rb->used_length,
+                                                dirty_pages_reported);
+            found = true;
+            break;
+        }
+    }
+    rcu_read_unlock();
+
+    if (!found) {
+        error_setg(errp, "invalid RAMBlock ID: %s", ramblock_id);
+        goto exit;
+    }
+
+    if (addr > rb->used_length) {
+        error_setg(errp, "invalid addr: %" PRIu64 "\n", addr);
+        goto exit;
+    }
+
+    /* XXX: assumes addr/length are page-aligned */
+    for (word_idx = BIT_WORD(addr >> TARGET_PAGE_BITS);
+         word_idx < BIT_WORD((addr + size) >> TARGET_PAGE_BITS);
+         word_idx++) {
+        long word = rb->bmap[word_idx];
+        word_buf[buf_idx++] = cpu_to_le64(word);
+        if (buf_idx == DLB_SIZE) {
+            size_t count = buf_idx * sizeof(uint64_t);
+            buf_idx = 0;
+            if (fwrite((void *)&word_buf, 1, count, f) != count) {
+                error_setg(errp, "failed to write to %s, bitmap word: %lu\n",
+                           filename, word_idx);
+                goto exit;
+            }
+        }
+    }
+    if (buf_idx % DLB_SIZE) {
+        size_t count = (buf_idx % DLB_SIZE) * sizeof(uint64_t);
+        if (fwrite((void *)&word_buf, 1, count, f) != count) {
+            error_setg(errp, "failed to write to %s, bitmap word: %lu\n",
+                       filename, word_idx);
+            goto exit;
+        }
+    }
+
+exit:
+    fclose(f);
+}
