@@ -1,3 +1,12 @@
+qemu (1:2.5+dfsg-5ubuntu10.28) xenial-security; urgency=medium
+
+  * SECURITY UPDATE: arbitrary code execution via load_multiboot
+    - debian/patches/CVE-2018-7550.patch: handle bss_end_addr being zero in
+      hw/i386/multiboot.c.
+    - CVE-2018-7550
+
+ -- Marc Deslauriers <marc.deslauriers@ubuntu.com>  Fri, 11 May 2018 13:34:24 -0400
+
 qemu (1:2.5+dfsg-5ubuntu10.27) xenial; urgency=medium
 
   [ Rafael David Tinoco ]
