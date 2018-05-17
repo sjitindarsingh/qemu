@@ -2439,8 +2439,6 @@ static void spapr_machine_2_5_class_init(ObjectClass *oc, void *data)
 
     mc->name = "pseries-2.5";
     mc->desc = "pSeries Logical Partition (PAPR compliant) v2.5";
-    mc->alias = "pseries";
-    mc->is_default = 1;
     smc->dr_lmb_enabled = true;
 }
 
@@ -2448,6 +2446,25 @@ static const TypeInfo spapr_machine_2_5_info = {
     .name          = MACHINE_TYPE_NAME("pseries-2.5"),
     .parent        = TYPE_SPAPR_MACHINE,
     .class_init    = spapr_machine_2_5_class_init,
+};
+
+/* Ubuntu machine types */
+static void spapr_machine_xenial_class_init(ObjectClass *oc, void *data)
+{
+    MachineClass *mc = MACHINE_CLASS(oc);
+    sPAPRMachineClass *smc = SPAPR_MACHINE_CLASS(oc);
+
+    mc->name = "pseries-xenial";
+    mc->desc = "Ubuntu 16.04 pSeries Logical Partition (PAPR compliant)";
+    mc->alias = "pseries";
+    mc->is_default = 1;
+    smc->dr_lmb_enabled = true;
+}
+
+static const TypeInfo spapr_machine_xenial_info = {
+    .name          = MACHINE_TYPE_NAME("pseries-xenial"),
+    .parent        = TYPE_SPAPR_MACHINE,
+    .class_init    = spapr_machine_xenial_class_init,
 };
 
 static void spapr_machine_register_types(void)
@@ -2458,6 +2475,7 @@ static void spapr_machine_register_types(void)
     type_register_static(&spapr_machine_2_3_info);
     type_register_static(&spapr_machine_2_4_info);
     type_register_static(&spapr_machine_2_5_info);
+    type_register_static(&spapr_machine_xenial_info);
 }
 
 type_init(spapr_machine_register_types)
