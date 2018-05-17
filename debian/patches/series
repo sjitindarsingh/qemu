@@ -234,3 +234,4 @@ ubuntu/lp-1705743-fix-vnc-crash.patch
 ubuntu/lp-1743637-vhost-user-fix-use-after-free.patch
 ubuntu/lp-1743637-vhost-user-keep-vhost_net-after-disconnection.patch
 CVE-2018-7550.patch
+CVE-2018-3639.patch
