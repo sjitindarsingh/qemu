@@ -140,6 +140,13 @@ static uint32_t expand4[256];
 static uint16_t expand2[256];
 static uint8_t expand4to8[16];
 
+static void vbe_update_vgaregs(VGACommonState *s);
+
+static inline bool vbe_enabled(VGACommonState *s)
+{
+    return s->vbe_regs[VBE_DISPI_INDEX_ENABLE] & VBE_DISPI_ENABLED;
+}
+
 static void vga_update_memory_access(VGACommonState *s)
 {
     hwaddr base, offset, size;
@@ -477,6 +484,7 @@ void vga_ioport_write(void *opaque, uint32_t addr, uint32_t val)
         printf("vga: write SR%x = 0x%02x\n", s->sr_index, val);
 #endif
         s->sr[s->sr_index] = val & sr_mask[s->sr_index];
+        vbe_update_vgaregs(s);
         if (s->sr_index == VGA_SEQ_CLOCK_MODE) {
             s->update_retrace_info(s);
         }
@@ -508,6 +516,7 @@ void vga_ioport_write(void *opaque, uint32_t addr, uint32_t val)
         printf("vga: write GR%x = 0x%02x\n", s->gr_index, val);
 #endif
         s->gr[s->gr_index] = val & gr_mask[s->gr_index];
+        vbe_update_vgaregs(s);
         vga_update_memory_access(s);
         break;
     case VGA_CRT_IM:
@@ -526,10 +535,12 @@ void vga_ioport_write(void *opaque, uint32_t addr, uint32_t val)
             if (s->cr_index == VGA_CRTC_OVERFLOW) {
                 s->cr[VGA_CRTC_OVERFLOW] = (s->cr[VGA_CRTC_OVERFLOW] & ~0x10) |
                     (val & 0x10);
+                vbe_update_vgaregs(s);
             }
             return;
         }
         s->cr[s->cr_index] = val;
+        vbe_update_vgaregs(s);
 
         switch(s->cr_index) {
         case VGA_CRTC_H_TOTAL:
@@ -562,7 +573,7 @@ static void vbe_fixup_regs(VGACommonState *s)
     uint16_t *r = s->vbe_regs;
     uint32_t bits, linelength, maxy, offset;
 
-    if (!(r[VBE_DISPI_INDEX_ENABLE] & VBE_DISPI_ENABLED)) {
+    if (!vbe_enabled(s)) {
         /* vbe is turned off -- nothing to do */
         return;
     }
@@ -635,6 +646,49 @@ static void vbe_fixup_regs(VGACommonState *s)
     r[VBE_DISPI_INDEX_VIRT_HEIGHT] = maxy;
     s->vbe_line_offset = linelength;
     s->vbe_start_addr  = offset / 4;
+}
+
+/* we initialize the VGA graphic mode */
+static void vbe_update_vgaregs(VGACommonState *s)
+{
+    int h, shift_control;
+
+    if (!vbe_enabled(s)) {
+        /* vbe is turned off -- nothing to do */
+        return;
+    }
+
+    /* graphic mode + memory map 1 */
+    s->gr[VGA_GFX_MISC] = (s->gr[VGA_GFX_MISC] & ~0x0c) | 0x04 |
+        VGA_GR06_GRAPHICS_MODE;
+    s->cr[VGA_CRTC_MODE] |= 3; /* no CGA modes */
+    s->cr[VGA_CRTC_OFFSET] = s->vbe_line_offset >> 3;
+    /* width */
+    s->cr[VGA_CRTC_H_DISP] =
+        (s->vbe_regs[VBE_DISPI_INDEX_XRES] >> 3) - 1;
+    /* height (only meaningful if < 1024) */
+    h = s->vbe_regs[VBE_DISPI_INDEX_YRES] - 1;
+    s->cr[VGA_CRTC_V_DISP_END] = h;
+    s->cr[VGA_CRTC_OVERFLOW] = (s->cr[VGA_CRTC_OVERFLOW] & ~0x42) |
+        ((h >> 7) & 0x02) | ((h >> 3) & 0x40);
+    /* line compare to 1023 */
+    s->cr[VGA_CRTC_LINE_COMPARE] = 0xff;
+    s->cr[VGA_CRTC_OVERFLOW] |= 0x10;
+    s->cr[VGA_CRTC_MAX_SCAN] |= 0x40;
+
+    if (s->vbe_regs[VBE_DISPI_INDEX_BPP] == 4) {
+        shift_control = 0;
+        s->sr[VGA_SEQ_CLOCK_MODE] &= ~8; /* no double line */
+    } else {
+        shift_control = 2;
+        /* set chain 4 mode */
+        s->sr[VGA_SEQ_MEMORY_MODE] |= VGA_SR04_CHN_4M;
+        /* activate all planes */
+        s->sr[VGA_SEQ_PLANE_WRITE] |= VGA_SR02_ALL_PLANES;
+    }
+    s->gr[VGA_GFX_MODE] = (s->gr[VGA_GFX_MODE] & ~0x60) |
+        (shift_control << 5);
+    s->cr[VGA_CRTC_MAX_SCAN] &= ~0x9f; /* no double scan */
 }
 
 static uint32_t vbe_ioport_read_index(void *opaque, uint32_t addr)
@@ -713,6 +767,7 @@ void vbe_ioport_write_data(void *opaque, uint32_t addr, uint32_t val)
         case VBE_DISPI_INDEX_Y_OFFSET:
             s->vbe_regs[s->vbe_index] = val;
             vbe_fixup_regs(s);
+            vbe_update_vgaregs(s);
             break;
         case VBE_DISPI_INDEX_BANK:
             val &= s->vbe_bank_mask;
@@ -723,52 +778,19 @@ void vbe_ioport_write_data(void *opaque, uint32_t addr, uint32_t val)
         case VBE_DISPI_INDEX_ENABLE:
             if ((val & VBE_DISPI_ENABLED) &&
                 !(s->vbe_regs[VBE_DISPI_INDEX_ENABLE] & VBE_DISPI_ENABLED)) {
-                int h, shift_control;
 
                 s->vbe_regs[VBE_DISPI_INDEX_VIRT_WIDTH] = 0;
                 s->vbe_regs[VBE_DISPI_INDEX_X_OFFSET] = 0;
                 s->vbe_regs[VBE_DISPI_INDEX_Y_OFFSET] = 0;
                 s->vbe_regs[VBE_DISPI_INDEX_ENABLE] |= VBE_DISPI_ENABLED;
                 vbe_fixup_regs(s);
+                vbe_update_vgaregs(s);
 
                 /* clear the screen */
                 if (!(val & VBE_DISPI_NOCLEARMEM)) {
                     memset(s->vram_ptr, 0,
                            s->vbe_regs[VBE_DISPI_INDEX_YRES] * s->vbe_line_offset);
                 }
-
-                /* we initialize the VGA graphic mode */
-                /* graphic mode + memory map 1 */
-                s->gr[VGA_GFX_MISC] = (s->gr[VGA_GFX_MISC] & ~0x0c) | 0x04 |
-                    VGA_GR06_GRAPHICS_MODE;
-                s->cr[VGA_CRTC_MODE] |= 3; /* no CGA modes */
-                s->cr[VGA_CRTC_OFFSET] = s->vbe_line_offset >> 3;
-                /* width */
-                s->cr[VGA_CRTC_H_DISP] =
-                    (s->vbe_regs[VBE_DISPI_INDEX_XRES] >> 3) - 1;
-                /* height (only meaningful if < 1024) */
-                h = s->vbe_regs[VBE_DISPI_INDEX_YRES] - 1;
-                s->cr[VGA_CRTC_V_DISP_END] = h;
-                s->cr[VGA_CRTC_OVERFLOW] = (s->cr[VGA_CRTC_OVERFLOW] & ~0x42) |
-                    ((h >> 7) & 0x02) | ((h >> 3) & 0x40);
-                /* line compare to 1023 */
-                s->cr[VGA_CRTC_LINE_COMPARE] = 0xff;
-                s->cr[VGA_CRTC_OVERFLOW] |= 0x10;
-                s->cr[VGA_CRTC_MAX_SCAN] |= 0x40;
-
-                if (s->vbe_regs[VBE_DISPI_INDEX_BPP] == 4) {
-                    shift_control = 0;
-                    s->sr[VGA_SEQ_CLOCK_MODE] &= ~8; /* no double line */
-                } else {
-                    shift_control = 2;
-                    /* set chain 4 mode */
-                    s->sr[VGA_SEQ_MEMORY_MODE] |= VGA_SR04_CHN_4M;
-                    /* activate all planes */
-                    s->sr[VGA_SEQ_PLANE_WRITE] |= VGA_SR02_ALL_PLANES;
-                }
-                s->gr[VGA_GFX_MODE] = (s->gr[VGA_GFX_MODE] & ~0x60) |
-                    (shift_control << 5);
-                s->cr[VGA_CRTC_MAX_SCAN] &= ~0x9f; /* no double scan */
             } else {
                 s->bank_offset = 0;
             }
@@ -1056,7 +1078,7 @@ static void vga_get_offsets(VGACommonState *s,
 {
     uint32_t start_addr, line_offset, line_compare;
 
-    if (s->vbe_regs[VBE_DISPI_INDEX_ENABLE] & VBE_DISPI_ENABLED) {
+    if (vbe_enabled(s)) {
         line_offset = s->vbe_line_offset;
         start_addr = s->vbe_start_addr;
         line_compare = 65535;
@@ -1381,7 +1403,7 @@ static int vga_get_bpp(VGACommonState *s)
 {
     int ret;
 
-    if (s->vbe_regs[VBE_DISPI_INDEX_ENABLE] & VBE_DISPI_ENABLED) {
+    if (vbe_enabled(s)) {
         ret = s->vbe_regs[VBE_DISPI_INDEX_BPP];
     } else {
         ret = 0;
@@ -1393,7 +1415,7 @@ static void vga_get_resolution(VGACommonState *s, int *pwidth, int *pheight)
 {
     int width, height;
 
-    if (s->vbe_regs[VBE_DISPI_INDEX_ENABLE] & VBE_DISPI_ENABLED) {
+    if (vbe_enabled(s)) {
         width = s->vbe_regs[VBE_DISPI_INDEX_XRES];
         height = s->vbe_regs[VBE_DISPI_INDEX_YRES];
     } else {
