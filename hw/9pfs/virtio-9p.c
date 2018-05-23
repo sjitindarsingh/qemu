@@ -1227,6 +1227,11 @@ static int v9fs_walk_marshal(V9fsPDU *pdu, uint16_t nwnames, V9fsQID *qids)
     return offset;
 }
 
+static bool name_is_illegal(const char *name)
+{
+    return !*name || strchr(name, '/') != NULL;
+}
+
 static void v9fs_walk(void *opaque)
 {
     int name_idx;
@@ -1258,6 +1263,10 @@ static void v9fs_walk(void *opaque)
         for (i = 0; i < nwnames; i++) {
             err = pdu_unmarshal(pdu, offset, "s", &wnames[i]);
             if (err < 0) {
+                goto out_nofid;
+            }
+            if (name_is_illegal(wnames[i].data)) {
+                err = -ENOENT;
                 goto out_nofid;
             }
             offset += err;
@@ -1453,6 +1462,11 @@ static void v9fs_lcreate(void *opaque)
         goto out_nofid;
     }
     trace_v9fs_lcreate(pdu->tag, pdu->id, dfid, flags, mode, gid);
+
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
 
     fidp = get_fid(pdu, dfid);
     if (fidp == NULL) {
@@ -2044,6 +2058,11 @@ static void v9fs_create(void *opaque)
     }
     trace_v9fs_create(pdu->tag, pdu->id, fid, name.data, perm, mode);
 
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
+
     fidp = get_fid(pdu, fid);
     if (fidp == NULL) {
         err = -EINVAL;
@@ -2209,6 +2228,11 @@ static void v9fs_symlink(void *opaque)
     }
     trace_v9fs_symlink(pdu->tag, pdu->id, dfid, name.data, symname.data, gid);
 
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
+
     dfidp = get_fid(pdu, dfid);
     if (dfidp == NULL) {
         err = -EINVAL;
@@ -2283,6 +2307,11 @@ static void v9fs_link(void *opaque)
         goto out_nofid;
     }
     trace_v9fs_link(pdu->tag, pdu->id, dfid, oldfid, name.data);
+
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
 
     dfidp = get_fid(pdu, dfid);
     if (dfidp == NULL) {
@@ -2366,6 +2395,12 @@ static void v9fs_unlinkat(void *opaque)
     if (err < 0) {
         goto out_nofid;
     }
+
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
+
     dfidp = get_fid(pdu, dfid);
     if (dfidp == NULL) {
         err = -EINVAL;
@@ -2472,6 +2507,12 @@ static void v9fs_rename(void *opaque)
     if (err < 0) {
         goto out_nofid;
     }
+
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
+
     fidp = get_fid(pdu, fid);
     if (fidp == NULL) {
         err = -ENOENT;
@@ -2581,6 +2622,11 @@ static void v9fs_renameat(void *opaque)
     err = pdu_unmarshal(pdu, offset, "dsds", &olddirfid,
                         &old_name, &newdirfid, &new_name);
     if (err < 0) {
+        goto out_err;
+    }
+
+    if (name_is_illegal(old_name.data) || name_is_illegal(new_name.data)) {
+        err = -ENOENT;
         goto out_err;
     }
 
@@ -2796,6 +2842,11 @@ static void v9fs_mknod(void *opaque)
     }
     trace_v9fs_mknod(pdu->tag, pdu->id, fid, mode, major, minor);
 
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
+
     fidp = get_fid(pdu, fid);
     if (fidp == NULL) {
         err = -ENOENT;
@@ -2948,6 +2999,11 @@ static void v9fs_mkdir(void *opaque)
         goto out_nofid;
     }
     trace_v9fs_mkdir(pdu->tag, pdu->id, fid, name.data, mode, gid);
+
+    if (name_is_illegal(name.data)) {
+        err = -ENOENT;
+        goto out_nofid;
+    }
 
     fidp = get_fid(pdu, fid);
     if (fidp == NULL) {
