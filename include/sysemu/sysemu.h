@@ -241,5 +241,10 @@ void dirty_logging_save_bitmap(const char *ramblock_id,
                                uint64_t *dirty_pages_new,
                                uint64_t *dirty_pages_reported,
                                Error **errp);
+void dirty_logging_save_bitmap_nosync(const char *ramblock_id,
+                                      const uint64_t addr,
+                                      const uint64_t size,
+                                      const char *filename,
+                                      Error **errp);
 
 #endif

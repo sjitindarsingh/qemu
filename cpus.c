@@ -2572,6 +2572,74 @@ void dirty_logging_clear_bitmap(const char *ramblock_id,
 
 #define DLB_SIZE 1024
 
+void dirty_logging_save_bitmap_nosync(const char *ramblock_id,
+                                      const uint64_t addr,
+                                      const uint64_t size,
+                                      const char *filename,
+                                      Error **errp)
+{
+    RAMBlock *rb;
+    bool found = false;
+    FILE *f;
+    long word_idx;
+    uint64_t word_buf[DLB_SIZE];
+    size_t buf_idx = 0;
+
+    f = fopen(filename, "wb");
+    if (!f) {
+        error_setg(errp, "failed to open %s: %s", filename,
+                   errno != 0 ? strerror(errno) : NULL);
+        return;
+    }
+
+    rcu_read_lock();
+    RAMBLOCK_FOREACH(rb) {
+        if (strcmp(rb->idstr, ramblock_id) == 0) {
+            found = true;
+            break;
+        }
+    }
+    rcu_read_unlock();
+
+    if (!found) {
+        error_setg(errp, "invalid RAMBlock ID: %s", ramblock_id);
+        goto exit;
+    }
+
+    if (addr > rb->used_length) {
+        error_setg(errp, "invalid addr: %" PRIu64 "\n", addr);
+        goto exit;
+    }
+
+    /* XXX: assumes addr/length are page-aligned */
+    for (word_idx = BIT_WORD(addr >> TARGET_PAGE_BITS);
+         word_idx < BIT_WORD((addr + size) >> TARGET_PAGE_BITS);
+         word_idx++) {
+        long word = rb->bmap[word_idx];
+        word_buf[buf_idx++] = cpu_to_le64(word);
+        if (buf_idx == DLB_SIZE) {
+            size_t count = buf_idx * sizeof(uint64_t);
+            buf_idx = 0;
+            if (fwrite((void *)&word_buf, 1, count, f) != count) {
+                error_setg(errp, "failed to write to %s, bitmap word: %lu\n",
+                           filename, word_idx);
+                goto exit;
+            }
+        }
+    }
+    if (buf_idx % DLB_SIZE) {
+        size_t count = (buf_idx % DLB_SIZE) * sizeof(uint64_t);
+        if (fwrite((void *)&word_buf, 1, count, f) != count) {
+            error_setg(errp, "failed to write to %s, bitmap word: %lu\n",
+                       filename, word_idx);
+            goto exit;
+        }
+    }
+
+exit:
+    fclose(f);
+}
+
 void dirty_logging_save_bitmap(const char *ramblock_id,
                                const uint64_t addr,
                                const uint64_t size,
