@@ -268,9 +268,9 @@ static sPAPRCapabilities default_caps_with_cpu(sPAPRMachineState *spapr,
         case POWERPC_MMU_2_06:
         case POWERPC_MMU_2_06a:
             caps.caps[SPAPR_CAP_SBBC] = SPAPR_CAP_BROKEN;
+            caps.caps[SPAPR_CAP_CFPC] = SPAPR_CAP_BROKEN;
         case POWERPC_MMU_2_07:
         case POWERPC_MMU_2_07a:
-            caps.caps[SPAPR_CAP_CFPC] = SPAPR_CAP_BROKEN;
             break;
         default:
             caps.caps[SPAPR_CAP_CFPC] = SPAPR_CAP_BROKEN;
@@ -281,8 +281,8 @@ static sPAPRCapabilities default_caps_with_cpu(sPAPRMachineState *spapr,
     case CPU_POWERPC_LOGICAL_2_06:
         caps.caps[SPAPR_CAP_SBBC] = SPAPR_CAP_BROKEN;
     case CPU_POWERPC_LOGICAL_2_06_PLUS:
-    case CPU_POWERPC_LOGICAL_2_07:
         caps.caps[SPAPR_CAP_CFPC] = SPAPR_CAP_BROKEN;
+    case CPU_POWERPC_LOGICAL_2_07:
         break;
     default:
         caps.caps[SPAPR_CAP_CFPC] = SPAPR_CAP_BROKEN;
