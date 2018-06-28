@@ -1,0 +1,44 @@
+From ce2eb6c4a044d809caf4dc4e08aed77678f9760e Mon Sep 17 00:00:00 2001
+From: Peter Lieven <pl@kamp.de>
+Date: Tue, 31 Jan 2017 16:36:34 +0100
+Subject: [PATCH] qga: ignore EBUSY when freezing a filesystem
+
+the current implementation fails if we try to freeze an
+already frozen filesystem. This can happen if a filesystem
+is mounted more than once (e.g. with a bind mount).
+
+Suggested-by: Christian Theune <ct@flyingcircus.io>
+Cc: qemu-stable@nongnu.org
+Signed-off-by: Peter Lieven <pl@kamp.de>
+Reviewed-by: Paolo Bonzini <pbonzini@redhat.com>
+Signed-off-by: Michael Roth <mdroth@linux.vnet.ibm.com>
+
+Origin: backport, https://git.qemu.org/?p=qemu.git;a=commitdiff;h=ce2eb6c4a044d809c
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1587065
+Last-Update: 2018-06-28
+
+---
+ qga/commands-posix.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+--- a/qga/commands-posix.c
++++ b/qga/commands-posix.c
+@@ -1255,6 +1255,9 @@ int64_t qmp_guest_fsfreeze_freeze_list(b
+          * filesytems may not implement fsfreeze for less obvious reasons.
+          * these will report EOPNOTSUPP. we simply ignore these when tallying
+          * the number of frozen filesystems.
++         * if a filesystem is mounted more than once (aka bind mount) a
++         * consecutive attempt to freeze an already frozen filesystem will
++         * return EBUSY.
+          *
+          * any other error means a failure to freeze a filesystem we
+          * expect to be freezable, so return an error in those cases
+@@ -1262,7 +1265,7 @@ int64_t qmp_guest_fsfreeze_freeze_list(b
+          */
+         ret = ioctl(fd, FIFREEZE);
+         if (ret == -1) {
+-            if (errno != EOPNOTSUPP) {
++            if (errno != EOPNOTSUPP && errno != EBUSY) {
+                 error_setg_errno(errp, errno, "failed to freeze %s",
+                                  mount->dirname);
+                 close(fd);

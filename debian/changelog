@@ -1,3 +1,11 @@
+qemu (1:2.5+dfsg-5ubuntu10.31) xenial; urgency=medium
+
+  * d/p/ubuntu/lp-1587065-qga-ignore-EBUSY-when-freezing-a-filesystem.patch:
+    Fix qemu-guest-agent failing to freeze filesystems that were mounted
+    multiple times like bind mounts. (LP: #1587065).
+
+ -- Christian Ehrhardt <christian.ehrhardt@canonical.com>  Thu, 28 Jun 2018 11:35:05 +0200
+
 qemu (1:2.5+dfsg-5ubuntu10.30) xenial-security; urgency=medium
 
   * SECURITY UPDATE: Speculative Store Bypass
