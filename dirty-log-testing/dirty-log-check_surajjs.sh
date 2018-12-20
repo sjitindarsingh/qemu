@@ -148,7 +148,10 @@ while true; do
 	fi
 	# Prepare for next iteration
 	guest_dirty_logging_clear_bitmap $ramblock
-	cp $save_dir/$vm_id.mem.b $save_dir/$vm_id.mem.a
+	log "mv $save_dir/$vm_id.mem.b $save_dir/$vm_id.mem.a"
+	rm -f $save_dir/$vm_id.mem.a
+	mv $save_dir/$vm_id.mem.b $save_dir/$vm_id.mem.a
+	log "iteration done"
 	sleep 1
 done
 hmp $vm_id dirty_logging_disable
