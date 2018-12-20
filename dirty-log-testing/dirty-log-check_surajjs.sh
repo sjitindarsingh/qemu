@@ -95,7 +95,7 @@ save_dir=/home/surajjs
 
 # by default we focus on testing just the first 2GB of memory
 save_start=0
-save_size=2147483648
+save_size=$3
 save_end=$(($save_start + $save_size))
 page_size=4096 # Hard coded in qemu
 bmap_size=$(($save_size / $page_size / 8))
