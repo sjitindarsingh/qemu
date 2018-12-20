@@ -122,7 +122,7 @@ log "clearing initial bitmap"
 guest_dirty_logging_clear_bitmap $ramblock
 # Save intial memory state
 log "saving initial memory state (from $save_start to $save_end bytes)"
-guest_pmemsave $save_start $save_size $vm_id.mem.${i}a
+guest_pmemsave $save_start $save_size $vm_id.mem.a
 
 ### Work Loop ###
 # Run the guest, save memory state and bitmap, compare with previous run, repeat
@@ -134,23 +134,21 @@ while true; do
 	guest_stop
 	log "saving modified memory state (from $save_start to $save_end bytes)"
 	# Save memory state
-	guest_pmemsave $save_start $save_size $vm_id.mem.${i}b
+	guest_pmemsave $save_start $save_size $vm_id.mem.b
 	# Save bitmap
 	log "saving dirty bitmap (from $save_start to $save_end bytes)"
-	guest_dirty_logging_save_bitmap $ramblock $save_start $save_size $vm_id.bmap.${i}
+	guest_dirty_logging_save_bitmap $ramblock $save_start $save_size $vm_id.bmap
 	# Compare Bitmap
 	log "checking for inconsistencies..."
 	sleep 1
-	if ! $check_bitmap $save_dir/$vm_id.mem.${i}a $save_dir/$vm_id.mem.${i}b $save_dir/$vm_id.bmap.${i} $save_start $save_end; then
+	if ! $check_bitmap $save_dir/$vm_id.mem.a $save_dir/$vm_id.mem.b $save_dir/$vm_id.bmap $save_start $save_end; then
 		echo "dirty bitmap inconsistency found, aborting and leaving guest paused"
 		echo "bitmap inconsistency: $(date)" >/dev/kmsg
 		exit 1
 	fi
 	# Prepare for next iteration
 	guest_dirty_logging_clear_bitmap $ramblock
-	next_i=$(($i + 1))
-	cp $save_dir/$vm_id.mem.${i}b $save_dir/$vm_id.mem.${next_i}a
+	cp $save_dir/$vm_id.mem.b $save_dir/$vm_id.mem.a
 	sleep 1
-	i=$(($i + 1))
 done
 hmp $vm_id dirty_logging_disable
