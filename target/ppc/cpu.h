@@ -425,6 +425,10 @@ typedef struct ppc_v3_pate_t {
 #define PSSCR_ESL         PPC_BIT(42) /* Enable State Loss */
 #define PSSCR_EC          PPC_BIT(43) /* Exit Criterion */
 
+/* HFSCR bits */
+#define HFSCR_MSGSNDP     PPC_BIT(53) /* Privileged Message Send Facilities */
+#define HFSCR_IC_MSGSNDP  0xA
+
 #define msr_sf   ((env->msr >> MSR_SF)   & 1)
 #define msr_isf  ((env->msr >> MSR_ISF)  & 1)
 #define msr_shv  ((env->msr >> MSR_SHV)  & 1)
@@ -1355,6 +1359,8 @@ void cpu_ppc_set_vhyp(PowerPCCPU *cpu, PPCVirtualHypervisor *vhyp);
 #endif
 
 void store_fpscr(CPUPPCState *env, uint64_t arg, uint32_t mask);
+void gen_hfscr_facility_check(DisasContext *ctx, int facility_sprn, int bit,
+                              int sprn, int cause);
 
 static inline uint64_t ppc_dump_gpr(CPUPPCState *env, int gprn)
 {
@@ -1501,6 +1507,7 @@ void ppc_compat_add_property(Object *obj, const char *name,
 #define SPR_MPC_ICTRL         (0x09E)
 #define SPR_MPC_BAR           (0x09F)
 #define SPR_PSPB              (0x09F)
+#define SPR_DPDES             (0x0B0)
 #define SPR_DAWR              (0x0B4)
 #define SPR_RPR               (0x0BA)
 #define SPR_CIABR             (0x0BB)
