@@ -347,7 +347,7 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
         env->nip += 4;
 
         /* "PAPR mode" built-in hypercall emulation */
-        if ((lev == 1) && cpu->vhyp) {
+        if ((lev == 1) && (cpu->vhyp && (env->spr[SPR_LPIDR] == 0))) {
             PPCVirtualHypervisorClass *vhc =
                 PPC_VIRTUAL_HYPERVISOR_GET_CLASS(cpu->vhyp);
             vhc->hypercall(cpu->vhyp, cpu);
@@ -664,7 +664,7 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
     env->spr[srr1] = msr;
 
     /* Sanity check */
-    if (!(env->msr_mask & MSR_HVB)) {
+    if (!(env->msr_mask & MSR_HVB) && (env->spr[SPR_LPIDR] == 0)) {
         if (new_msr & MSR_HVB) {
             cpu_abort(cs, "Trying to deliver HV exception (MSR) %d with "
                       "no HV support\n", excp);
@@ -769,6 +769,15 @@ static inline void powerpc_excp(PowerPCCPU *cpu, int excp_model, int excp)
 
     /* Reset the reservation */
     env->reserve_addr = -1;
+
+    if ((!(env->msr_mask & MSR_HVB) && (new_msr & MSR_HVB))) {
+        /*
+         * We were in a guest, but this interrupt is setting the MSR[HV] bit
+         * meaning we want to handle this at l1. Call h_exit_nested to context
+         * switch back.
+         */
+        h_exit_nested(cpu);
+    }
 
     /* Any interrupt is context synchronizing, check if TCG TLB
      * needs a delayed flush on ppc64

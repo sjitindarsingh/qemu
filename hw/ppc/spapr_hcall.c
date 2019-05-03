@@ -16,6 +16,7 @@
 #include "hw/ppc/spapr_ovec.h"
 #include "mmu-book3s-v3.h"
 #include "hw/mem/memory-device.h"
+#include "hw/ppc/ppc.h"
 
 static bool has_spr(PowerPCCPU *cpu, int spr)
 {
@@ -1847,6 +1848,289 @@ static target_ulong h_set_partition_table(PowerPCCPU *cpu,
     return H_SUCCESS;
 }
 
+static void byteswap_pt_regs(struct pt_regs *regs)
+{
+    target_ulong *addr = (target_ulong *) regs;
+
+    for (; addr < ((target_ulong *) (regs + 1)); addr++) {
+        *addr = bswap64(*addr);
+    }
+}
+
+static void byteswap_hv_regs(struct hv_guest_state *hr)
+{
+    hr->version = bswap64(hr->version);
+    hr->lpid = bswap32(hr->lpid);
+    hr->vcpu_token = bswap32(hr->vcpu_token);
+    hr->lpcr = bswap64(hr->lpcr);
+    hr->pcr = bswap64(hr->pcr);
+    hr->amor = bswap64(hr->amor);
+    hr->dpdes = bswap64(hr->dpdes);
+    hr->hfscr = bswap64(hr->hfscr);
+    hr->tb_offset = bswap64(hr->tb_offset);
+    hr->dawr0 = bswap64(hr->dawr0);
+    hr->dawrx0 = bswap64(hr->dawrx0);
+    hr->ciabr = bswap64(hr->ciabr);
+    hr->hdec_expiry = bswap64(hr->hdec_expiry);
+    hr->purr = bswap64(hr->purr);
+    hr->spurr = bswap64(hr->spurr);
+    hr->ic = bswap64(hr->ic);
+    hr->vtb = bswap64(hr->vtb);
+    hr->hdar = bswap64(hr->hdar);
+    hr->hdsisr = bswap64(hr->hdsisr);
+    hr->heir = bswap64(hr->heir);
+    hr->asdr = bswap64(hr->asdr);
+    hr->srr0 = bswap64(hr->srr0);
+    hr->srr1 = bswap64(hr->srr1);
+    hr->sprg[0] = bswap64(hr->sprg[0]);
+    hr->sprg[1] = bswap64(hr->sprg[1]);
+    hr->sprg[2] = bswap64(hr->sprg[2]);
+    hr->sprg[3] = bswap64(hr->sprg[3]);
+    hr->pidr = bswap64(hr->pidr);
+    hr->cfar = bswap64(hr->cfar);
+    hr->ppr = bswap64(hr->ppr);
+}
+
+static void save_regs(PowerPCCPU *cpu, struct pt_regs *regs)
+{
+    CPUPPCState env = cpu->env;
+    int i;
+
+    for (i = 0; i < 32; i++)
+        regs->gpr[i] = env.gpr[i];
+    regs->nip = env.nip;
+    regs->msr = env.msr;
+    regs->ctr = env.ctr;
+    regs->link = env.lr;
+    regs->xer = env.xer;
+    regs->ccr = 0UL;
+    for (i = 0; i < 8; i++)
+        regs->ccr |= ((env.crf[i] & 0xF) << ((7 - i) * 4));
+    regs->dar = env.spr[SPR_DAR];
+    regs->dsisr = env.spr[SPR_DSISR];
+}
+
+static void save_hv_regs(PowerPCCPU *cpu, struct hv_guest_state *hv_regs)
+{
+    CPUPPCState env = cpu->env;
+
+    hv_regs->lpid = env.spr[SPR_LPIDR];
+    hv_regs->lpcr = env.spr[SPR_LPCR];
+    hv_regs->pcr = env.spr[SPR_PCR];
+    hv_regs->amor = env.spr[SPR_AMOR];
+    hv_regs->dpdes = !!(env.pending_interrupts & (1 << PPC_INTERRUPT_DOORBELL));
+    hv_regs->hfscr = env.spr[SPR_HFSCR];
+    hv_regs->tb_offset = env.tb_env->tb_offset;
+    hv_regs->dawr0 = env.spr[SPR_DAWR];
+    hv_regs->dawrx0 = env.spr[SPR_DAWRX];
+    hv_regs->ciabr = env.spr[SPR_CIABR];
+    hv_regs->purr = cpu_ppc_load_purr(&env);
+    hv_regs->spurr = cpu_ppc_load_purr(&env);
+    hv_regs->ic = env.spr[SPR_IC];
+    hv_regs->vtb = cpu_ppc_load_vtb(&env);
+    hv_regs->hdar = env.spr[SPR_HDAR];
+    hv_regs->hdsisr = env.spr[SPR_HDSISR];
+    hv_regs->asdr = env.spr[SPR_ASDR];
+    hv_regs->srr0 = env.spr[SPR_SRR0];
+    hv_regs->srr1 = env.spr[SPR_SRR1];
+    hv_regs->sprg[0] = env.spr[SPR_SPRG0];
+    hv_regs->sprg[1] = env.spr[SPR_SPRG1];
+    hv_regs->sprg[2] = env.spr[SPR_SPRG2];
+    hv_regs->sprg[3] = env.spr[SPR_SPRG3];
+    hv_regs->pidr = env.spr[SPR_BOOKS_PID];
+    hv_regs->cfar = env.cfar;
+    hv_regs->ppr = env.spr[SPR_PPR];
+}
+
+static void restore_regs(PowerPCCPU *cpu, struct pt_regs regs)
+{
+    CPUPPCState *env = &cpu->env;
+    int i;
+
+    for (i = 0; i < 32; i++)
+        env->gpr[i] = regs.gpr[i];
+    env->nip = regs.nip;
+    ppc_store_msr(env, regs.msr);
+    env->ctr = regs.ctr;
+    env->lr = regs.link;
+    env->xer = regs.xer;
+    for (i = 0; i < 8; i++)
+        env->crf[i] = (regs.ccr >> ((7 - i) * 4)) & 0xF;
+    env->spr[SPR_DAR] = regs.dar;
+    env->spr[SPR_DSISR] = regs.dsisr;
+}
+
+static void restore_hv_regs(PowerPCCPU *cpu, struct hv_guest_state hv_regs)
+{
+    CPUPPCState *env = &cpu->env;
+    target_ulong lpcr_mask = LPCR_DPFD | LPCR_ILE | LPCR_TC | LPCR_AIL | LPCR_LD
+                                       | LPCR_LPES0 | LPCR_LPES1 | LPCR_MER;
+
+    env->spr[SPR_LPIDR] = hv_regs.lpid;
+    ppc_store_lpcr(cpu, (hv_regs.lpcr & lpcr_mask) |
+                        (env->spr[SPR_LPCR] & ~lpcr_mask));
+    env->spr[SPR_PCR] = hv_regs.pcr;
+    env->spr[SPR_AMOR] = hv_regs.amor;
+    if (hv_regs.dpdes) {
+        env->pending_interrupts |= 1 << PPC_INTERRUPT_DOORBELL;
+        cpu_interrupt(CPU(cpu), CPU_INTERRUPT_HARD);
+    } else {
+        env->pending_interrupts &= ~(1 << PPC_INTERRUPT_DOORBELL);
+    }
+    env->spr[SPR_HFSCR] = hv_regs.hfscr;
+    env->spr[SPR_DAWR] = hv_regs.dawr0;
+    env->spr[SPR_DAWRX] = hv_regs.dawrx0;
+    env->spr[SPR_CIABR] = hv_regs.ciabr;
+    cpu_ppc_store_purr(env, hv_regs.purr);      /* for TCG PURR == SPURR */
+    env->spr[SPR_IC] = hv_regs.ic;
+    cpu_ppc_store_vtb(env, hv_regs.vtb);
+    env->spr[SPR_HDAR] = hv_regs.hdar;
+    env->spr[SPR_HDSISR] = hv_regs.hdsisr;
+    env->spr[SPR_ASDR] = hv_regs.asdr;
+    env->spr[SPR_SRR0] = hv_regs.srr0;
+    env->spr[SPR_SRR1] = hv_regs.srr1;
+    env->spr[SPR_SPRG0] = hv_regs.sprg[0];
+    env->spr[SPR_SPRG1] = hv_regs.sprg[1];
+    env->spr[SPR_SPRG2] = hv_regs.sprg[2];
+    env->spr[SPR_SPRG3] = hv_regs.sprg[3];
+    env->spr[SPR_BOOKS_PID] = hv_regs.pidr;
+    env->cfar = hv_regs.cfar;
+    env->spr[SPR_PPR] = hv_regs.ppr;
+    tlb_flush(CPU(cpu));
+}
+
+static void sanitise_hv_regs(PowerPCCPU *cpu, struct hv_guest_state *hv_regs)
+{
+    CPUPPCState env = cpu->env;
+
+    /* Apply more restrictive set of facilities */
+    hv_regs->hfscr &= ((0xFFUL << 56) | env.spr[SPR_HFSCR]);
+
+    /* Don't match on hypervisor address */
+    hv_regs->dawrx0 &= ~(1UL << 2);
+
+    /* Don't match on hypervisor address */
+    if ((hv_regs->ciabr & 0x3) == 0x3)
+        hv_regs->ciabr &= ~0x3UL;
+}
+
+static inline bool needs_byteswap(const CPUPPCState *env)
+{
+#if defined(HOST_WORDS_BIGENDIAN)
+    return msr_le;
+#else
+    return !msr_le;
+#endif
+}
+
+static target_ulong h_enter_nested(PowerPCCPU *cpu, SpaprMachineState *spapr,
+                                   target_ulong opcode, target_ulong *args)
+{
+    CPUPPCState *env = &cpu->env;
+    env->hv_ptr = args[0];
+    env->regs_ptr = args[1];
+    uint64_t hdec;
+
+    assert(env->spr[SPR_LPIDR] == 0);
+
+    if (spapr_get_cap(spapr, SPAPR_CAP_NESTED_KVM_HV) == 0) {
+        return H_FUNCTION;
+    }
+
+    if (!env->has_hv_mode || !ppc_check_compat(cpu, CPU_POWERPC_LOGICAL_3_00, 0,
+                                               spapr->max_compat_pvr)
+                          || !ppc64_v3_radix(cpu)) {
+        error_report("pseries guest support only implemented for POWER9 radix\n");
+        return H_HARDWARE;
+    }
+
+    if (!env->spr[SPR_PTCR])
+        return H_NOT_AVAILABLE;
+
+    memset(&env->l1_saved_hv, 0, sizeof(env->l1_saved_hv));
+    memset(&env->l1_saved_regs, 0, sizeof(env->l1_saved_regs));
+
+    /* load l2 state from l1 memory */
+    cpu_physical_memory_read(env->hv_ptr, &env->l2_hv, sizeof(env->l2_hv));
+    if (needs_byteswap(env)) {
+        byteswap_hv_regs(&env->l2_hv);
+    }
+    if (env->l2_hv.version != 1)
+        return H_P2;
+    if (env->l2_hv.lpid == 0)
+        return H_P2;
+    if (!(env->l2_hv.lpcr & LPCR_HR)) {
+        error_report("pseries guest support only implemented for POWER9 radix guests\n");
+        return H_P2;
+    }
+
+    cpu_physical_memory_read(env->regs_ptr, &env->l2_regs, sizeof(env->l2_regs));
+    if (needs_byteswap(env)) {
+        byteswap_pt_regs(&env->l2_regs);
+    }
+
+    /* save l1 values of things */
+    save_regs(cpu, &env->l1_saved_regs);
+    save_hv_regs(cpu, &env->l1_saved_hv);
+
+    /* adjust for timebase */
+    hdec = env->l2_hv.hdec_expiry - cpu_ppc_load_tbl(env);
+    env->tb_env->tb_offset += env->l2_hv.tb_offset;
+    /* load l2 values of things */
+    sanitise_hv_regs(cpu, &env->l2_hv);
+    restore_regs(cpu, env->l2_regs);
+    env->msr &= ~MSR_HVB;
+    restore_hv_regs(cpu, env->l2_hv);
+    cpu_ppc_store_hdecr(env, hdec);
+
+    assert(env->spr[SPR_LPIDR] != 0);
+
+    return env->gpr[3];
+}
+
+void h_exit_nested(PowerPCCPU *cpu)
+{
+    CPUPPCState *env = &cpu->env;
+    uint64_t delta_purr, delta_ic, delta_vtb;
+    target_ulong trap = env->nip;
+
+    assert(env->spr[SPR_LPIDR] != 0);
+
+    /* save l2 values of things */
+    if (trap == 0x100 || trap == 0x200 || trap == 0xc00) {
+        env->nip = env->spr[SPR_SRR0];
+        env->msr = env->spr[SPR_SRR1];
+    } else {
+        env->nip = env->spr[SPR_HSRR0];
+        env->msr = env->spr[SPR_HSRR1];
+    }
+    save_regs(cpu, &env->l2_regs);
+    delta_purr = cpu_ppc_load_purr(env) - env->l2_hv.purr;
+    delta_ic = env->spr[SPR_IC] - env->l2_hv.ic;
+    delta_vtb = cpu_ppc_load_vtb(env) - env->l2_hv.vtb;
+    save_hv_regs(cpu, &env->l2_hv);
+
+    /* restore l1 state */
+    restore_regs(cpu, env->l1_saved_regs);
+    env->tb_env->tb_offset = env->l1_saved_hv.tb_offset;
+    env->l1_saved_hv.purr += delta_purr;
+    env->l1_saved_hv.ic += delta_ic;
+    env->l1_saved_hv.vtb += delta_vtb;
+    restore_hv_regs(cpu, env->l1_saved_hv);
+
+    /* save l2 state back to l1 memory */
+    if (needs_byteswap(env)) {
+        byteswap_hv_regs(&env->l2_hv);
+        byteswap_pt_regs(&env->l2_regs);
+    }
+    cpu_physical_memory_write(env->hv_ptr, &env->l2_hv, sizeof(env->l2_hv));
+    cpu_physical_memory_write(env->regs_ptr, &env->l2_regs, sizeof(env->l2_regs));
+
+    assert(env->spr[SPR_LPIDR] == 0);
+
+    env->gpr[3] = trap;
+}
+
 static spapr_hcall_fn papr_hypercall_table[(MAX_HCALL_OPCODE / 4) + 1];
 static spapr_hcall_fn kvmppc_hypercall_table[KVMPPC_HCALL_MAX - KVMPPC_HCALL_BASE + 1];
 
@@ -1955,6 +2239,7 @@ static void hypercall_register_types(void)
 
     /* Platform-specific hcalls used for nested HV KVM */
     spapr_register_hypercall(H_SET_PARTITION_TABLE, h_set_partition_table);
+    spapr_register_hypercall(H_ENTER_NESTED, h_enter_nested);
 
     /* Virtual Processor Home Node */
     spapr_register_hypercall(H_HOME_NODE_ASSOCIATIVITY,

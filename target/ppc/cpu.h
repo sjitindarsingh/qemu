@@ -982,6 +982,54 @@ struct ppc_radix_page_info {
 #define PPC_CPU_OPCODES_LEN          0x40
 #define PPC_CPU_INDIRECT_OPCODES_LEN 0x20
 
+struct pt_regs {
+    target_ulong gpr[32];
+    target_ulong nip;
+    target_ulong msr;
+    target_ulong orig_gpr3;
+    target_ulong ctr;
+    target_ulong link;
+    target_ulong xer;
+    target_ulong ccr;
+    target_ulong softe;
+    target_ulong trap;
+    target_ulong dar;
+    target_ulong dsisr;
+    target_ulong result;
+};
+
+struct hv_guest_state {
+    uint64_t version;            /* version of this structure layout */
+    uint32_t lpid;
+    uint32_t vcpu_token;
+    /* These registers are hypervisor privileged (at least for writing) */
+    uint64_t lpcr;
+    uint64_t pcr;
+    uint64_t amor;
+    uint64_t dpdes;
+    uint64_t hfscr;
+    int64_t  tb_offset;
+    uint64_t dawr0;
+    uint64_t dawrx0;
+    uint64_t ciabr;
+    uint64_t hdec_expiry;
+    uint64_t purr;
+    uint64_t spurr;
+    uint64_t ic;
+    uint64_t vtb;
+    uint64_t hdar;
+    uint64_t hdsisr;
+    uint64_t heir;
+    uint64_t asdr;
+    /* These are OS privileged but need to be set late in guest entry */
+    uint64_t srr0;
+    uint64_t srr1;
+    uint64_t sprg[4];
+    uint64_t pidr;
+    uint64_t cfar;
+    uint64_t ppr;
+};
+
 struct CPUPPCState {
     /* First are the most commonly used resources
      * during translated code execution
@@ -1184,6 +1232,11 @@ struct CPUPPCState {
     uint32_t tm_vscr;
     uint64_t tm_dscr;
     uint64_t tm_tar;
+
+    /* used to store register state when running a nested kvm guest */
+    target_ulong hv_ptr, regs_ptr;
+    struct hv_guest_state l2_hv, l1_saved_hv;
+    struct pt_regs l2_regs, l1_saved_regs;
 };
 
 #define SET_FIT_PERIOD(a_, b_, c_, d_)          \
@@ -2647,4 +2700,6 @@ static inline ppc_avr_t *cpu_avr_ptr(CPUPPCState *env, int i)
 void dump_mmu(FILE *f, fprintf_function cpu_fprintf, CPUPPCState *env);
 
 void ppc_maybe_bswap_register(CPUPPCState *env, uint8_t *mem_buf, int len);
+
+void h_exit_nested(PowerPCCPU *cpu);
 #endif /* PPC_CPU_H */
