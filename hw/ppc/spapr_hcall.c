@@ -2131,6 +2131,33 @@ void h_exit_nested(PowerPCCPU *cpu)
     env->gpr[3] = trap;
 }
 
+static target_ulong h_nested_tlb_invalidate(PowerPCCPU *cpu,
+                                            SpaprMachineState *spapr,
+                                            target_ulong opcode,
+                                            target_ulong *args)
+{
+    target_ulong instr = args[0];
+    target_ulong rbval = args[2];
+    int r, ric, prs, is;
+
+    if (spapr_get_cap(spapr, SPAPR_CAP_NESTED_KVM_HV) == 0) {
+        return H_FUNCTION;
+    }
+
+    ric = (instr >> 18) & 0x3;
+    prs = (instr >> 17) & 0x1;
+    r = (instr >> 16) & 0x1;
+    is = (rbval >> 10) & 0x3;
+
+    if ((!r) || (prs) || (ric == 3) || (is == 1) || ((!is) && (ric == 1 ||
+                                                               ric == 2)))
+        return H_PARAMETER;
+
+    /* Invalidate everything, not much else we can do */
+    cpu->env.tlb_need_flush = TLB_NEED_GLOBAL_FLUSH | TLB_NEED_LOCAL_FLUSH;
+    return H_SUCCESS;
+}
+
 static spapr_hcall_fn papr_hypercall_table[(MAX_HCALL_OPCODE / 4) + 1];
 static spapr_hcall_fn kvmppc_hypercall_table[KVMPPC_HCALL_MAX - KVMPPC_HCALL_BASE + 1];
 
@@ -2240,6 +2267,7 @@ static void hypercall_register_types(void)
     /* Platform-specific hcalls used for nested HV KVM */
     spapr_register_hypercall(H_SET_PARTITION_TABLE, h_set_partition_table);
     spapr_register_hypercall(H_ENTER_NESTED, h_enter_nested);
+    spapr_register_hypercall(H_TLB_INVALIDATE, h_nested_tlb_invalidate);
 
     /* Virtual Processor Home Node */
     spapr_register_hypercall(H_HOME_NODE_ASSOCIATIVITY,

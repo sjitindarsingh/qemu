@@ -504,7 +504,8 @@ struct SpaprMachineState {
 /* Platform-specific hcalls used for nested HV KVM */
 #define H_SET_PARTITION_TABLE   0xF800
 #define H_ENTER_NESTED          0xF804
-#define KVMPPC_HCALL_MAX        H_ENTER_NESTED
+#define H_TLB_INVALIDATE        0xF808
+#define KVMPPC_HCALL_MAX        H_TLB_INVALIDATE
 
 typedef struct SpaprDeviceTreeUpdateHeader {
     uint32_t version_id;
