@@ -66,6 +66,10 @@ static inline int ppc_radix64_get_prot_amr(PowerPCCPU *cpu)
            (iamr & 0x1 ? 0 : PAGE_EXEC);
 }
 
+int ppc_radix64_xlate(PowerPCCPU *cpu, vaddr eaddr, int rwx, uint64_t lpid,
+                      uint64_t pid, bool relocation, hwaddr *raddr, int *psizep,
+                      int *protp, bool cause_excp);
+
 #endif /* TARGET_PPC64 */
 
 #endif /* CONFIG_USER_ONLY */

@@ -505,7 +505,8 @@ struct SpaprMachineState {
 #define H_SET_PARTITION_TABLE   0xF800
 #define H_ENTER_NESTED          0xF804
 #define H_TLB_INVALIDATE        0xF808
-#define KVMPPC_HCALL_MAX        H_TLB_INVALIDATE
+#define H_COPY_TOFROM_GUEST     0xF80C
+#define KVMPPC_HCALL_MAX        H_COPY_TOFROM_GUEST
 
 typedef struct SpaprDeviceTreeUpdateHeader {
     uint32_t version_id;

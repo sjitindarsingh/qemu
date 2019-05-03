@@ -17,6 +17,7 @@
 #include "mmu-book3s-v3.h"
 #include "hw/mem/memory-device.h"
 #include "hw/ppc/ppc.h"
+#include "mmu-radix64.h"
 
 static bool has_spr(PowerPCCPU *cpu, int spr)
 {
@@ -2158,6 +2159,78 @@ static target_ulong h_nested_tlb_invalidate(PowerPCCPU *cpu,
     return H_SUCCESS;
 }
 
+static target_ulong h_copy_tofrom_guest(PowerPCCPU *cpu,
+                                        SpaprMachineState *spapr,
+                                        target_ulong opcode, target_ulong *args)
+{
+    target_ulong lpid = args[0];
+    target_ulong pid = args[1];
+    vaddr eaddr = args[2];
+    target_ulong gp_to = args[3];
+    target_ulong gp_from = args[4];
+    target_ulong n = args[5];
+    int is_load = !!gp_to;
+    void *from, *to;
+    int prot, psize;
+    hwaddr raddr, to_len, from_len;
+
+    if (spapr_get_cap(spapr, SPAPR_CAP_NESTED_KVM_HV) == 0) {
+        return H_FUNCTION;
+    }
+
+    if ((gp_to && gp_from) || (!gp_to && !gp_from)) {
+        return H_PARAMETER;
+    }
+
+    if (eaddr & (0xFFFUL << 52)) {
+        return H_PARAMETER;
+    }
+
+    if (!lpid) {
+        return H_PARAMETER;
+    }
+
+    /* Translate eaddr to raddr */
+    if (ppc_radix64_xlate(cpu, eaddr, is_load, lpid, pid, 1, &raddr, &psize,
+                          &prot, 0)) {
+        return H_NOT_FOUND;
+    }
+    if (((raddr & ((1UL << psize) - 1)) + n) >= (1UL << psize)) {
+        return H_PARAMETER;
+    }
+
+    if (is_load) {
+        gp_from = raddr;
+    } else {
+        gp_to = raddr;
+    }
+
+    /* Map the memory regions and perform a memory copy */
+    from = cpu_physical_memory_map(gp_from, &from_len, 0);
+    if (!from) {
+        return H_NOT_FOUND;
+    }
+    if (from_len < n) {
+        cpu_physical_memory_unmap(from, from_len, 0, 0);
+        return H_PARAMETER;
+    }
+    to = cpu_physical_memory_map(gp_to, &to_len, 1);
+    if (!to) {
+        cpu_physical_memory_unmap(from, from_len, 0, 0);
+        return H_PARAMETER;
+    }
+    if (to_len < n) {
+        cpu_physical_memory_unmap(from, from_len, 0, 0);
+        cpu_physical_memory_unmap(to, to_len, 1, 0);
+        return H_PARAMETER;
+    }
+    memcpy(to, from, n);
+    cpu_physical_memory_unmap(from, from_len, 0, n);
+    cpu_physical_memory_unmap(to, to_len, 1, n);
+
+    return H_SUCCESS;
+}
+
 static spapr_hcall_fn papr_hypercall_table[(MAX_HCALL_OPCODE / 4) + 1];
 static spapr_hcall_fn kvmppc_hypercall_table[KVMPPC_HCALL_MAX - KVMPPC_HCALL_BASE + 1];
 
@@ -2268,6 +2341,7 @@ static void hypercall_register_types(void)
     spapr_register_hypercall(H_SET_PARTITION_TABLE, h_set_partition_table);
     spapr_register_hypercall(H_ENTER_NESTED, h_enter_nested);
     spapr_register_hypercall(H_TLB_INVALIDATE, h_nested_tlb_invalidate);
+    spapr_register_hypercall(H_COPY_TOFROM_GUEST, h_copy_tofrom_guest);
 
     /* Virtual Processor Home Node */
     spapr_register_hypercall(H_HOME_NODE_ASSOCIATIVITY,

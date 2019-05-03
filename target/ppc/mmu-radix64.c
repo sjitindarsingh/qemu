@@ -429,10 +429,9 @@ static bool validate_pate(PowerPCCPU *cpu, uint64_t lpid, ppc_v3_pate_t *pate)
     return true;
 }
 
-static int ppc_radix64_xlate(PowerPCCPU *cpu, vaddr eaddr, int rwx,
-                             uint64_t lpid, uint64_t pid, bool relocation,
-                             hwaddr *raddr, int *psizep, int *protp,
-                             bool cause_excp)
+int ppc_radix64_xlate(PowerPCCPU *cpu, vaddr eaddr, int rwx, uint64_t lpid,
+                      uint64_t pid, bool relocation, hwaddr *raddr, int *psizep,
+                      int *protp, bool cause_excp)
 {
     CPUPPCState *env = &cpu->env;
     ppc_v3_pate_t pate;
