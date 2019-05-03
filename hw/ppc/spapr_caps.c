@@ -389,10 +389,7 @@ static void cap_nested_kvm_hv_apply(SpaprMachineState *spapr,
         return;
     }
 
-    if (tcg_enabled()) {
-        error_setg(errp,
-                   "No Nested KVM-HV support in tcg, try cap-nested-hv=off");
-    } else if (kvm_enabled()) {
+    if (kvm_enabled()) {
         if (!kvmppc_has_cap_nested_kvm_hv()) {
             error_setg(errp,
 "KVM implementation does not support Nested KVM-HV, try cap-nested-hv=off");
@@ -400,6 +397,22 @@ static void cap_nested_kvm_hv_apply(SpaprMachineState *spapr,
                 error_setg(errp,
 "Error enabling cap-nested-hv with KVM, try cap-nested-hv=off");
         }
+    } /* else { nothing required for tcg } */
+}
+
+static void cap_nested_kvm_hv_cpu_apply(SpaprMachineState *spapr,
+                                        PowerPCCPU *cpu,
+                                        uint8_t val, Error **errp)
+{
+    CPUPPCState *env = &cpu->env;
+
+    if (tcg_enabled() && val) {
+        if (env->spr[SPR_PVR] != 0x004E1202) {
+            error_setg(errp, "Nested KVM-HV only supported on POWER9 DD2.2, "
+                             "try cap-nested-hv=off or -cpu power9_v2.2");
+            return;
+        }
+        env->disable_hw_rc_updates = true;
     }
 }
 
@@ -544,6 +557,7 @@ SpaprCapabilityInfo capability_table[SPAPR_CAP_NUM] = {
         .set = spapr_cap_set_bool,
         .type = "bool",
         .apply = cap_nested_kvm_hv_apply,
+        .cpu_apply = cap_nested_kvm_hv_cpu_apply,
     },
     [SPAPR_CAP_LARGE_DECREMENTER] = {
         .name = "large-decr",

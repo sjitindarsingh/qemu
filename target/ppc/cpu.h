@@ -1237,6 +1237,7 @@ struct CPUPPCState {
     target_ulong hv_ptr, regs_ptr;
     struct hv_guest_state l2_hv, l1_saved_hv;
     struct pt_regs l2_regs, l1_saved_regs;
+    bool disable_hw_rc_updates;
 };
 
 #define SET_FIT_PERIOD(a_, b_, c_, d_)          \

@@ -31,9 +31,9 @@
 static inline bool ppc_radix64_hw_rc_updates(CPUPPCState *env)
 {
 #ifdef CONFIG_ATOMIC64
-    return true;
+    return !env->disable_hw_rc_updates;
 #else
-    return !qemu_tcg_mttcg_enabled();
+    return !qemu_tcg_mttcg_enabled() && !env->disable_hw_rc_updates;
 #endif
 }
 
