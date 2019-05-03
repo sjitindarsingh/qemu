@@ -1828,6 +1828,25 @@ static target_ulong h_update_dt(PowerPCCPU *cpu, SpaprMachineState *spapr,
     return H_SUCCESS;
 }
 
+static target_ulong h_set_partition_table(PowerPCCPU *cpu,
+                                          SpaprMachineState *spapr,
+                                          target_ulong opcode,
+                                          target_ulong *args)
+{
+    CPUPPCState *env = &cpu->env;
+    target_ulong ptcr = args[0];
+
+    if (spapr_get_cap(spapr, SPAPR_CAP_NESTED_KVM_HV) == 0) {
+        return H_FUNCTION;
+    }
+
+    if ((ptcr & PTCR_PATS) > 24)
+        return H_PARAMETER;
+
+    env->spr[SPR_PTCR] = ptcr;
+    return H_SUCCESS;
+}
+
 static spapr_hcall_fn papr_hypercall_table[(MAX_HCALL_OPCODE / 4) + 1];
 static spapr_hcall_fn kvmppc_hypercall_table[KVMPPC_HCALL_MAX - KVMPPC_HCALL_BASE + 1];
 
@@ -1933,6 +1952,9 @@ static void hypercall_register_types(void)
     spapr_register_hypercall(KVMPPC_H_CAS, h_client_architecture_support);
 
     spapr_register_hypercall(KVMPPC_H_UPDATE_DT, h_update_dt);
+
+    /* Platform-specific hcalls used for nested HV KVM */
+    spapr_register_hypercall(H_SET_PARTITION_TABLE, h_set_partition_table);
 
     /* Virtual Processor Home Node */
     spapr_register_hypercall(H_HOME_NODE_ASSOCIATIVITY,

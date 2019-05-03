@@ -501,7 +501,9 @@ struct SpaprMachineState {
 /* Client Architecture support */
 #define KVMPPC_H_CAS            (KVMPPC_HCALL_BASE + 0x2)
 #define KVMPPC_H_UPDATE_DT      (KVMPPC_HCALL_BASE + 0x3)
-#define KVMPPC_HCALL_MAX        KVMPPC_H_UPDATE_DT
+/* Platform-specific hcalls used for nested HV KVM */
+#define H_SET_PARTITION_TABLE   0xF800
+#define KVMPPC_HCALL_MAX        H_SET_PARTITION_TABLE
 
 typedef struct SpaprDeviceTreeUpdateHeader {
     uint32_t version_id;
